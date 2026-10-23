@@ -45,7 +45,7 @@ DEVIATION_COLUMNS = 3  # the deviation tile is this many tiles wide: its gauge n
 ALARMS_MAX_PX = 120  # the alarm list stays compact so the trend gets the room
 GAUGE_SCALE_FACTOR = 1.5  # the gauge runs from 0 to this multiple of the abnormal limit
 
-IDLE_SENTENCE = "Press Start to play the run."
+IDLE_SENTENCE = ""
 IDLE_DETAIL = "The twin predicts power from the measured irradiance and temperature, then compares."
 NIGHT_SENTENCE = "Too little light to compare."
 NIGHT_DETAIL = "The twin and the plant both read close to zero, so the state stays Normal."
@@ -120,6 +120,7 @@ class StateBanner(QLabel):
             text, colour, text_colour = state.value, STATE_COLOURS[state], STATE_TEXT_COLOURS[state]
         self._colour = colour
         self.setText(text)
+        self.setVisible(state is not None)  # nothing to say before a run starts
         self.setStyleSheet(
             f"background-color: {colour}; color: {text_colour}; border-radius: 6px;"
             " padding: 3px 12px; font-weight: 700;"
