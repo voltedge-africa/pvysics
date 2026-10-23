@@ -30,6 +30,7 @@ class Palette:
     highlight: str  # selection and the checked menu item
     highlight_text: str
     link: str
+    warning: str  # warning messages on the window, such as warning log lines
     error: str  # error messages on the window
     card: str  # the background behind the schematic and the equations
     card_border: str
@@ -55,6 +56,7 @@ LIGHT = Palette(
     highlight="#1565c0",
     highlight_text="#ffffff",
     link="#0d47a1",
+    warning="#8a5a00",
     error="#c62828",
     card="#ffffff",
     card_border="#bdbdbd",
@@ -80,6 +82,7 @@ DARK = Palette(
     highlight="#1565c0",
     highlight_text="#ffffff",
     link="#64b5f6",
+    warning="#ffca28",
     error="#ff8a80",
     card="#3a3a3a",
     card_border="#5c5c5c",

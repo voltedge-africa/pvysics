@@ -1,14 +1,18 @@
+import logging
 from typing import TYPE_CHECKING
 
 from PyQt6.QtGui import QAction
 from PyQt6.QtWidgets import QMainWindow, QTabWidget
 
 from pvysics.gui.dashboard import Dashboard
+from pvysics.gui.log_pane import bottom_log_pane
 from pvysics.gui.model_view import ModelView
 from pvysics.gui.process_view import ProcessView
 from pvysics.gui.setup_view import SetupView
 from pvysics.gui.theme import ThemeMenu
 from pvysics.run import RunConfig
+
+log = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from pvysics.gui.session import Session
@@ -39,6 +43,7 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self.model_view, "Model")
         self._tabs.addTab(self.setup_view, "Setup")
         self.setCentralWidget(self._tabs)
+        self.log_pane = bottom_log_pane(self, session.log_bridge, self.theme)
 
         window_menu = self.menuBar().addMenu("&Window")
         self.open_dashboard_action = QAction("Open Dashboard", self)
@@ -48,6 +53,10 @@ class MainWindow(QMainWindow):
         self.open_launcher_action.triggered.connect(self._on_open_launcher_triggered)
         window_menu.addAction(self.open_launcher_action)
         ThemeMenu(self, self.theme)
+
+    def closeEvent(self, event) -> None:
+        log.debug("Window closed: HMI")
+        super().closeEvent(event)
 
     def _apply_setup(self, config: RunConfig) -> None:
         """Start a new run from config in the session. The Dashboard follows the new config too."""

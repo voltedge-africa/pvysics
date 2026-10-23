@@ -7,6 +7,8 @@ restyled by style_plot from the views that own it, and each window's View menu (
 choice, so every window stays in step.
 """
 
+import logging
+
 import pyqtgraph as pg
 from PyQt6.QtCore import QCoreApplication, QObject, QSettings, Qt, pyqtSignal
 from PyQt6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QPalette
@@ -18,6 +20,7 @@ SETTINGS_KEY = "view/theme"
 MENU_CHOICES = ((CHOICE_SYSTEM, "System"), (CHOICE_LIGHT, "Light"), (CHOICE_DARK, "Dark"))
 # Error messages use Qt's BrightText role, so a label that uses it follows the palette without a stylesheet.
 ERROR_ROLE = QPalette.ColorRole.BrightText
+log = logging.getLogger(__name__)
 
 
 def default_settings() -> QSettings:
@@ -58,12 +61,14 @@ class ThemeManager(QObject):
             raise ValueError(f"unknown theme choice {choice!r}")
         self._choice = choice
         self._settings.setValue(SETTINGS_KEY, choice)
+        log.debug("Theme set to %s", choice)
         self.changed.emit(self.palette)
 
     def _on_system_scheme_changed(self, scheme: Qt.ColorScheme) -> None:
         """The operating system switched between light and dark. Only System follows it."""
         self._system_dark = scheme == Qt.ColorScheme.Dark
         if self._choice == CHOICE_SYSTEM:
+            log.debug("System colour scheme changed to %s", "dark" if self._system_dark else "light")
             self.changed.emit(self.palette)
 
 

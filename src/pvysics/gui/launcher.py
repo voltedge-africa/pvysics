@@ -3,6 +3,7 @@
 It holds no run. It asks the session to show a window, which raises the window if it is open.
 """
 
+import logging
 from importlib.metadata import PackageNotFoundError, version
 from typing import TYPE_CHECKING
 
@@ -14,6 +15,7 @@ if TYPE_CHECKING:
     from pvysics.gui.session import Session
 
 APP_NAME = "PV Digital Twin"
+log = logging.getLogger(__name__)
 
 
 def app_version() -> str:
@@ -48,6 +50,10 @@ class Launcher(QMainWindow):
             layout.addWidget(button)
         self.setCentralWidget(central)
         ThemeMenu(self, session.theme)
+
+    def closeEvent(self, event) -> None:
+        log.debug("Window closed: Launcher")
+        super().closeEvent(event)
 
 
 def _open_both(session: "Session") -> None:

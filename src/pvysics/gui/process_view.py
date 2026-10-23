@@ -6,6 +6,8 @@ deviation panel right, fault injection and alarms below, run controls at the bot
 Sizes come from layouts and font metrics, so the view scales with the platform font and DPI.
 """
 
+import logging
+
 import numpy as np
 from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPalette, QPen
@@ -219,6 +221,21 @@ def format_alarm(alarm: Alarm) -> str:
     return f"{text}  (acknowledged)" if alarm.acknowledged else text
 
 
+log = logging.getLogger(__name__)
+
+
+def log_alarm(alarm: Alarm) -> None:
+    """A Warning alarm logs a WARNING line and an Abnormal alarm an ERROR line."""
+    level = logging.ERROR if alarm.severity is State.ABNORMAL else logging.WARNING
+    log.log(
+        level,
+        "Alarm %s: deviation %.1f %%, probable cause: %s",
+        alarm.severity.value,
+        abs(alarm.deviation_pct),
+        alarm.cause,
+    )
+
+
 class AlarmPanel(QGroupBox):
     """The alarm list, newest first. Unacknowledged alarms are bold and tinted by severity."""
 
@@ -250,7 +267,9 @@ class AlarmPanel(QGroupBox):
             self._refresh()  # the muted colour of acknowledged alarms follows the palette
 
     def _on_sample(self, sample: Sample) -> None:
-        if self.log.record(sample) is not None:
+        alarm = self.log.record(sample)
+        if alarm is not None:
+            log_alarm(alarm)
             self._refresh()
 
     def _on_reset(self) -> None:
@@ -260,7 +279,10 @@ class AlarmPanel(QGroupBox):
     def _acknowledge_selected(self) -> None:
         item = self.list_widget.currentItem()
         if item is not None:
-            self.log.acknowledge(item.data(Qt.ItemDataRole.UserRole))
+            index = item.data(Qt.ItemDataRole.UserRole)
+            self.log.acknowledge(index)
+            alarm = self.log.alarms[index]
+            log.info("Alarm acknowledged: %s, probable cause: %s", alarm.severity.value, alarm.cause)
             self._refresh()
 
     def _refresh(self) -> None:

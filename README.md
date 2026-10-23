@@ -9,6 +9,8 @@ The prototype is a PyQt6 application with two windows that read the same run:
 - **HMI** (PV Digital Twin): Process, Model and Setup tabs. Live plant and twin readings, the deviation gauge, state banner, fault injection, alarms, the SDM circuit and curves, and the run setup.
 - **Dashboard** (PV Digital Twin Dashboard): read-only Overview (KPI tiles, charts, event log) and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export).
 
+Each window has a collapsible log pane at its bottom. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
+
 All input data is static. The bundled profile is one hourly NASA POWER sample for Durban, and the default module is a generic 60-cell, 250 W datasheet. There is no live data fetching and no hardware.
 
 The design documents (wireframes, block diagrams, deck) are in `documentation/`. The specification and tickets are in `.scratch/pvysics-prototype/`.
@@ -94,8 +96,8 @@ The tests set `QT_QPA_PLATFORM=offscreen` themselves (`tests/conftest.py`), so t
 
 ## Architecture
 
-- **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV). Tests and scripts call these directly.
-- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `launcher.py` (the launcher), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive.
+- **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV), `log_model.py` (the bounded log buffer and its level filter). Tests and scripts call these directly. Modules log through the standard `logging` module under the `pvysics` name.
+- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `launcher.py` (the launcher), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive. `log_bridge.py` is the one logging handler: it passes records to the UI thread through a Qt signal, and `log_pane.py` is the log pane docked in each window.
 - **Data bus** (`gui/data_bus.py`): an in-process `DataBus` of Qt signals (`sample`, `event`, `run_reset`). Both windows subscribe to it through the session, which owns it along with the run. It stands in for the WebSocket and CSV bus in the design. The `Sample` record is the one an ESP32 would publish later.
 
 ## Demo script
@@ -132,6 +134,13 @@ I measured this with the faults injected at 10:00 on the bundled day at the defa
 
 - [ ] Press **Clear all**. The faults are removed, and the banner returns to Normal on the next step. The alarm stays in the list. Only **Reset** or **Apply and start** clears the list.
 - [ ] Optional: press **Reset**. The run starts again from its first sample, paused, with no faults and an empty alarm list.
+
+**Log**
+
+- [ ] The log pane at the bottom of each window lists the actions as time, level and message, for example "Run started", "Fault injected" and "Alarm Abnormal". Both windows show the same lines.
+- [ ] Choose **Warning** in **Level**: only warnings and errors remain. Choose **Info** again and the hidden lines return. **Clear** empties the log in both windows. **Copy** puts the visible text on the clipboard.
+- [ ] Load a CSV or datasheet that the checks reject (for example a file with no header row). A WARNING line gives the same reason as the message on the Setup tab.
+- [ ] Press the **Log** button in the pane's header to collapse the list to its header row, and press it again to show the list.
 
 **Model**
 

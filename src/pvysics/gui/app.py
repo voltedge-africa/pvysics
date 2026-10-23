@@ -14,7 +14,9 @@ def main(argv: list[str] | None = None) -> int:
     app.setApplicationName("pvysics")
     session = Session()  # one run for the whole app; it lives as long as the event loop
     show_windows(session, opening)
-    return app.exec()
+    code = app.exec()
+    session.close()  # removes the log handler; the run ends with the event loop
+    return code
 
 
 def show_windows(session: Session, opening: str) -> None:

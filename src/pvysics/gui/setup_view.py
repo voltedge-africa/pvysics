@@ -6,6 +6,7 @@ actions along the bottom. A CSV is loaded through ProfileDialog, which maps its 
 the file checks. Apply and start hands a validated RunConfig to the window, which starts the run.
 """
 
+import logging
 from pathlib import Path
 
 import numpy as np
@@ -49,6 +50,7 @@ from pvysics.gui.theme import ERROR_ROLE
 from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
 from pvysics.run_setup import derive_thresholds, summary_rows, validate_config
 
+log = logging.getLogger(__name__)
 NO_COLUMN = "(choose a column)"
 MAX_SEED = 2**31 - 1  # the seed spin box is a 32-bit integer
 
@@ -60,6 +62,15 @@ def _spin(low: float, high: float, decimals: int, suffix: str = "") -> QDoubleSp
     spin.setSingleStep(10.0**-decimals)
     spin.setSuffix(suffix)
     return spin
+
+
+def _summary(config: RunConfig) -> str:
+    """One line on the log: what the applied setup is."""
+    thresholds = config.thresholds
+    return (
+        f"profile {config.profile.name}, module {config.datasheet.name}, seed {config.seed}, "
+        f"warning {thresholds.warning_pct:g} %, abnormal {thresholds.abnormal_pct:g} %"
+    )
 
 
 def _stamp(stamp: np.datetime64) -> str:
@@ -128,6 +139,7 @@ class ProfileDialog(QDialog):
             profile = parse_profile_table(self._text, columns, name=self._file_name)
         except ProfileError as error:
             self._profile = None
+            log.warning("Profile %s rejected: %s", self._file_name, error)
             self.checks_label.setText(f"Rejected: {error}. The previous profile stays active.")
             self.checks_label.setForegroundRole(ERROR_ROLE)
             self.use_button.setEnabled(False)
@@ -211,9 +223,10 @@ class SetupView(QWidget):
         """Check the controls and report every problem. Starts nothing."""
         problems = validate_config(self.read_config())
         if problems:
-            self._say("Not valid. " + " ".join(problems), error=True)
+            self._warn("Not valid. " + " ".join(problems))
         else:
             self._say("Setup is valid. Nothing changes until Apply and start.")
+            log.info("Setup validated: valid")
         return problems
 
     def apply(self) -> None:
@@ -221,10 +234,11 @@ class SetupView(QWidget):
         config = self.read_config()
         problems = validate_config(config)
         if problems:
-            self._say("Not applied. " + " ".join(problems), error=True)
+            self._warn("Not applied. " + " ".join(problems))
             return
         self._show_summary(config)
         self._say("Applied. The new run has started from the beginning.")
+        log.info("Setup applied: %s", _summary(config))
         self.apply_requested.emit(config)
 
     def reset_to_defaults(self) -> None:
@@ -239,10 +253,10 @@ class SetupView(QWidget):
             text = file.read_text(encoding="utf-8-sig")
             header = csv_columns(text)
         except (OSError, UnicodeDecodeError) as error:
-            self._say(f"{file.name}: cannot read the file as text ({error}). The profile is unchanged.", error=True)
+            self._warn(f"{file.name}: cannot read the file as text ({error}). The profile is unchanged.")
             return
         except ProfileError as error:
-            self._say(f"{file.name}: {error}. The profile is unchanged.", error=True)
+            self._warn(f"{file.name}: {error}. The profile is unchanged.")
             return
         self.csv_dialog = ProfileDialog(file.name, text, header, parent=self)
         self.csv_dialog.accepted.connect(self._use_csv)
@@ -254,7 +268,7 @@ class SetupView(QWidget):
         try:
             datasheet = read_datasheet(path)
         except DatasheetError as error:
-            self._say(f"Datasheet rejected: {error}. The module is still {self._datasheet.name}.", error=True)
+            self._warn(f"Datasheet rejected: {error}. The module is still {self._datasheet.name}.")
             return
         self._set_datasheet(datasheet)
         self._say(f"Loaded module {datasheet.name}. Apply and start to use it.")
@@ -282,7 +296,7 @@ class SetupView(QWidget):
         try:
             thresholds = derive_thresholds(self.read_config())
         except ValueError as error:
-            self._say(f"Cannot derive the limits: {error}.", error=True)
+            self._warn(f"Cannot derive the limits: {error}.")
             return
         self.warning_spin.setValue(thresholds.warning_pct)
         self.abnormal_spin.setValue(thresholds.abnormal_pct)
@@ -366,6 +380,11 @@ class SetupView(QWidget):
     def _say(self, text: str, error: bool = False) -> None:
         self.message_label.setText(text)
         self.message_label.setForegroundRole(ERROR_ROLE if error else QPalette.ColorRole.WindowText)
+
+    def _warn(self, text: str) -> None:
+        """A problem: shown in the error colour and logged as a warning with the same text."""
+        self._say(text, error=True)
+        log.warning(text)
 
     def _build(self) -> None:
         self.profile_box = QComboBox()

@@ -4,11 +4,11 @@
 
 **Blocked by:** 02.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Standard Python logging feeds one log model shared by both windows; a headless test covers levels, ordering and a bounded size.
-- [ ] The pane sits at the bottom of both windows, can be collapsed, and is themed (works with ticket 01's palettes if present).
-- [ ] A rejected CSV or datasheet, and a failed action, appear as warning or error lines with the specific message.
-- [ ] The level filter hides lower-level lines without losing them; Clear empties the pane; Copy puts the visible text on the clipboard.
-- [ ] Logging from the engine side does not import Qt; the Qt handler lives in the GUI layer and is thread-safe (validation and fetch run in worker threads).
-- [ ] Offscreen smoke test: applying a setup and injecting a fault produce log lines in both windows.
+- [x] Standard Python logging feeds one log model shared by both windows; a headless test covers levels, ordering and a bounded size.
+- [x] The pane sits at the bottom of both windows, can be collapsed, and is themed (works with ticket 01's palettes if present).
+- [x] A rejected CSV or datasheet, and a failed action, appear as warning or error lines with the specific message.
+- [x] The level filter hides lower-level lines without losing them; Clear empties the pane; Copy puts the visible text on the clipboard.
+- [x] Logging from the engine side does not import Qt; the Qt handler lives in the GUI layer and is thread-safe (validation and fetch run in worker threads).
+- [x] Offscreen smoke test: applying a setup and injecting a fault produce log lines in both windows.

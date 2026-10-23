@@ -11,6 +11,7 @@ applied config and never changes or restarts the run. With no HMI open and no Sa
 Overview tab shows an idle message and a button that opens the HMI.
 """
 
+import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -31,6 +32,7 @@ from PyQt6.QtWidgets import (
 )
 
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
+from pvysics.gui.log_pane import bottom_log_pane
 from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER, format_readings
 from pvysics.gui.theme import ThemeMenu, style_plot
 from pvysics.gui.validation_view import ValidationView
@@ -39,6 +41,8 @@ from pvysics.run import Event, RunConfig, Sample, State, Thresholds
 
 if TYPE_CHECKING:
     from pvysics.gui.session import Session
+
+log = logging.getLogger(__name__)
 
 UI_INTERVAL_MS = 100  # the Dashboard refreshes at most this often
 IDLE_MESSAGE = "No run in progress. Start a run from the HMI."
@@ -163,6 +167,7 @@ class Dashboard(QMainWindow):
         self.validation.set_config(config)
 
     def closeEvent(self, event) -> None:
+        log.debug("Window closed: Dashboard")
         self.validation.shutdown()  # a running validation ends before the window closes
         super().closeEvent(event)
 
@@ -325,6 +330,7 @@ class Dashboard(QMainWindow):
         tabs.addTab(self._pages, "Overview")
         tabs.addTab(self.validation, "Validation")
         self.setCentralWidget(tabs)
+        self.log_pane = bottom_log_pane(self, self._session.log_bridge, self._theme)
 
     def _build_idle_page(self) -> QWidget:
         self.idle_message = QLabel(IDLE_MESSAGE)

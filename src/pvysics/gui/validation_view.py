@@ -6,6 +6,7 @@ stays responsive and the live run is never touched. While the batch runs the but
 and a progress bar shows. Export buttons write the samples and the metrics to files the user picks.
 """
 
+import logging
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal
@@ -32,6 +33,8 @@ from pvysics.gui.widgets import KpiTile
 from pvysics.run import POWER_FLOOR_W, RunConfig
 from pvysics.validation import NEAR_ZERO_W, STATE_ORDER, ValidationReport, run_validation
 
+log = logging.getLogger(__name__)
+
 NIGHT_NOTE = (
     "Night-time samples are excluded: only daylight samples count, where predicted power is at least "
     f"{POWER_FLOOR_W:g} W. MAPE also skips daylight samples where measured power is below {NEAR_ZERO_W:g} W."
@@ -54,8 +57,16 @@ class ValidationWorker(QObject):
         try:
             report = run_validation(self._config)
         except Exception as error:  # shown on screen; an exception must not die silently in the thread
+            log.error("Validation failed: %s", error)
             self.failed.emit(str(error))
         else:
+            metrics = report.metrics
+            log.info(
+                "Validation finished: MAE %.2f W, RMSE %.2f W, MAPE %.2f %%",
+                metrics.mae_w,
+                metrics.rmse_w,
+                metrics.mape_pct,
+            )
             self.succeeded.emit(report)
 
 
@@ -91,6 +102,7 @@ class ValidationView(QWidget):
         """Start the batch on a worker thread for the applied config. Does nothing while one is running."""
         if self.is_running:
             return
+        log.info("Validation started: one healthy run and five fault runs")
         self._thread = QThread(self)
         self._worker = ValidationWorker(self._config)
         self._worker.moveToThread(self._thread)
@@ -192,8 +204,9 @@ class ValidationView(QWidget):
         try:
             write_samples_csv(path, runs)
         except OSError as error:
-            self.status_label.setText(f"Could not write {path.name}: {error}")
+            self._export_failed(path, error)
             return
+        log.info("Samples exported to %s", path)
         self.status_label.setText(f"Samples written to {path}.")
 
     def _export_metrics(self) -> None:
@@ -206,9 +219,14 @@ class ValidationView(QWidget):
         try:
             write_validation_csv(path, report)
         except OSError as error:
-            self.status_label.setText(f"Could not write {path.name}: {error}")
+            self._export_failed(path, error)
             return
+        log.info("Metrics exported to %s", path)
         self.status_label.setText(f"Metrics written to {path}.")
+
+    def _export_failed(self, path: Path, error: OSError) -> None:
+        log.error("Export failed: could not write %s: %s", path.name, error)
+        self.status_label.setText(f"Could not write {path.name}: {error}")
 
     def _on_run_clicked(self, *_args) -> None:
         self.start_validation()
