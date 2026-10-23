@@ -1,0 +1,13 @@
+sequenceDiagram
+    autonumber
+    actor Pres as Presenter
+    participant HMI
+    participant Eng as Simulation engine
+    Pres->>HMI: Open Setup tab
+    Pres->>HMI: Enter site, upload profile and datasheet
+    Pres->>HMI: Set mismatch and sensor noise
+    Pres->>HMI: Validate setup
+    HMI->>Eng: Check profile, parameters, thresholds
+    Eng-->>HMI: Setup OK
+    Pres->>HMI: Apply and start
+    HMI->>Eng: Start run_001

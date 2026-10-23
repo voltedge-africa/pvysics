@@ -1,0 +1,42 @@
+window "PV Digital Twin - Dashboard":
+  header:
+    row justify=between:
+      text "PV Digital Twin  |  Dashboard" bold size=large
+      segmented:
+        segment "Overview" selected
+        segment "Validation"
+        segment "Events"
+      combo "Run" value="run_001"
+  stats:
+    stat "P meas" "233.8 W"
+    stat "P pred" "238.1 W"
+    stat "Dev" "1.8 %"
+    stat "Status" "NORMAL"
+    stat "Energy" "1.42 kWh"
+  row:
+    section "Measured vs predicted power":
+      chart kind=line label="P (W) vs time" id="pchart"
+    section "Power deviation (%)":
+      chart kind=line label="Deviation with warning and abnormal bands" id="devchart"
+  row:
+    section "Irradiance and temperature":
+      chart kind=line label="G (W/m2) and T (C)"
+    section "I-V and P-V curve":
+      chart kind=line label="Twin curve with measured operating point"
+  row:
+    section "Time in each state":
+      progress value=92 max=100 label="Normal 92 %" accent=success
+      progress value=6 max=100 label="Warning 6 %" accent=warning
+      progress value=2 max=100 label="Abnormal 2 %" accent=danger
+    section "Latest events":
+      list:
+        slot "12:41  State -> NORMAL"
+        slot "12:40  Fault cleared: partial shading"
+        slot "12:38  State -> ABNORMAL"
+  footer:
+    row justify=between:
+      text "Read-only view. Controls are on the HMI." muted
+      text "Updated 12:41:07" muted
+
+annotation "Same data bus as the HMI" target="pchart" position=top
+annotation "Bands come from the validation thresholds" target="devchart" position=top

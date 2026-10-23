@@ -1,0 +1,63 @@
+window "PV Digital Twin - HMI":
+  header:
+    row justify=between:
+      text "PV Digital Twin  |  HMI" bold size=large
+      segmented:
+        segment "Process" selected
+        segment "Model"
+        segment "Setup"
+      chip "NORMAL" accent=success id="banner"
+  row:
+    col:
+      section "PLANT (measured)":
+        kv "Irradiance G" "845 W/m2"
+        kv "Module temp T" "48.2 C"
+        kv "Voltage V" "29.6 V"
+        kv "Current I" "7.9 A"
+        kv "Power P measured" "233.8 W" id="pmeas"
+        status "INA219 online" kind=success
+        status "DS18B20 online" kind=success
+    col:
+      section "DIGITAL TWIN (predicted)":
+        kv "SDM Iph" "8.41 A"
+        kv "SDM Rs / Rsh" "0.37 / 312 ohm"
+        kv "Power P predicted" "238.1 W" id="ppred"
+        kv "Model Pmpp" "241.5 W"
+        chart kind=line label="I-V / P-V curve" id="ivcurve"
+    col:
+      section "POWER DEVIATION":
+        text "1.8 %" bold size=large id="dev"
+        progress value=18 max=100 label="of abnormal limit"
+        row:
+          chip "Warning > 5%" accent=warning
+          chip "Abnormal > 10%" accent=danger
+  row:
+    section "OPERATOR CONTROLS":
+      slider label="Irradiance G" range=0-1200 value=845 id="gslider"
+      slider label="Temperature T" range=0-80 value=48
+      combo "Profile" value="Clear day"
+      row:
+        button "Start" primary
+        button "Pause"
+        button "Reset"
+    section "FAULT INJECTION" id="faults":
+      row:
+        button "Partial shading"
+        button "Soiling"
+        button "Rs increase"
+      row:
+        button "Diode failure"
+        button "Sensor drift"
+        button "Clear all" primary
+    section "ALARMS" badge="0":
+      text "No active alarms" muted
+  footer:
+    row justify=between:
+      status "Data bus connected" kind=success
+      text "Logging: run_001.csv" muted
+
+annotation "Overall state from the estimator" target="banner" position=top
+annotation "Measured by the plant" target="pmeas" position=left
+annotation "Predicted by the SDM" target="ppred" position=top
+annotation "Live % gap between the two" target="dev" position=right
+annotation "Operator-only: sends commands to the plant" target="faults" position=bottom

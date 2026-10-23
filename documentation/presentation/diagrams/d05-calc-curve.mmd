@@ -1,0 +1,10 @@
+flowchart LR
+    G["$$\begin{array}{c} \textsf{Irradiance} \\ G \end{array}$$"] --> IPH["$$I_{ph}$$"]
+    T["$$\begin{array}{c} \textsf{Temperature} \\ T \end{array}$$"] --> IPH
+    T --> VT["$$V_t = \frac{kT}{q}$$"]
+    T --> I0["$$I_0(T)$$"]
+    PAR["$$\begin{array}{c} R_s,\ R_{sh},\ n,\ N_s \\ \textsf{from datasheet} \end{array}$$"] --> SOLVE
+    IPH --> SOLVE["$$\textsf{Solve the SDM equation for current } I$$"]
+    VT --> SOLVE
+    I0 --> SOLVE
+    SOLVE --> CURVE["I-V and P-V curve"]

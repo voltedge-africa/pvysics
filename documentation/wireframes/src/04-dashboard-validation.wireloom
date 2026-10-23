@@ -1,0 +1,54 @@
+window "PV Digital Twin - Dashboard (Validation)":
+  header:
+    row justify=between:
+      text "PV Digital Twin  |  Dashboard" bold size=large
+      segmented:
+        segment "Overview"
+        segment "Validation" selected
+        segment "Events"
+      combo "Run" value="run_003"
+  stats:
+    stat "MAE" "2.1 W" id="mae"
+    stat "RMSE" "3.4 W"
+    stat "MAPE" "1.9 %"
+    stat "Warn" "mean+2s"
+    stat "Abnormal" "mean+3s"
+  row:
+    section "Healthy-case error distribution":
+      chart kind=bar label="Histogram of deviation (%)"
+    section "Predicted vs measured":
+      chart kind=line label="Scatter and 1:1 line"
+  row:
+    section "Fault detection (confusion matrix)" id="cm":
+      grid cols=4 rows=3:
+        cell "True \\ Pred"
+        cell "Normal"
+        cell "Warning"
+        cell "Abnormal"
+        cell "Normal"
+        cell "941"
+        cell "12"
+        cell "2"
+        cell "Fault"
+        cell "18"
+        cell "55"
+        cell "310"
+    section "Detection performance":
+      kv "Detection rate" "94.8 %"
+      kv "False-alarm rate" "1.5 %"
+      kv "Mean detection delay" "6.2 s"
+      divider
+      list:
+        slot "Partial shading":
+          text "delay 4 s" muted
+        slot "Soiling":
+          text "delay 31 s" muted
+        slot "Rs increase":
+          text "delay 9 s" muted
+  footer:
+    row justify=between:
+      button "Export CSV"
+      button "Export report" primary
+
+annotation "Healthy data only" target="mae" position=top
+annotation "Counts of samples per class" target="cm" position=bottom

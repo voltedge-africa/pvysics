@@ -1,0 +1,7 @@
+flowchart LR
+    ST["Site<br/>lat, lon, tilt, azimuth"] --> PR["Input profile<br/>preset, CSV, NASA POWER"]
+    PP["Plant parameters<br/>datasheet JSON"] --> V
+    MM["Mismatch + sensor noise"] --> V
+    PR --> V{"Validate setup"}
+    V -- "ok" --> A["Apply and start"]
+    V -- "errors" --> ST

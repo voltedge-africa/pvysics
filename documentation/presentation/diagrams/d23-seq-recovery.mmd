@@ -1,0 +1,11 @@
+sequenceDiagram
+    autonumber
+    actor Pres as Presenter
+    participant HMI
+    participant Eng as Simulation engine
+    participant Plant as Virtual plant
+    Pres->>HMI: Clear all faults
+    HMI->>Eng: Clear command
+    Eng->>Plant: Remove fault
+    Plant-->>Eng: Power recovers
+    Eng-->>HMI: State returns to NORMAL

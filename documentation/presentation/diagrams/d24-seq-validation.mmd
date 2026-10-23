@@ -1,0 +1,10 @@
+sequenceDiagram
+    autonumber
+    actor Pres as Presenter
+    participant Dash as Dashboard
+    actor Aud as Audience
+    Pres->>Dash: Open Validation tab
+    Dash-->>Aud: MAE, RMSE, MAPE on healthy data
+    Dash-->>Aud: Confusion matrix and detection delay
+    Dash-->>Aud: False-alarm rate
+    Pres->>Dash: Export CSV and report

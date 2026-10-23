@@ -1,0 +1,13 @@
+flowchart LR
+    subgraph HMI["HMI"]
+        direction TB
+        H1["Process"] <--> H2["Model"]
+        H1 <--> H3["Setup"]
+        H3 --> H4["Upload dialog"]
+    end
+    subgraph DASH["Dashboard"]
+        direction TB
+        D1["Overview"] <--> D2["Validation"]
+        D2 <--> D3["Events"]
+    end
+    HMI -- "alarms and live data" --> DASH

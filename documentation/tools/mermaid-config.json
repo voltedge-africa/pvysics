@@ -1,0 +1,23 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Aptos, Segoe UI, Arial, sans-serif",
+    "primaryColor": "#E3F1E7",
+    "primaryBorderColor": "#137F36",
+    "primaryTextColor": "#000000",
+    "lineColor": "#000000",
+    "secondaryColor": "#F4EBDD",
+    "secondaryBorderColor": "#D7B680",
+    "tertiaryColor": "#FFFFFF",
+    "tertiaryBorderColor": "#D7B680",
+    "clusterBkg": "#F7F3EA",
+    "clusterBorder": "#D7B680",
+    "noteBkgColor": "#F4EBDD",
+    "noteBorderColor": "#D7B680",
+    "actorBkg": "#137F36",
+    "actorTextColor": "#FFFFFF",
+    "actorBorder": "#0B5A25",
+    "signalColor": "#000000",
+    "activationBkgColor": "#E3F1E7"
+  }
+}

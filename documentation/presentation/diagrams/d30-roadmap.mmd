@@ -1,0 +1,8 @@
+flowchart LR
+    subgraph SIM["Simulation: current stage"]
+        P1["Python SDM<br/>+ virtual plant"] --> P2["Validation<br/>MAE, RMSE, MAPE"] --> P3["Backend, HMI<br/>and dashboard"]
+    end
+    subgraph HW["Next stage: hardware"]
+        P4["Assemble ESP32<br/>+ sensors"] --> P5["Collect real data"] --> P6["Experimental validation"]
+    end
+    P3 --> P4

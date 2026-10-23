@@ -1,0 +1,6 @@
+stateDiagram-v2
+    [*] --> Normal
+    Normal --> Warning: deviation above warning limit
+    Warning --> Abnormal: deviation above abnormal limit
+    Abnormal --> Warning: deviation back below abnormal limit
+    Warning --> Normal: deviation back below warning limit

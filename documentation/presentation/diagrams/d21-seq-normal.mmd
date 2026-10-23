@@ -1,0 +1,14 @@
+sequenceDiagram
+    autonumber
+    participant Eng as Simulation engine
+    participant Plant as Virtual plant
+    participant Twin as Digital twin
+    participant UI as HMI and dashboard
+    loop every sample
+        Eng->>Plant: G, T
+        Plant-->>Eng: V, I with sensor noise
+        Eng->>Twin: G, T, V, I
+        Twin-->>Eng: P predicted, deviation, state
+        Eng-->>UI: Live values
+    end
+    Note over UI: Deviation about 2 percent, state NORMAL

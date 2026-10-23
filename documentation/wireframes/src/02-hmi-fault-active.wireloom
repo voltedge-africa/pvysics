@@ -1,0 +1,52 @@
+window "PV Digital Twin - HMI (fault active)":
+  header:
+    row justify=between:
+      text "PV Digital Twin  |  HMI" bold size=large
+      segmented:
+        segment "Process" selected
+        segment "Model"
+        segment "Setup"
+      chip "ABNORMAL" accent=danger id="banner"
+  row:
+    col:
+      section "PLANT (measured)" accent=danger:
+        kv "Irradiance G" "842 W/m2"
+        kv "Module temp T" "51.0 C"
+        kv "Voltage V" "27.1 V"
+        kv "Current I" "6.4 A"
+        kv "Power P measured" "173.4 W" bold id="pmeas"
+        chip "Fault: partial shading" accent=warning id="fault"
+    col:
+      section "DIGITAL TWIN (predicted)":
+        kv "Power P predicted" "237.6 W" bold id="ppred"
+        kv "Model Pmpp" "240.9 W"
+        chart kind=line label="Measured vs predicted power"
+    col:
+      section "POWER DEVIATION" accent=danger:
+        text "27.0 %" bold size=large id="dev"
+        progress value=100 max=100 label="above abnormal limit" accent=danger
+        kv "Warning limit" "5 %"
+        kv "Abnormal limit" "10 %"
+        kv "Time in state" "00:00:42"
+  row:
+    section "ALARMS" badge="1 new" accent=danger id="alarms":
+      list:
+        slot "12:40:25  ABNORMAL  Deviation 27.0 %":
+          text "Probable cause: partial shading" muted
+          button "Acknowledge" primary
+        slot "12:40:21  WARNING  Deviation 6.3 %":
+          text "Acknowledged" muted
+    section "FAULT INJECTION":
+      row:
+        button "Partial shading" primary
+        button "Soiling"
+        button "Rs increase"
+      row:
+        button "Diode failure"
+        button "Sensor drift"
+        button "Clear all"
+
+annotation "State flips to ABNORMAL when deviation crosses the limit" target="banner" position=top
+annotation "Power drops under shading" target="pmeas" position=left
+annotation "Twin still predicts the healthy value" target="ppred" position=top
+annotation "Alarm raised and logged to the dashboard" target="alarms" position=bottom

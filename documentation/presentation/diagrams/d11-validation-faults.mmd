@@ -1,0 +1,7 @@
+flowchart LR
+    F["Inject labelled faults"] --> S["Run state estimator"]
+    S --> R["Confusion matrix<br/>detection delay<br/>false-alarm rate"]
+    R --> Q{"Detection<br/>acceptable?"}
+    Q -- "No" --> T["Re-tune thresholds"]
+    T --> F
+    Q -- "Yes" --> OK["Report results"]

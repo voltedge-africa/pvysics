@@ -1,0 +1,7 @@
+flowchart LR
+    A["Input profiles<br/>clear, cloudy, hot day"] --> B["Healthy plant<br/>+ sensor noise"]
+    B --> C["$$\begin{array}{c} \textsf{Twin on measured} \\ G,\ T \end{array}$$"]
+    C --> D["MAE, RMSE, MAPE"]
+    D --> E["Thresholds from error distribution"]
+    E --> W["$$\textsf{warning} = \mu + 2\sigma$$"]
+    E --> A2["$$\textsf{abnormal} = \mu + 3\sigma$$"]

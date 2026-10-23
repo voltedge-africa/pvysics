@@ -1,0 +1,48 @@
+window "PV Digital Twin - HMI (Model view)":
+  header:
+    row justify=between:
+      text "PV Digital Twin  |  HMI" bold size=large
+      segmented:
+        segment "Process"
+        segment "Model" selected
+        segment "Setup"
+      chip "NORMAL" accent=success
+  row:
+    section "SINGLE DIODE MODEL" id="circuit":
+      image label="Circuit: SDM schematic" width=420 height=190
+    section "EQUATIONS" id="eqs":
+      image label="Typeset SDM equation" width=420 height=62 id="eq"
+      image label="Typeset Iph equation" width=420 height=62
+      image label="Typeset Vt equation" width=420 height=44
+  row:
+    section "PARAMETERS (editable)":
+      kv "Iph" "8.41 A"
+      kv "I0" "2.1e-9 A"
+      kv "Rs" "0.37 ohm"
+      kv "Rsh" "312 ohm"
+      kv "n (ideality)" "1.3"
+      kv "Ns (cells)" "60"
+    section "LIVE INPUTS":
+      kv "G" "845 W/m2"
+      kv "T" "48.2 C"
+      kv "Measured V, I" "29.6 V, 7.9 A"
+      divider
+      kv "Isc / Voc" "8.9 A / 37.8 V"
+      kv "Impp / Vmpp" "8.3 A / 30.1 V"
+    section "OUTPUTS":
+      kv "P predicted" "238.1 W" bold
+      kv "Model Pmpp" "241.5 W"
+      kv "Deviation" "1.8 %"
+      button "Load datasheet"
+      button "Reset to nominal"
+  row:
+    section "I-V / P-V CURVE":
+      chart kind=line label="Model curve with measured operating point" id="curve" width=860 height=120
+  footer:
+    row justify=between:
+      text "Solver: Newton-Raphson on I, 12 iterations" muted
+      status "Model in sync" kind=success
+
+annotation "Schematic of the model the twin solves" target="circuit" position=top
+annotation "Same equations the code solves each sample" target="eq" position=right
+annotation "Operating point moves as G and T change" target="curve" position=bottom

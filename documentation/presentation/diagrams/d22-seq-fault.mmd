@@ -1,0 +1,17 @@
+sequenceDiagram
+    autonumber
+    actor Pres as Presenter
+    participant HMI
+    participant Eng as Simulation engine
+    participant Plant as Virtual plant
+    participant Twin as Digital twin
+    participant Dash as Dashboard
+    Pres->>HMI: Inject partial shading
+    HMI->>Eng: Fault command
+    Eng->>Plant: Apply fault
+    Plant-->>Eng: Power drops
+    Eng->>Twin: G, T, V, I
+    Twin-->>Eng: Prediction unchanged, deviation rises
+    Eng-->>HMI: WARNING, then ABNORMAL
+    Eng-->>Dash: Event logged
+    Pres->>HMI: Acknowledge alarm

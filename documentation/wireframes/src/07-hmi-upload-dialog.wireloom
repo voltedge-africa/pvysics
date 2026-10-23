@@ -1,0 +1,63 @@
+window "PV Digital Twin - HMI (Upload profile)":
+  header:
+    row justify=between:
+      text "PV Digital Twin  |  HMI" bold size=large
+      segmented:
+        segment "Process"
+        segment "Model"
+        segment "Setup" selected
+      chip "READY" accent=success
+  row:
+    section "INPUT PROFILE":
+      segmented:
+        segment "Preset"
+        segment "Upload CSV" selected
+        segment "Synthetic"
+      kv "Samples" "1440 (1 min)"
+      kv "Date range" "2026-01-15"
+      chart kind=line label="Preview: G (W/m2) and T (C)"
+      row:
+        button "Upload CSV"
+        button "Fetch NASA POWER"
+    section "PLANT PARAMETERS":
+      kv "Module" "Generic 60-cell 250 W"
+      kv "Isc / Voc" "8.9 A / 37.8 V"
+      kv "Impp / Vmpp" "8.3 A / 30.1 V"
+      kv "Ns" "60"
+      row:
+        button "Upload datasheet JSON"
+        button "Use generic module"
+  row:
+    section "PLANT vs TWIN MISMATCH":
+      slider label="Rs drift" range=0-50 value=8
+      slider label="Rsh drift" range=0-50 value=5
+      slider label="Temp-coeff offset" range=0-50 value=3
+    section "SENSOR MODEL":
+      kv "INA219 resolution" "4 mV / 0.1 mA"
+      kv "DS18B20 error" "0.5 C"
+      kv "Irradiance error" "3 %"
+  row:
+    section "STATE THRESHOLDS":
+      kv "Warning limit" "5 %"
+      kv "Abnormal limit" "10 %"
+    section "VALIDATION":
+      kv "Run name" "run_001"
+      kv "Save to CSV" "Yes"
+  footer:
+    row justify=end:
+      button "Validate setup"
+      button "Apply and start" primary
+  sheet position=center title="Upload input profile":
+    text "CSV with columns: timestamp, G, T" muted
+    input placeholder="Drop file here or browse: profile.csv"
+    text "Column mapping" bold
+    combo "timestamp" value="time"
+    combo "G (W/m2)" value="ghi"
+    combo "T (C)" value="temp_air"
+    text "Checks" bold
+    status "1440 rows parsed" kind=success
+    status "Time step: 1 min" kind=success
+    status "3 gaps filled by interpolation" kind=warning
+    row justify=end:
+      button "Cancel"
+      button "Use profile" primary

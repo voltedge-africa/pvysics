@@ -1,0 +1,7 @@
+flowchart LR
+    CURVE["P-V curve"] --> PP["$$P_{pred}$$"]
+    VI["$$\begin{array}{c} V \cdot I \\ \textsf{measured} \end{array}$$"] --> PM["$$P_{meas}$$"]
+    PP --> DEV["$$\begin{array}{c} \textsf{Power deviation} \\ \Delta = \frac{P_{meas} - P_{pred}}{P_{pred}} \times 100\% \end{array}$$"]
+    PM --> DEV
+    DEV --> TH{"Compare with<br/>thresholds"}
+    TH --> STATE["Normal / Warning / Abnormal"]
