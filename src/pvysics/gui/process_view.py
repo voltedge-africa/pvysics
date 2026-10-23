@@ -47,7 +47,7 @@ GAUGE_SCALE_FACTOR = 1.5  # the gauge runs from 0 to this multiple of the abnorm
 
 IDLE_SENTENCE = "Press Start to play the run."
 IDLE_DETAIL = "The twin predicts power from the measured irradiance and temperature, then compares."
-NIGHT_SENTENCE = "Night or very low light: too little power to compare."
+NIGHT_SENTENCE = "Too little light to compare."
 NIGHT_DETAIL = "The twin and the plant both read close to zero, so the state stays Normal."
 # (key, caption); the first reading of a panel is its headline figure.
 PLANT_READINGS = [
