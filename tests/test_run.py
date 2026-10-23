@@ -5,6 +5,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
+from pvysics.datasheet import edited_datasheet
 from pvysics.run import (
     POWER_FLOOR_W,
     Mismatch,
@@ -168,3 +169,19 @@ def test_site_is_stored_with_the_run_and_does_not_change_the_samples():
 def test_site_defaults_to_durban():
     assert Site() == Site(latitude_deg=-29.85, longitude_deg=31.00, tilt_deg=26.0, azimuth_deg=0.0)
     assert bundled_run_config().site == Site()
+
+
+def test_a_run_on_an_edited_module_predicts_power_in_proportion_to_its_isc_and_impp():
+    generic = bundled_run_config()
+    bigger = edited_datasheet(
+        generic.datasheet,
+        isc_a=generic.datasheet.isc_a * 1.1,
+        impp_a=generic.datasheet.impp_a * 1.1,
+    )
+    plain = replace(generic, mismatch=NO_MISMATCH, sensors=NO_NOISE)
+    edited = replace(plain, datasheet=bigger)
+
+    peak_plain = max(sample.power_predicted for sample in run(plain).samples)
+    peak_edited = max(sample.power_predicted for sample in run(edited).samples)
+
+    assert peak_edited == pytest.approx(1.1 * peak_plain, rel=0.05)

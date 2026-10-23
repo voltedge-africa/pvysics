@@ -5,7 +5,7 @@ from dataclasses import replace
 import numpy as np
 import pytest
 
-from pvysics.datasheet import load_generic_datasheet
+from pvysics.datasheet import edited_datasheet, load_generic_datasheet
 from pvysics.single_diode import fit_parameters, solve_curve
 
 DATASHEET = load_generic_datasheet()
@@ -106,3 +106,13 @@ def test_engine_imports_without_qt():
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_edited_module_stc_power_matches_its_pmpp():
+    edited = edited_datasheet(DATASHEET, isc_a=9.3, voc_v=38.5, impp_a=8.6, vmpp_v=29.0)
+
+    curve = solve_curve(edited, 1000.0, 25.0)
+
+    assert curve.current[0] == pytest.approx(edited.isc_a, rel=0.02)
+    assert curve.voltage[-1] == pytest.approx(edited.voc_v, rel=0.02)
+    assert curve.mpp_power == pytest.approx(edited.pmpp_w, rel=0.02)

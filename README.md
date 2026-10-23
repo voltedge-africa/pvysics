@@ -110,7 +110,7 @@ Use this checklist against the running app. Each step describes what the code do
 
 **Setup**
 
-- [ ] Open the Setup tab. The profile list offers the three bundled days, 15 to 17 January 2025. The module is the generic 60-cell, 250 W datasheet. Defaults: mismatch Rs +3 %, Rsh +5 %, temperature coefficient +2 %; warning limit 5 %, abnormal limit 10 %; seed 0.
+- [ ] Open the Setup tab. The profile list offers the three bundled days, 15 to 17 January 2025. The module is the generic 60-cell, 250 W datasheet, and its values (Isc, Voc, Impp, Vmpp, Ki, Kv and Ns) are editable fields; **Reset to generic module** restores them. A value that fails the checks (for example Vmpp not below Voc, or a module the diode fit cannot fit) is named in the message and logged, and the previous module stays. Edits take effect only on **Apply and start**, and an edited module is named Custom module in the run summary. Defaults: mismatch Rs +3 %, Rsh +5 %, temperature coefficient +2 %; warning limit 5 %, abnormal limit 10 %; seed 0.
 - [ ] Press **Validate setup**. The message says the setup is valid, or lists what is wrong.
 - [ ] Press **Apply and start**. The run restarts from the beginning, the window switches to the Process tab, and the Dashboard follows the new setup.
 

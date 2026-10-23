@@ -10,11 +10,13 @@ from dataclasses import replace
 
 import numpy as np
 
+from pvysics.datasheet import ModuleDatasheet
 from pvysics.run import POWER_FLOOR_W, RunConfig, Thresholds, run
 from pvysics.single_diode import fit_parameters
 
 WARNING_SIGMAS = 2.0  # warning limit: mean + 2 standard deviations of healthy deviation
 ABNORMAL_SIGMAS = 3.0  # abnormal limit: mean + 3 standard deviations
+MAX_TEMPERATURE_COEFFICIENT_PCT = 5.0  # |Ki| and |Kv| above this per degree C are flagged as unreasonable
 
 
 def validate_config(config: RunConfig) -> list[str]:
@@ -57,11 +59,55 @@ def validate_config(config: RunConfig) -> list[str]:
     if not 0.0 <= site.azimuth_deg <= 360.0:
         problems.append("Azimuth must be between 0 and 360 degrees.")
 
-    try:
-        fit_parameters(config.datasheet)
-    except ValueError:
-        problems.append(f"No diode model can be fitted to the module {config.datasheet.name}.")
+    problems.extend(datasheet_problems(config.datasheet))
     return problems
+
+
+def datasheet_problems(datasheet: ModuleDatasheet) -> list[str]:
+    """Every problem with the module's values, in plain words. An empty list means the module can be modelled.
+
+    The diode fit is tried only when the values pass the plain checks, since the fit needs positive values.
+    """
+    problems: list[str] = []
+    for label, value in (
+        ("Isc", datasheet.isc_a),
+        ("Voc", datasheet.voc_v),
+        ("Impp", datasheet.impp_a),
+        ("Vmpp", datasheet.vmpp_v),
+    ):
+        if not value > 0.0:
+            problems.append(f"{label} must be above zero, got {value:g}.")
+    ns = datasheet.ns
+    if isinstance(ns, bool) or not isinstance(ns, int) or ns < 1:
+        problems.append(f"Ns must be a positive whole number of cells, got {ns!r}.")
+    if _both_positive(datasheet.impp_a, datasheet.isc_a) and datasheet.impp_a >= datasheet.isc_a:
+        problems.append(f"Impp must be below Isc: {datasheet.impp_a:g} A is not below {datasheet.isc_a:g} A.")
+    if _both_positive(datasheet.vmpp_v, datasheet.voc_v) and datasheet.vmpp_v >= datasheet.voc_v:
+        problems.append(f"Vmpp must be below Voc: {datasheet.vmpp_v:g} V is not below {datasheet.voc_v:g} V.")
+    if abs(datasheet.ki_pct_per_c) > MAX_TEMPERATURE_COEFFICIENT_PCT:
+        problems.append(
+            f"Ki must be within {MAX_TEMPERATURE_COEFFICIENT_PCT:g} %/C either way, got {datasheet.ki_pct_per_c:g} %/C."
+        )
+    if datasheet.kv_pct_per_c > 0.0:
+        problems.append(
+            f"Kv must be zero or negative, as Voc falls with temperature, got {datasheet.kv_pct_per_c:g} %/C."
+        )
+    elif abs(datasheet.kv_pct_per_c) > MAX_TEMPERATURE_COEFFICIENT_PCT:
+        problems.append(
+            f"Kv must be within {MAX_TEMPERATURE_COEFFICIENT_PCT:g} %/C either way, got {datasheet.kv_pct_per_c:g} %/C."
+        )
+    if problems:
+        return problems
+    try:
+        fit_parameters(datasheet)
+    except (ValueError, ArithmeticError):  # the fit reports a failed fit as ValueError
+        problems.append(f"No diode model can be fitted to {datasheet.name}: check Isc, Voc, Impp and Vmpp.")
+    return problems
+
+
+def _both_positive(value: float, reference: float) -> bool:
+    """True when both values are above zero, so a comparison between them means something."""
+    return value > 0.0 and reference > 0.0
 
 
 def derive_thresholds(config: RunConfig) -> Thresholds:
@@ -96,6 +142,7 @@ def summary_rows(config: RunConfig) -> list[tuple[str, str]]:
             f"{_stamp(first)} to {_stamp(last)}",
         ),
         ("Module", config.datasheet.name),
+        ("Module values", _module_values(config.datasheet)),
         (
             "Mismatch",
             f"Rs {mismatch.series_resistance_pct:+.1f} %, Rsh {mismatch.shunt_resistance_pct:+.1f} %, "
@@ -115,6 +162,14 @@ def summary_rows(config: RunConfig) -> list[tuple[str, str]]:
             f"tilt {site.tilt_deg:g} deg, azimuth {site.azimuth_deg:g} deg (metadata only)",
         ),
     ]
+
+
+def _module_values(datasheet: ModuleDatasheet) -> str:
+    return (
+        f"Isc {datasheet.isc_a:g} A, Voc {datasheet.voc_v:g} V, Impp {datasheet.impp_a:g} A, "
+        f"Vmpp {datasheet.vmpp_v:g} V, Ki {datasheet.ki_pct_per_c:g} %/C, "
+        f"Kv {datasheet.kv_pct_per_c:g} %/C, Ns {datasheet.ns}"
+    )
 
 
 def _stamp(stamp: np.datetime64) -> str:

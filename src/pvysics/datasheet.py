@@ -8,11 +8,12 @@ with a DatasheetError that says what is wrong. The file is never partly applied.
 import json
 import math
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from importlib.resources import files
 from pathlib import Path
 
 GENERIC_DATASHEET = "generic_60cell_250w.toml"
+CUSTOM_MODULE_NAME = "Custom module"  # the name of a module whose values the user has edited
 JSON_KEYS = {
     "Isc": "isc_a",
     "Voc": "voc_v",
@@ -42,6 +43,15 @@ class ModuleDatasheet:
     vmpp_v: float
     ki_pct_per_c: float  # temperature coefficient of Isc
     kv_pct_per_c: float  # temperature coefficient of Voc
+
+
+def edited_datasheet(datasheet: ModuleDatasheet, **values: float | int) -> ModuleDatasheet:
+    """The datasheet with edited values, named Custom module. Its Pmpp is Vmpp times Impp.
+
+    The values are not checked here: see run_setup.datasheet_problems.
+    """
+    edited = replace(datasheet, **values)
+    return replace(edited, name=CUSTOM_MODULE_NAME, pmpp_w=edited.vmpp_v * edited.impp_a)
 
 
 def load_generic_datasheet() -> ModuleDatasheet:

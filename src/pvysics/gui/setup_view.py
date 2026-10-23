@@ -31,6 +31,7 @@ from PyQt6.QtWidgets import (
 from pvysics.datasheet import (
     DatasheetError,
     ModuleDatasheet,
+    edited_datasheet,
     load_generic_datasheet,
 )
 from pvysics.datasheet import load_datasheet as read_datasheet
@@ -48,11 +49,12 @@ from pvysics.profile import (
 )
 from pvysics.gui.theme import ERROR_ROLE
 from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
-from pvysics.run_setup import derive_thresholds, summary_rows, validate_config
+from pvysics.run_setup import datasheet_problems, derive_thresholds, summary_rows, validate_config
 
 log = logging.getLogger(__name__)
 NO_COLUMN = "(choose a column)"
 MAX_SEED = 2**31 - 1  # the seed spin box is a 32-bit integer
+MAX_CELLS = 100000  # the Ns spin box: cells in series
 
 
 def _spin(low: float, high: float, decimals: int, suffix: str = "") -> QDoubleSpinBox:
@@ -169,7 +171,8 @@ class SetupView(QWidget):
             profile = load_bundled_profile(day)
             self._profiles[profile.name] = profile
         self._profile = config.profile
-        self._datasheet = config.datasheet
+        self._datasheet = config.datasheet  # the module the module fields were last set from
+        self._shown_module: dict[str, float | int] = {}  # the module values the fields showed then
         self.csv_dialog: ProfileDialog | None = None
         self._build()
         self._fill(config)
@@ -182,7 +185,7 @@ class SetupView(QWidget):
 
     @property
     def datasheet_name(self) -> str:
-        return self._datasheet.name
+        return self._current_datasheet().name
 
     @property
     def message(self) -> str:
@@ -192,7 +195,7 @@ class SetupView(QWidget):
         """The RunConfig the controls describe. Faults are none: a new run starts without them."""
         return RunConfig(
             profile=self._profile,
-            datasheet=self._datasheet,
+            datasheet=self._current_datasheet(),
             mismatch=Mismatch(
                 series_resistance_pct=self.rs_spin.value(),
                 shunt_resistance_pct=self.rsh_spin.value(),
@@ -293,6 +296,10 @@ class SetupView(QWidget):
         self.apply()
 
     def _derive(self) -> None:
+        problems = datasheet_problems(self._current_datasheet())
+        if problems:  # the fit inside the derivation needs a valid module
+            self._warn("Cannot derive the limits until the module is valid. " + " ".join(problems))
+            return
         try:
             thresholds = derive_thresholds(self.read_config())
         except ValueError as error:
@@ -319,9 +326,10 @@ class SetupView(QWidget):
         if path:
             self.load_datasheet(path)
 
-    def _use_generic(self) -> None:
-        self._set_datasheet(load_generic_datasheet())
-        self._say("Using the generic module. Apply and start to use it.")
+    def _reset_module(self) -> None:
+        datasheet = load_generic_datasheet()
+        self._set_datasheet(datasheet)
+        self._say(f"Module reset to {datasheet.name}. Nothing changes until Apply and start.")
 
     def _on_profile_chosen(self, index: int) -> None:
         self._profile = self._profiles[self.profile_box.itemData(index)]
@@ -337,12 +345,25 @@ class SetupView(QWidget):
         self._show_profile()
 
     def _set_datasheet(self, datasheet: ModuleDatasheet) -> None:
+        """Show a module's values in the fields. Applies nothing."""
         self._datasheet = datasheet
-        self.module_label.setText(
-            f"{datasheet.name}\nIsc {datasheet.isc_a:g} A, Voc {datasheet.voc_v:g} V, "
-            f"Impp {datasheet.impp_a:g} A, Vmpp {datasheet.vmpp_v:g} V\n"
-            f"Ki {datasheet.ki_pct_per_c:g} %/C, Kv {datasheet.kv_pct_per_c:g} %/C, Ns {datasheet.ns}"
-        )
+        for field, spin in self._module_spins.items():
+            spin.setValue(getattr(datasheet, field))
+        self._shown_module = self._module_values()  # read back, so the spin boxes' rounding is not an edit
+        self._show_module_name()
+
+    def _module_values(self) -> dict[str, float | int]:
+        return {field: spin.value() for field, spin in self._module_spins.items()}
+
+    def _current_datasheet(self) -> ModuleDatasheet:
+        """The module the fields describe: the module last shown, or a custom copy once a field has been edited."""
+        values = self._module_values()
+        if values == self._shown_module:
+            return self._datasheet
+        return edited_datasheet(self._datasheet, **values)
+
+    def _show_module_name(self, *_args) -> None:
+        self.module_label.setText(f"Module: {self._current_datasheet().name}")
 
     def _show_profile(self) -> None:
         profile = self._profile
@@ -398,10 +419,29 @@ class SetupView(QWidget):
 
         self.module_label = QLabel()
         self.module_label.setWordWrap(True)
+        self.isc_spin = _spin(0.0, 10000.0, 2)
+        self.voc_spin = _spin(0.0, 10000.0, 2)
+        self.impp_spin = _spin(0.0, 10000.0, 2)
+        self.vmpp_spin = _spin(0.0, 10000.0, 2)
+        self.ki_spin = _spin(-100.0, 100.0, 3)
+        self.kv_spin = _spin(-100.0, 100.0, 3)
+        self.ns_spin = QSpinBox()
+        self.ns_spin.setRange(0, MAX_CELLS)
+        self._module_spins = {
+            "isc_a": self.isc_spin,
+            "voc_v": self.voc_spin,
+            "impp_a": self.impp_spin,
+            "vmpp_v": self.vmpp_spin,
+            "ki_pct_per_c": self.ki_spin,
+            "kv_pct_per_c": self.kv_spin,
+            "ns": self.ns_spin,
+        }
+        for spin in self._module_spins.values():
+            spin.valueChanged.connect(self._show_module_name)
         self.load_datasheet_button = QPushButton("Load datasheet...")
         self.load_datasheet_button.clicked.connect(self._choose_datasheet)
-        self.generic_button = QPushButton("Use generic module")
-        self.generic_button.clicked.connect(self._use_generic)
+        self.reset_module_button = QPushButton("Reset to generic module")
+        self.reset_module_button.clicked.connect(self._reset_module)
 
         self.rs_spin = _spin(-90.0, 500.0, 1, " %")
         self.rsh_spin = _spin(-90.0, 500.0, 1, " %")
@@ -444,9 +484,18 @@ class SetupView(QWidget):
         module_group = QGroupBox("Module datasheet")
         layout = QVBoxLayout(module_group)
         layout.addWidget(self.module_label)
+        form = QFormLayout()
+        form.addRow("Isc (A)", self.isc_spin)
+        form.addRow("Voc (V)", self.voc_spin)
+        form.addRow("Impp (A)", self.impp_spin)
+        form.addRow("Vmpp (V)", self.vmpp_spin)
+        form.addRow("Ki (%/C)", self.ki_spin)
+        form.addRow("Kv (%/C)", self.kv_spin)
+        form.addRow("Ns (cells)", self.ns_spin)
+        layout.addLayout(form)
         buttons = QHBoxLayout()
         buttons.addWidget(self.load_datasheet_button)
-        buttons.addWidget(self.generic_button)
+        buttons.addWidget(self.reset_module_button)
         layout.addLayout(buttons)
 
         site_group = QGroupBox("Site (metadata only, does not change the physics)")

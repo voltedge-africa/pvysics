@@ -4,13 +4,13 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Fields show the active datasheet whether it came from the generic module or a file.
-- [ ] Validation rejects non-positive values, Vmpp not below Voc, Impp not below Isc, a non-integer or non-positive Ns, and a datasheet the diode fit cannot fit, each with a specific message; the previous datasheet stays active.
-- [ ] Reset to generic module restores the defaults and updates the fields.
-- [ ] Nothing applies until Apply and start; the Run summary shows the edited values.
-- [ ] A run with an edited module gives different, physically sensible power (a test compares STC power with the edited Pmpp within the existing tolerance).
-- [ ] Loading a datasheet file still works and fills the fields.
-- [ ] Invalid values are logged if the log pane exists.
-- [ ] Offscreen smoke test edits a value, applies, and sees the Model tab parameters change.
+- [x] Fields show the active datasheet whether it came from the generic module or a file.
+- [x] Validation rejects non-positive values, Vmpp not below Voc, Impp not below Isc, a non-integer or non-positive Ns, and a datasheet the diode fit cannot fit, each with a specific message; the previous datasheet stays active.
+- [x] Reset to generic module restores the defaults and updates the fields.
+- [x] Nothing applies until Apply and start; the Run summary shows the edited values.
+- [x] A run with an edited module gives different, physically sensible power (a test compares STC power with the edited Pmpp within the existing tolerance).
+- [x] Loading a datasheet file still works and fills the fields.
+- [x] Invalid values are logged if the log pane exists.
+- [x] Offscreen smoke test edits a value, applies, and sees the Model tab parameters change.

@@ -1,5 +1,7 @@
 """The Setup tab, driven offscreen. Nothing in it changes the run until Apply and start."""
 
+import logging
+
 import pytest
 from PyQt6.QtWidgets import QFileDialog
 
@@ -291,3 +293,150 @@ def test_model_view_refits_the_applied_module(qtbot, tmp_path):
     applied = window.playback.config.datasheet
     assert applied.name == "my_module"
     assert window.model_view.parameters == fit_parameters(applied)
+
+
+def test_module_fields_show_the_generic_datasheet(qtbot):
+    setup = window_with(qtbot).setup_view
+
+    assert setup.isc_spin.value() == pytest.approx(8.9)
+    assert setup.voc_spin.value() == pytest.approx(37.8)
+    assert setup.impp_spin.value() == pytest.approx(8.3)
+    assert setup.vmpp_spin.value() == pytest.approx(30.1)
+    assert setup.ki_spin.value() == pytest.approx(0.05)
+    assert setup.kv_spin.value() == pytest.approx(-0.32)
+    assert setup.ns_spin.value() == 60
+    assert setup.datasheet_name == "Generic 60-cell 250 W"
+
+
+def test_module_fields_show_a_loaded_file(qtbot, tmp_path):
+    setup = window_with(qtbot).setup_view
+
+    setup.load_datasheet(write(tmp_path, "my_module.json", JSON_MODULE))
+
+    assert setup.datasheet_name == "my_module"
+    assert setup.isc_spin.value() == pytest.approx(9.1)
+    assert setup.voc_spin.value() == pytest.approx(36.5)
+    assert setup.impp_spin.value() == pytest.approx(8.0)
+    assert setup.vmpp_spin.value() == pytest.approx(29.5)
+    assert setup.ki_spin.value() == pytest.approx(0.04)
+    assert setup.kv_spin.value() == pytest.approx(-0.3)
+    assert setup.ns_spin.value() == 60
+
+
+def test_nothing_applies_until_apply_and_start(qtbot):
+    window = window_with(qtbot)
+    setup = window.setup_view
+    before = window.playback.config
+    parameters = window.model_view.parameters
+
+    setup.isc_spin.setValue(9.4)
+    setup.impp_spin.setValue(8.5)
+
+    assert window.playback.config is before
+    assert window.model_view.parameters is parameters
+    assert setup.read_config().datasheet.isc_a == pytest.approx(9.4)
+
+
+@pytest.mark.parametrize(
+    ("change", "message"),
+    [
+        (lambda s: s.isc_spin.setValue(0.0), "Isc must be above zero"),
+        (lambda s: s.voc_spin.setValue(0.0), "Voc must be above zero"),
+        (lambda s: s.impp_spin.setValue(0.0), "Impp must be above zero"),
+        (lambda s: s.vmpp_spin.setValue(0.0), "Vmpp must be above zero"),
+        (lambda s: s.ns_spin.setValue(0), "Ns must be a positive whole number"),
+        (lambda s: s.vmpp_spin.setValue(40.0), "Vmpp must be below Voc"),
+        (lambda s: s.impp_spin.setValue(9.5), "Impp must be below Isc"),
+        (lambda s: s.ki_spin.setValue(6.0), "Ki must be within 5 %/C"),
+        (lambda s: s.kv_spin.setValue(-6.0), "Kv must be within 5 %/C"),
+        (lambda s: s.kv_spin.setValue(0.3), "Kv must be zero or negative"),
+        (
+            lambda s: (s.vmpp_spin.setValue(11.3), s.impp_spin.setValue(8.8)),
+            "No diode model can be fitted",
+        ),
+    ],
+)
+def test_each_invalid_module_value_gives_its_message_is_logged_and_keeps_the_module(
+    qtbot, caplog, change, message
+):
+    window = window_with(qtbot)
+    setup = window.setup_view
+    before = window.playback.config
+    change(setup)
+
+    with caplog.at_level(logging.WARNING, logger="pvysics"):
+        assert setup.validate()
+        assert message in setup.message
+        setup.apply()
+
+    assert window.playback.config is before
+    assert window.playback.config.datasheet.name == "Generic 60-cell 250 W"
+    assert any(record.levelno == logging.WARNING and message in record.getMessage() for record in caplog.records)
+
+
+def test_validate_reports_a_valid_edited_module_without_applying(qtbot):
+    window = window_with(qtbot)
+    setup = window.setup_view
+    before = window.playback.config
+    setup.isc_spin.setValue(9.4)
+
+    assert setup.validate() == []
+    assert window.playback.config is before
+
+
+def test_derive_refuses_while_the_module_has_a_problem(qtbot):
+    setup = window_with(qtbot).setup_view
+    setup.ns_spin.setValue(0)
+
+    setup.derive_button.click()
+
+    assert "Cannot derive" in setup.message
+
+
+def test_reset_to_generic_module_restores_the_values_and_applies_nothing(qtbot, tmp_path):
+    window = window_with(qtbot)
+    setup = window.setup_view
+    before = window.playback.config
+    setup.load_datasheet(write(tmp_path, "my_module.json", JSON_MODULE))
+    setup.isc_spin.setValue(9.5)
+
+    setup.reset_module_button.click()
+
+    assert setup.datasheet_name == "Generic 60-cell 250 W"
+    assert setup.isc_spin.value() == pytest.approx(8.9)
+    assert setup.voc_spin.value() == pytest.approx(37.8)
+    assert setup.ns_spin.value() == 60
+    assert window.playback.config is before
+
+
+def test_edited_module_is_named_custom_and_shown_in_the_run_summary(qtbot):
+    window = window_with(qtbot)
+    setup = window.setup_view
+    setup.isc_spin.setValue(9.3)
+    setup.ns_spin.setValue(72)
+
+    setup.apply()
+
+    applied = window.playback.config.datasheet
+    assert applied.name == "Custom module"
+    assert applied.isc_a == pytest.approx(9.3)
+    assert applied.ns == 72
+    assert "Custom module" in setup.summary_label.text()
+    assert "Isc 9.3 A" in setup.summary_label.text()
+    assert "Ns 72" in setup.summary_label.text()
+
+
+def test_apply_and_start_changes_the_model_tab_parameters(qtbot):
+    window = window_with(qtbot)
+    setup = window.setup_view
+    iph_before = window.model_view.parameter_panel.value("iph")
+    setup.isc_spin.setValue(9.4)
+    setup.impp_spin.setValue(8.5)
+
+    setup.apply_button.click()
+
+    applied = window.playback.config.datasheet
+    assert window.model_view.datasheet_panel.value("isc") == "9.40 A"
+    assert window.model_view.datasheet_panel.value("impp") == "8.50 A"
+    assert window.model_view.parameters == fit_parameters(applied)
+    assert window.model_view.parameter_panel.value("iph") != iph_before

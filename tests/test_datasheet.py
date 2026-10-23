@@ -3,7 +3,13 @@ import json
 
 import pytest
 
-from pvysics.datasheet import DatasheetError, load_datasheet, load_generic_datasheet
+from pvysics.datasheet import (
+    CUSTOM_MODULE_NAME,
+    DatasheetError,
+    edited_datasheet,
+    load_datasheet,
+    load_generic_datasheet,
+)
 
 
 def test_generic_datasheet_matches_the_250_w_module():
@@ -90,3 +96,16 @@ def test_unsupported_file_type_is_rejected(tmp_path):
 
     with pytest.raises(DatasheetError, match="json or .toml"):
         load_datasheet(path)
+
+
+def test_edited_datasheet_is_a_custom_module_with_pmpp_from_vmpp_and_impp():
+    generic = load_generic_datasheet()
+
+    edited = edited_datasheet(generic, isc_a=9.3, kv_pct_per_c=-0.3)
+
+    assert edited.name == CUSTOM_MODULE_NAME
+    assert edited.isc_a == pytest.approx(9.3)
+    assert edited.kv_pct_per_c == pytest.approx(-0.3)
+    assert edited.voc_v == generic.voc_v
+    assert edited.pmpp_w == pytest.approx(generic.vmpp_v * generic.impp_a)
+    assert generic.name == "Generic 60-cell 250 W"  # the base module is not changed

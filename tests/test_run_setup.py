@@ -6,6 +6,7 @@ from datetime import date
 import numpy as np
 import pytest
 
+from pvysics.datasheet import edited_datasheet, load_generic_datasheet
 from pvysics.faults import FaultKind, ScheduledFault, default_fault
 from pvysics.profile import Profile, load_bundled_profile
 from pvysics.run import (
@@ -17,7 +18,7 @@ from pvysics.run import (
     bundled_run_config,
     run,
 )
-from pvysics.run_setup import derive_thresholds, summary_rows, validate_config
+from pvysics.run_setup import datasheet_problems, derive_thresholds, summary_rows, validate_config
 
 
 def test_default_setup_has_no_problems():
@@ -121,3 +122,61 @@ def test_run_summary_shows_the_site_and_the_limits():
     assert "5.00 %" in rows["Thresholds"]
     assert rows["Module"] == config.datasheet.name
     assert rows["Profile"].startswith("Bundled 2025-01-15")
+
+
+GENERIC = load_generic_datasheet()
+
+
+def test_generic_datasheet_has_no_problems():
+    assert datasheet_problems(GENERIC) == []
+
+
+@pytest.mark.parametrize(
+    ("values", "message"),
+    [
+        ({"isc_a": 0.0}, "Isc must be above zero"),
+        ({"voc_v": -1.0}, "Voc must be above zero"),
+        ({"impp_a": 0.0}, "Impp must be above zero"),
+        ({"vmpp_v": 0.0}, "Vmpp must be above zero"),
+        ({"ns": 0}, "Ns must be a positive whole number"),
+        ({"ns": 2.5}, "Ns must be a positive whole number"),
+        ({"vmpp_v": 37.8}, "Vmpp must be below Voc"),
+        ({"vmpp_v": 40.0}, "Vmpp must be below Voc"),
+        ({"impp_a": 8.9}, "Impp must be below Isc"),
+        ({"ki_pct_per_c": 6.0}, "Ki must be within 5 %/C"),
+        ({"ki_pct_per_c": -6.0}, "Ki must be within 5 %/C"),
+        ({"kv_pct_per_c": 0.3}, "Kv must be zero or negative"),
+        ({"kv_pct_per_c": -6.0}, "Kv must be within 5 %/C"),
+        ({"vmpp_v": 11.3, "impp_a": 8.8}, "No diode model can be fitted"),
+    ],
+)
+def test_each_invalid_datasheet_value_gives_its_own_message(values, message):
+    problems = datasheet_problems(edited_datasheet(GENERIC, **values))
+
+    assert len(problems) == 1
+    assert message in problems[0]
+
+
+def test_every_datasheet_problem_is_listed_at_once():
+    problems = datasheet_problems(edited_datasheet(GENERIC, isc_a=0.0, vmpp_v=40.0))
+
+    assert any("Isc must be above zero" in problem for problem in problems)
+    assert any("Vmpp must be below Voc" in problem for problem in problems)
+
+
+def test_validate_config_reports_a_datasheet_problem():
+    config = replace(bundled_run_config(), datasheet=edited_datasheet(GENERIC, impp_a=9.0))
+
+    assert any("Impp must be below Isc" in problem for problem in validate_config(config))
+
+
+def test_run_summary_shows_the_edited_module_values():
+    config = replace(
+        bundled_run_config(), datasheet=edited_datasheet(GENERIC, isc_a=9.3, ns=72)
+    )
+
+    rows = dict(summary_rows(config))
+
+    assert rows["Module"] == "Custom module"
+    assert "Isc 9.3 A" in rows["Module values"]
+    assert "Ns 72" in rows["Module values"]
