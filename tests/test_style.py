@@ -49,8 +49,11 @@ def test_no_palette_colour_is_blue(palette):
 
 
 @pytest.mark.parametrize("palette", [LIGHT, DARK], ids=["light", "dark"])
-def test_the_stylesheet_has_no_one_sided_borders(palette):
-    sheet = stylesheet(palette)
+def test_the_stylesheet_has_no_one_sided_borders_outside_the_tabs(palette):
+    # Cards, tiles and buttons have a full border or none. The tabs keep their underline and the rule under them.
+    sheet = "\n".join(
+        block for block in stylesheet(palette).split("\n\n") if "QTabBar" not in block and "QTabWidget" not in block
+    )
 
     for side in ("top", "right", "bottom", "left"):
-        assert f"border-{side}:" not in sheet  # a full border or none: no accent lines on one edge
+        assert f"border-{side}:" not in sheet

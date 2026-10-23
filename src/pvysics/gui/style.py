@@ -96,22 +96,17 @@ QPushButton[variant="active"] {{
 QMainWindow::separator {{ background: {p.card_border}; height: 5px; border-radius: 2px; }}
 QMainWindow::separator:hover {{ background: {p.highlight}; }}
 
-QTabWidget::pane {{ border: none; }}
+QTabWidget::pane {{ border: none; border-top: 1px solid {p.card_border}; }}
 QTabBar::tab {{
     background: transparent;
     color: {p.muted_text};
-    padding: 6px 16px;
-    margin: 4px 2px 6px 2px;
-    border: 1px solid transparent;
-    border-radius: 6px;
+    padding: 8px 18px;
+    border: none;
+    border-bottom: 3px solid transparent;
     font-weight: 600;
 }}
 QTabBar::tab:hover {{ color: {p.text}; }}
-QTabBar::tab:selected {{
-    color: {p.text};
-    background-color: {p.card};
-    border: 1px solid {p.card_border};
-}}
+QTabBar::tab:selected {{ color: {p.text}; border-bottom: 3px solid {p.highlight}; }}
 
 QScrollArea {{ border: none; background: transparent; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
