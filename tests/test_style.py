@@ -46,3 +46,11 @@ def test_no_palette_colour_is_blue(palette):
     colours = {f.name: getattr(palette, f.name) for f in fields(palette) if f.name != "name"}
 
     assert [name for name, colour in colours.items() if _is_blue(colour)] == []
+
+
+@pytest.mark.parametrize("palette", [LIGHT, DARK], ids=["light", "dark"])
+def test_the_stylesheet_has_no_one_sided_borders(palette):
+    sheet = stylesheet(palette)
+
+    for side in ("top", "right", "bottom", "left"):
+        assert f"border-{side}:" not in sheet  # a full border or none: no accent lines on one edge

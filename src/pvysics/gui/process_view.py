@@ -30,6 +30,7 @@ from PyQt6.QtWidgets import (
 from pvysics.alarms import Alarm, AlarmLog
 from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.data_bus import DataBus
+from pvysics.gui.metric_tile import MetricSet, MetricTile, section_label
 from pvysics.gui.palette import LIGHT, STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.gui.trend import PowerTrend
@@ -40,7 +41,7 @@ from pvysics.run import POWER_FLOOR_W, Sample, State, Thresholds
 PLACEHOLDER = "-"
 IDLE_TEXT = "Ready"
 IDLE_COLOUR = "#616161"
-CARD_MAX_PX = 150  # the metric cards stay compact so the trend gets the room
+DEVIATION_COLUMNS = 3  # the deviation tile is this many tiles wide: its gauge needs the room
 LOWER_ROW_MAX_PX = 120  # fault buttons and alarms stay compact so the trend gets the room
 GAUGE_SCALE_FACTOR = 1.5  # the gauge runs from 0 to this multiple of the abnormal limit
 
@@ -157,43 +158,6 @@ class ReadingsPanel(QGroupBox):
                 self._values[key] = value
             layout.addLayout(grid)
         layout.addStretch(1)
-
-    def value(self, key: str) -> str:
-        return self._values[key].text()
-
-    def set_values(self, values: dict[str, str]) -> None:
-        for key, label in self._values.items():
-            label.setText(values[key])
-
-    def clear(self) -> None:
-        for label in self._values.values():
-            label.setText(PLACEHOLDER)
-
-
-class MetricsPanel(QGroupBox):
-    """A titled card of key metrics, side by side: a small caption over a large figure.
-
-    The measurements an operator watches (irradiance, temperature, voltage, current, power) are the point of
-    the screen, so each gets a large figure of its own. The API matches ReadingsPanel.
-    """
-
-    def __init__(self, title: str, readings: list[tuple[str, str]], note: str = "", parent: QWidget | None = None):
-        super().__init__(title, parent)
-        self._values: dict[str, QLabel] = {}
-        row = QHBoxLayout(self)
-        row.setSpacing(18)
-        for key, caption in readings:
-            column = QVBoxLayout()
-            column.setSpacing(0)
-            value = role_label(PLACEHOLDER, "metric")
-            self._values[key] = value
-            column.addStretch(1)  # caption and figure stay together, centred in the card
-            column.addWidget(role_label(caption, "caption"))
-            column.addWidget(value)
-            column.addStretch(1)
-            row.addLayout(column, 1)
-        if note:
-            self.setToolTip(note)
 
     def value(self, key: str) -> str:
         return self._values[key].text()
@@ -443,23 +407,15 @@ class ProcessView(QScrollArea):
         self.summary_label = role_label(IDLE_SENTENCE, "strong")
         self.summary_label.setToolTip(IDLE_DETAIL)  # the explanation is a tooltip, so the strip stays one slim row
         self.summary_label.setMinimumWidth(0)
-        self.plant = MetricsPanel("Plant (measured)", PLANT_READINGS)
-        self.twin = MetricsPanel("Digital twin (predicted)", TWIN_READINGS, note=TWIN_NOTE)
+        self.plant = MetricSet({key: MetricTile(caption) for key, caption in PLANT_READINGS})
+        self.twin = MetricSet({key: MetricTile(caption) for key, caption in TWIN_READINGS})
+        self.twin.tiles["P_pred"].setToolTip(TWIN_NOTE)
         self.gauge = DeviationGauge(controller.config.thresholds)
-        self.deviation_label = role_label(PLACEHOLDER, "metric")
+        self.deviation_tile = MetricTile("Deviation", side=self.gauge)
         self.trend = PowerTrend(palette)
         self.alarm_panel = AlarmPanel(bus)
 
-        deviation_panel = QGroupBox("Power deviation")
-        deviation_layout = QVBoxLayout(deviation_panel)
-        deviation_layout.addWidget(role_label("Deviation from the prediction", "caption"))
-        deviation_layout.addWidget(self.deviation_label)
-        deviation_layout.addWidget(self.gauge)
-
-        cards = QHBoxLayout()
-        for panel, stretch in ((self.plant, 6), (self.twin, 2), (deviation_panel, 3)):
-            panel.setMaximumHeight(CARD_MAX_PX)
-            cards.addWidget(panel, stretch)
+        cards = self._build_measurement_row()
 
         trend_panel = QGroupBox("Power over the run")
         QVBoxLayout(trend_panel).addWidget(self.trend)
@@ -489,6 +445,25 @@ class ProcessView(QScrollArea):
                 self.trend.add_sample(sample)
             self.trend.flush()
         self._refresh_controls()
+
+    def _build_measurement_row(self) -> QGridLayout:
+        """Seven tiles in one row under three small headings: the plant, the twin, and how far apart they are."""
+        grid = QGridLayout()
+        grid.setHorizontalSpacing(8)
+        grid.setVerticalSpacing(4)
+        plant_tiles = list(self.plant.tiles.values())
+        for column, tile in enumerate(plant_tiles):
+            grid.addWidget(tile, 1, column)
+        twin_column = len(plant_tiles)
+        grid.addWidget(self.twin.tiles["P_pred"], 1, twin_column)
+        deviation_column = twin_column + 1
+        grid.addWidget(self.deviation_tile, 1, deviation_column, 1, DEVIATION_COLUMNS)
+        grid.addWidget(section_label("Plant, measured"), 0, 0, 1, twin_column)
+        grid.addWidget(section_label("Twin"), 0, twin_column)
+        grid.addWidget(section_label("Comparison"), 0, deviation_column, 1, DEVIATION_COLUMNS)
+        for column in range(deviation_column + DEVIATION_COLUMNS):
+            grid.setColumnStretch(column, 1)
+        return grid
 
     def _build_status_strip(self) -> QFrame:
         """One slim row: the state, what it means in a sentence, and the run controls."""
@@ -585,7 +560,7 @@ class ProcessView(QScrollArea):
         self.twin.set_values(readings)
         self.banner.show_state(sample.state)
         self.gauge.show_deviation(sample.deviation_pct, sample.state)
-        self.deviation_label.setText(f"{format_number(sample.deviation_pct, 1, signed=True)} %")
+        self.deviation_tile.set_text(f"{format_number(sample.deviation_pct, 1, signed=True)} %")
         self.time_label.setText(np.datetime_as_string(sample.timestamp, unit="m").replace("T", " "))
         sentence, detail = describe_state(sample, self._controller.config.thresholds)
         self.summary_label.setText(sentence)
@@ -600,7 +575,7 @@ class ProcessView(QScrollArea):
         self.plant.clear()
         self.twin.clear()
         self.gauge.clear()
-        self.deviation_label.setText(PLACEHOLDER)
+        self.deviation_tile.clear()
         self.time_label.setText(PLACEHOLDER)
         self.summary_label.setText(IDLE_SENTENCE)
         self.summary_label.setToolTip(IDLE_DETAIL)
