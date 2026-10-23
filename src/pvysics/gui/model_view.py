@@ -3,33 +3,36 @@ live inputs and outputs, and the I-V and P-V curves with the measured operating 
 
 Layout follows the model wireframe: circuit and equations on top, parameters, live inputs and
 outputs in the middle, the curves below. The schematic and equations keep their aspect ratio and
-scale with the window; the equation images sit on white cards so they read on any window colour.
+scale with the window. The schematic and the equation images are recoloured from the palette, so they read in
+both themes; the equations sit on cards in the palette's card colour.
 The curves are for the measured G and T of the latest Sample. They are recomputed at most once per
 UI tick, and only when G or T has moved since the curve was last computed.
 """
 
+import re
 from importlib.resources import files
 
 import pyqtgraph as pg
-from PyQt6.QtCore import QByteArray, QRectF, QTimer
-from PyQt6.QtGui import QBrush, QColor, QPainter, QPen, QPixmap
+from PyQt6.QtCore import QByteArray, QRectF, Qt, QTimer
+from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPen
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QGroupBox, QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
 
 from pvysics.gui.data_bus import DataBus
+from pvysics.gui.palette import LIGHT, Palette
 from pvysics.gui.playback import PlaybackController
 from pvysics.gui.process_view import ReadingsPanel, format_number, format_readings
+from pvysics.gui.theme import ThemeManager, style_plot
 from pvysics.run import Sample
 from pvysics.single_diode import DiodeParameters, IVCurve, fit_parameters, solve_curve
 
 UI_INTERVAL_MS = 100  # the Model view refreshes at most this often, as the Dashboard does
 SCHEMATIC = "circuit_sdm.svg"
 EQUATION_IMAGES = ("eq_sdm.png", "eq_iph.png", "eq_vt.png")  # top to bottom
-CARD_COLOUR = "#ffffff"
-CARD_BORDER_COLOUR = "#bdbdbd"
-CURVE_COLOUR = "#1565c0"
-POWER_COLOUR = "#ef6c00"
-POINT_COLOUR = "#c62828"
+# The schematic's colours as the asset draws them. They are swapped for the palette's at load time.
+SCHEMATIC_BACKGROUND = "#ffffff"
+SCHEMATIC_INK = "#000000"
+SCHEMATIC_ACCENT = "#137f36"
 
 PARAMETER_ROWS = [
     ("iph", "Iph at STC"),
@@ -48,6 +51,29 @@ def _asset(name: str) -> bytes:
     return (files("pvysics") / "gui" / "assets" / name).read_bytes()
 
 
+def recoloured_svg(svg: bytes, palette: Palette) -> bytes:
+    """The schematic with its white, black and green swapped for the palette's card, text and accent colours."""
+    swaps = {
+        SCHEMATIC_BACKGROUND: palette.card,
+        SCHEMATIC_INK: palette.text,
+        SCHEMATIC_ACCENT: palette.schematic_accent,
+    }
+    pattern = re.compile("|".join(re.escape(colour) for colour in swaps))
+    return pattern.sub(lambda match: swaps[match.group(0)], svg.decode("utf-8")).encode("utf-8")
+
+
+def recoloured_image(image: QImage, colour: QColor) -> QImage:
+    """The image with every pixel drawn in colour, keeping its transparency: the text becomes `colour`."""
+    result = QImage(image.size(), QImage.Format.Format_ARGB32_Premultiplied)
+    result.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(result)
+    painter.fillRect(result.rect(), colour)
+    painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_DestinationIn)
+    painter.drawImage(0, 0, image)
+    painter.end()
+    return result
+
+
 def fitted_rect(area: QRectF, aspect: float) -> QRectF:
     """The largest rectangle of width-to-height `aspect` that fits in area, centred."""
     width = min(area.width(), area.height() * aspect)
@@ -59,9 +85,11 @@ def fitted_rect(area: QRectF, aspect: float) -> QRectF:
 class CircuitWidget(QWidget):
     """The Single Diode Model schematic: an SVG drawn at its own aspect ratio, scaled to fit."""
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, palette: Palette = LIGHT, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._renderer = QSvgRenderer(QByteArray(_asset(SCHEMATIC)))
+        self._svg = _asset(SCHEMATIC)
+        self._renderer = QSvgRenderer()
+        self.set_palette(palette)
         view_box = self._renderer.viewBoxF()
         self._aspect = view_box.width() / view_box.height()
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
@@ -70,6 +98,11 @@ class CircuitWidget(QWidget):
     @property
     def aspect(self) -> float:
         return self._aspect
+
+    def set_palette(self, palette: Palette) -> None:
+        """Draw the schematic in the palette's colours, re-rendered from the asset."""
+        self._renderer.load(QByteArray(recoloured_svg(self._svg, palette)))
+        self.update()
 
     def drawn_rect(self) -> QRectF:
         """Where the schematic is drawn inside the widget."""
@@ -82,22 +115,32 @@ class CircuitWidget(QWidget):
 
 
 class EquationsWidget(QWidget):
-    """The three typeset equations, stacked on white cards at one common scale.
+    """The three typeset equations, stacked on cards at one common scale.
 
-    The images have transparent backgrounds, so each sits on a card to stay legible on any
-    window colour. A common scale keeps the type sizes of the three images consistent.
+    The images have transparent backgrounds and are drawn in the palette's text colour, on cards in
+    the palette's card colour, so they stay legible in both themes. A common scale keeps the type
+    sizes of the three images consistent.
     """
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, palette: Palette = LIGHT, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self._images: list[QPixmap] = []
+        self._originals: list[QImage] = []
         for name in EQUATION_IMAGES:
-            image = QPixmap()
+            image = QImage()
             if not image.loadFromData(_asset(name)):
                 raise ValueError(f"cannot load the equation image {name}")
-            self._images.append(image)
+            self._originals.append(image)
+        self._palette = palette
+        self._images: list[QImage] = []
+        self.set_palette(palette)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         self.setMinimumSize(self.fontMetrics().height() * 16, self.fontMetrics().height() * 9)
+
+    def set_palette(self, palette: Palette) -> None:
+        """Recolour the equations to the palette's text colour and redraw them."""
+        self._palette = palette
+        self._images = [recoloured_image(image, QColor(palette.text)) for image in self._originals]
+        self.update()
 
     def picture_rects(self) -> list[QRectF]:
         """Where each equation image is drawn, top to bottom, inside its card."""
@@ -127,12 +170,12 @@ class EquationsWidget(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         pad = self.fontMetrics().height() / 2
-        painter.setPen(QPen(QColor(CARD_BORDER_COLOUR)))
-        painter.setBrush(QBrush(QColor(CARD_COLOUR)))
+        painter.setPen(QPen(QColor(self._palette.card_border)))
+        painter.setBrush(QBrush(QColor(self._palette.card)))
         for image, picture in zip(self._images, self.picture_rects()):
             card = picture.adjusted(-pad, -pad, pad, pad)
             painter.drawRoundedRect(card, pad / 3, pad / 3)
-            painter.drawPixmap(picture, image, QRectF(image.rect()))
+            painter.drawImage(picture, image, QRectF(image.rect()))
         painter.end()
 
 
@@ -147,9 +190,16 @@ def _curve_plot(left_label: str) -> pg.PlotWidget:
 class ModelView(QWidget):
     """The Model screen. Shows the twin's model for the measured G and T of the latest Sample."""
 
-    def __init__(self, controller: PlaybackController, bus: DataBus, parent: QWidget | None = None):
+    def __init__(
+        self,
+        controller: PlaybackController,
+        bus: DataBus,
+        theme: ThemeManager | None = None,
+        parent: QWidget | None = None,
+    ):
         super().__init__(parent)
         self._controller = controller
+        self._theme = ThemeManager(parent=self) if theme is None else theme
         self._datasheet = controller.config.datasheet
         self._parameters = fit_parameters(self._datasheet)  # the same fit the twin predicts with
         self._sample: Sample | None = None
@@ -168,13 +218,15 @@ class ModelView(QWidget):
         self.equations = EquationsWidget()
         self.iv_plot = _curve_plot("Current (A)")
         self.pv_plot = _curve_plot("Power (W)")
-        self._iv_curve = self.iv_plot.plot(pen=pg.mkPen(CURVE_COLOUR, width=2))
-        self._pv_curve = self.pv_plot.plot(pen=pg.mkPen(POWER_COLOUR, width=2))
+        self._iv_curve = self.iv_plot.plot()
+        self._pv_curve = self.pv_plot.plot()
         self._iv_point = _point_item(self.iv_plot)
         self._pv_point = _point_item(self.pv_plot)
 
         self._build_layout()
         self._show_start()
+        self._theme.changed.connect(self._apply_palette)
+        self._apply_palette(self._theme.palette)
 
         bus.sample.connect(self._on_sample)
         bus.run_reset.connect(self._on_reset)
@@ -220,6 +272,17 @@ class ModelView(QWidget):
         self._point = (sample.measured_voltage, sample.measured_current)
         self._show_point(sample)
         self._show_values(sample)
+
+    def _apply_palette(self, palette: Palette) -> None:
+        """Restyle the curves, the operating point and the design images for a palette. Runs at start and on each change."""
+        for plot in (self.iv_plot, self.pv_plot):
+            style_plot(plot, palette)
+        self._iv_curve.setPen(pg.mkPen(palette.model_iv, width=2))
+        self._pv_curve.setPen(pg.mkPen(palette.model_pv, width=2))
+        for point in (self._iv_point, self._pv_point):
+            point.setBrush(pg.mkBrush(palette.operating_point))
+        self.circuit.set_palette(palette)
+        self.equations.set_palette(palette)
 
     def _on_sample(self, sample: Sample) -> None:
         self._sample = sample
@@ -314,7 +377,7 @@ class ModelView(QWidget):
 
 def _point_item(plot: pg.PlotWidget) -> pg.ScatterPlotItem:
     """The measured operating point, drawn on top of a curve."""
-    point = pg.ScatterPlotItem(size=12, brush=pg.mkBrush(POINT_COLOUR), pen=pg.mkPen(None))
+    point = pg.ScatterPlotItem(size=12, pen=pg.mkPen(None))
     point.setZValue(10)
     plot.addItem(point)
     return point

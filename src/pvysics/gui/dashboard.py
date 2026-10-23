@@ -1,7 +1,8 @@
 """The Dashboard window: read-only analytics on the same run as the HMI.
 
 Layout follows the dashboard wireframe: KPI tiles on top, measured vs predicted power and
-the deviation chart in the middle, irradiance and temperature with the event log below.
+the deviation chart in the middle, irradiance and temperature with the event log below. Charts take
+their colours from the theme, and follow it when the theme changes.
 The Dashboard has no controls that change the run; it subscribes to the DataBus for new data
 and reads the run's history on each UI tick. Plots are updated once per tick, with only the
 Samples that arrived since the last tick appended, so a full day stays responsive.
@@ -24,13 +25,9 @@ from PyQt6.QtWidgets import (
 )
 
 from pvysics.gui.data_bus import DataBus
-from pvysics.gui.process_view import (
-    GAUGE_SCALE_FACTOR,
-    PLACEHOLDER,
-    STATE_COLOURS,
-    STATE_TEXT_COLOURS,
-    format_readings,
-)
+from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
+from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER, format_readings
+from pvysics.gui.theme import ThemeManager, ThemeMenu, style_plot
 from pvysics.gui.validation_view import ValidationView
 from pvysics.gui.widgets import KpiTile
 from pvysics.history import RunHistory
@@ -42,11 +39,6 @@ TIME_LABEL = "Time since start (h)"
 COLUMNS = ("hours", "power_measured", "power_predicted", "deviation", "irradiance", "temperature")
 COLUMN_INDEX = {name: index for index, name in enumerate(COLUMNS)}
 INITIAL_CAPACITY = 1024
-MEASURED_COLOUR = "#1565c0"
-PREDICTED_COLOUR = "#ef6c00"
-DEVIATION_COLOUR = "#424242"
-IRRADIANCE_COLOUR = "#f9a825"
-TEMPERATURE_COLOUR = "#c62828"
 
 
 def format_event(event: Event) -> str:
@@ -104,11 +96,13 @@ class Dashboard(QMainWindow):
         bus: DataBus,
         config: RunConfig,
         parent: QWidget | None = None,
+        theme: ThemeManager | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("PV Digital Twin Dashboard")
         self._history = history
         self._thresholds = config.thresholds
+        self._theme = ThemeManager(parent=self) if theme is None else theme
         self.validation = ValidationView(config)
         self._band_items: list[pg.LinearRegionItem] = []
         self._columns = SampleColumns()
@@ -128,6 +122,9 @@ class Dashboard(QMainWindow):
         self._build_charts()
         self._build_layout()
         self._show_kpis(None, 0.0)
+        ThemeMenu(self, self._theme)
+        self._theme.changed.connect(self._apply_palette)
+        self._apply_palette(self._theme.palette)
 
         bus.sample.connect(self._mark_dirty)
         bus.event.connect(self._mark_dirty)
@@ -192,6 +189,16 @@ class Dashboard(QMainWindow):
         self._show_kpis(None, 0.0)
         self._dirty = True
 
+    def _apply_palette(self, palette: Palette) -> None:
+        """Restyle the charts and their curves for a palette. Runs at start and on each theme change."""
+        for plot in (self.power_plot, self.deviation_plot, self.irradiance_plot, self.temperature_plot):
+            style_plot(plot, palette)
+        self._power_measured.setPen(pg.mkPen(palette.measured, width=2))
+        self._power_predicted.setPen(pg.mkPen(palette.predicted, width=2, style=Qt.PenStyle.DashLine))
+        self._deviation.setPen(pg.mkPen(palette.deviation, width=2))
+        self._irradiance.setPen(pg.mkPen(palette.irradiance, width=2))
+        self._temperature.setPen(pg.mkPen(palette.temperature, width=2))
+
     def _show_kpis(self, latest: Sample | None, energy_wh: float) -> None:
         if latest is None:
             for tile in self.tiles.values():
@@ -217,29 +224,18 @@ class Dashboard(QMainWindow):
 
     def _build_charts(self) -> None:
         self.power_plot = _chart("Power (W)")
-        self._power_measured = self.power_plot.plot(
-            pen=pg.mkPen(MEASURED_COLOUR, width=2), name="P measured"
-        )
-        self._power_predicted = self.power_plot.plot(
-            pen=pg.mkPen(PREDICTED_COLOUR, width=2, style=Qt.PenStyle.DashLine),
-            name="P predicted",
-        )
+        self._power_measured = self.power_plot.plot(name="P measured")
+        self._power_predicted = self.power_plot.plot(name="P predicted")
 
         self.deviation_plot = _chart("Deviation (%)")
-        self._deviation = self.deviation_plot.plot(
-            pen=pg.mkPen(DEVIATION_COLOUR, width=2), name="Deviation"
-        )
+        self._deviation = self.deviation_plot.plot(name="Deviation")
         self._add_bands(self.deviation_plot)
 
         self.irradiance_plot = _chart("G (W/m²)")
-        self._irradiance = self.irradiance_plot.plot(
-            pen=pg.mkPen(IRRADIANCE_COLOUR, width=2), name="G"
-        )
+        self._irradiance = self.irradiance_plot.plot(name="G")
         self.temperature_plot = _chart("T (°C)")
         self.temperature_plot.setXLink(self.irradiance_plot)
-        self._temperature = self.temperature_plot.plot(
-            pen=pg.mkPen(TEMPERATURE_COLOUR, width=2), name="T"
-        )
+        self._temperature = self.temperature_plot.plot(name="T")
 
     def _add_bands(self, plot: pg.PlotWidget) -> None:
         """Shade the Normal, Warning and Abnormal bands on both sides of zero, at the thresholds."""

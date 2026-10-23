@@ -8,6 +8,8 @@ from pvysics.gui.main_window import MainWindow
 
 def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
+    app.setOrganizationName("pvysics")  # names the QSettings store, which is platform-neutral
+    app.setApplicationName("pvysics")
     bus = DataBus()  # the single data bus for the app; every window subscribes to it
     window = MainWindow(bus=bus)
     window.show()

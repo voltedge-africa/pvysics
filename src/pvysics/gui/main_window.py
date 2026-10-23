@@ -7,6 +7,7 @@ from pvysics.gui.model_view import ModelView
 from pvysics.gui.playback import PlaybackController
 from pvysics.gui.process_view import ProcessView
 from pvysics.gui.setup_view import SetupView
+from pvysics.gui.theme import ThemeManager, ThemeMenu, apply_palette
 from pvysics.history import RunHistory
 from pvysics.run import RunConfig, bundled_run_config
 
@@ -15,12 +16,21 @@ class MainWindow(QMainWindow):
     """The operator HMI window: a tab view of the Process, Model and Setup views on one run.
 
     The window keeps the run's history, fed from the bus, and opens the read-only Dashboard on it.
-    Apply on the Setup view replaces the run through the playback controller.
+    Apply on the Setup view replaces the run through the playback controller. The window owns the
+    theme: it applies the palette to the app and the View menu sets the choice for both windows.
     """
 
-    def __init__(self, bus: DataBus | None = None, config: RunConfig | None = None) -> None:
+    def __init__(
+        self,
+        bus: DataBus | None = None,
+        config: RunConfig | None = None,
+        theme: ThemeManager | None = None,
+    ) -> None:
         super().__init__()
         self.setWindowTitle("PV Digital Twin")
+        self.theme = ThemeManager(parent=self) if theme is None else theme
+        self.theme.changed.connect(apply_palette)
+        apply_palette(self.theme.palette)
         self.bus = DataBus() if bus is None else bus  # owned by Python, so it outlives the playback timer
         config = bundled_run_config() if config is None else config
         self.history = RunHistory()
@@ -29,7 +39,7 @@ class MainWindow(QMainWindow):
         self.bus.run_reset.connect(self.history.clear)
         self.playback = PlaybackController(config, self.bus, self)
         self.process_view = ProcessView(self.playback, self.bus)
-        self.model_view = ModelView(self.playback, self.bus)
+        self.model_view = ModelView(self.playback, self.bus, theme=self.theme)
         self.setup_view = SetupView(config)
         self.setup_view.apply_requested.connect(self._apply_setup)
         self._tabs = QTabWidget()
@@ -42,6 +52,7 @@ class MainWindow(QMainWindow):
         self.open_dashboard_action = QAction("Open Dashboard", self)
         self.open_dashboard_action.triggered.connect(self._on_open_dashboard_triggered)
         self.menuBar().addMenu("&Window").addAction(self.open_dashboard_action)
+        ThemeMenu(self, self.theme)
 
     def _apply_setup(self, config: RunConfig) -> None:
         """Start a new run from config. The bus resets the history and the views; the Dashboard follows the new config."""
@@ -57,7 +68,9 @@ class MainWindow(QMainWindow):
     def open_dashboard(self) -> Dashboard:
         """Show the Dashboard, creating it on first use. Closing it leaves the HMI and the run running."""
         if self._dashboard is None:
-            self._dashboard = Dashboard(self.history, self.bus, self.playback.config, parent=self)
+            self._dashboard = Dashboard(
+                self.history, self.bus, self.playback.config, parent=self, theme=self.theme
+            )
         self._dashboard.show()
         self._dashboard.raise_()
         self._dashboard.activateWindow()

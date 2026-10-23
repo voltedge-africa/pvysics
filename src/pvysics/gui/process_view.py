@@ -7,8 +7,8 @@ Sizes come from layouts and font metrics, so the view scales with the platform f
 """
 
 import numpy as np
-from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen
+from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPalette, QPen
 from PyQt6.QtWidgets import (
     QComboBox,
     QGridLayout,
@@ -26,14 +26,13 @@ from PyQt6.QtWidgets import (
 from pvysics.alarms import Alarm, AlarmLog
 from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.data_bus import DataBus
+from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.run import Sample, State, Thresholds
 
 PLACEHOLDER = "-"
 IDLE_TEXT = "Ready"
 IDLE_COLOUR = "#616161"
-STATE_COLOURS = {State.NORMAL: "#2e7d32", State.WARNING: "#f2a900", State.ABNORMAL: "#c62828"}
-STATE_TEXT_COLOURS = {State.NORMAL: "#ffffff", State.WARNING: "#000000", State.ABNORMAL: "#ffffff"}
 GAUGE_SCALE_FACTOR = 1.5  # the gauge runs from 0 to this multiple of the abnormal limit
 
 PLANT_READINGS = [
@@ -51,7 +50,6 @@ FAULT_BUTTON_LABELS = {
     FaultKind.DIODE_FAILURE: "Diode failure",
     FaultKind.SENSOR_DRIFT: "Sensor drift",
 }
-MUTED_TEXT_COLOUR = "#757575"
 
 
 def format_number(value: float, decimals: int, signed: bool = False) -> str:
@@ -246,6 +244,11 @@ class AlarmPanel(QGroupBox):
         bus.run_reset.connect(self._on_reset)
         self._refresh()
 
+    def changeEvent(self, event) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.PaletteChange and hasattr(self, "log"):
+            self._refresh()  # the muted colour of acknowledged alarms follows the palette
+
     def _on_sample(self, sample: Sample) -> None:
         if self.log.record(sample) is not None:
             self._refresh()
@@ -269,7 +272,7 @@ class AlarmPanel(QGroupBox):
             item = QListWidgetItem(format_alarm(alarm))
             item.setData(Qt.ItemDataRole.UserRole, index)
             if alarm.acknowledged:
-                item.setForeground(QBrush(QColor(MUTED_TEXT_COLOUR)))
+                item.setForeground(QBrush(self.palette().color(QPalette.ColorRole.PlaceholderText)))
             else:
                 font = QFont(item.font())
                 font.setBold(True)

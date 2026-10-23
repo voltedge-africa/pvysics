@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 from PyQt6.QtCore import Qt, QSignalBlocker, pyqtSignal
+from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
@@ -44,10 +45,10 @@ from pvysics.profile import (
     load_bundled_profile,
     parse_profile_table,
 )
+from pvysics.gui.theme import ERROR_ROLE
 from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
 from pvysics.run_setup import derive_thresholds, summary_rows, validate_config
 
-ERROR_COLOUR = "#c62828"
 NO_COLUMN = "(choose a column)"
 MAX_SEED = 2**31 - 1  # the seed spin box is a 32-bit integer
 
@@ -128,7 +129,7 @@ class ProfileDialog(QDialog):
         except ProfileError as error:
             self._profile = None
             self.checks_label.setText(f"Rejected: {error}. The previous profile stays active.")
-            self.checks_label.setStyleSheet(f"color: {ERROR_COLOUR};")
+            self.checks_label.setForegroundRole(ERROR_ROLE)
             self.use_button.setEnabled(False)
             return
         self._profile = profile
@@ -137,7 +138,7 @@ class ProfileDialog(QDialog):
             f"Passed: {len(profile.timestamps)} rows from {_stamp(profile.timestamps[0])} "
             f"to {_stamp(profile.timestamps[-1])}, time step {step:g} s."
         )
-        self.checks_label.setStyleSheet("")
+        self.checks_label.setForegroundRole(QPalette.ColorRole.WindowText)
         self.use_button.setEnabled(True)
 
 
@@ -364,7 +365,7 @@ class SetupView(QWidget):
 
     def _say(self, text: str, error: bool = False) -> None:
         self.message_label.setText(text)
-        self.message_label.setStyleSheet(f"color: {ERROR_COLOUR};" if error else "")
+        self.message_label.setForegroundRole(ERROR_ROLE if error else QPalette.ColorRole.WindowText)
 
     def _build(self) -> None:
         self.profile_box = QComboBox()
