@@ -11,7 +11,7 @@ The prototype is a PyQt6 application with two windows that read the same run:
 
 Each window has a collapsible log pane at its bottom. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
 
-All input data is static. The bundled profile is one hourly NASA POWER sample for Durban, and the default module is a generic 60-cell, 250 W datasheet. There is no live data fetching and no hardware.
+The default input is static: the bundled profile is one hourly NASA POWER sample for Durban, and the default module is a generic 60-cell, 250 W datasheet. The Setup tab can also fetch a profile from NASA POWER for a chosen place and dates (see Fetching a profile below). There is no hardware.
 
 The design documents (wireframes, block diagrams, deck) are in `documentation/`. The specification and tickets are in `.scratch/pvysics-prototype/`.
 
@@ -94,10 +94,16 @@ The tests set `QT_QPA_PLATFORM=offscreen` themselves (`tests/conftest.py`), so t
 
 `uv build` writes `dist/`, which is git-ignored. The wheel includes the bundled data and the design assets under `src/pvysics/gui/assets/`.
 
+## Fetching a profile
+
+The Setup tab has a **Fetch profile (NASA POWER)** group. Choose the latitude and longitude (**Use Site location** copies the Site fields; uncheck it to enter other coordinates), the start and end dates, the irradiance (all-sky or clear-sky) and the time standard (local standard time or UTC), then press **Fetch**. The request runs in the background, and **Cancel** discards its result. The fetched profile is staged and shows a one-line summary. It becomes the active profile only when you press **Use fetched profile**, and then **Apply and start** uses it like a loaded CSV. A failed fetch shows its reason on the Setup tab and in the log, and the active profile does not change.
+
+A request covers at most 31 days, and the end date cannot be in the future. Responses are cached as raw text under the platform's user cache location, in a `pvysics/pvysics/profiles` folder. On Linux this is `~/.cache/pvysics/pvysics/profiles`. A repeat of the same request is read from the cache with no network access, and the summary says "from cache". A cache file that no longer parses is ignored and fetched again.
+
 ## Architecture
 
-- **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV), `log_model.py` (the bounded log buffer and its level filter). Tests and scripts call these directly. Modules log through the standard `logging` module under the `pvysics` name.
-- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `launcher.py` (the launcher), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive. `log_bridge.py` is the one logging handler: it passes records to the UI thread through a Qt signal, and `log_pane.py` is the log pane docked in each window.
+- **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV), `log_model.py` (the bounded log buffer and its level filter), `fetch.py` (the NASA POWER fetch client, its request building, response parsing and disk cache; the transport is injected, so tests never use the network). Tests and scripts call these directly. Modules log through the standard `logging` module under the `pvysics` name.
+- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `launcher.py` (the launcher), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), `fetch_panel.py` (the Fetch profile group on the Setup tab, which runs fetches on a worker thread), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive. `log_bridge.py` is the one logging handler: it passes records to the UI thread through a Qt signal, and `log_pane.py` is the log pane docked in each window.
 - **Data bus** (`gui/data_bus.py`): an in-process `DataBus` of Qt signals (`sample`, `event`, `run_reset`). Both windows subscribe to it through the session, which owns it along with the run. It stands in for the WebSocket and CSV bus in the design. The `Sample` record is the one an ESP32 would publish later.
 
 ## Demo script
@@ -173,7 +179,8 @@ I measured this with the faults injected at 10:00 on the bundled day at the defa
 
 **Scope and deferred items**
 
-- No live data fetching (NASA POWER or PVGIS), no sun position or plane-of-array irradiance, and no hardware. There is no ESP32, serial or Wi-Fi link, and no WebSocket or network service. The in-process Qt signal bus stands in for the design's network bus.
+- Live fetching is NASA POWER only, for hourly point data, one point and at most 31 days per request. PVGIS is not supported. The bundled sample stays the offline default and the fallback: with no network, the bundled days still load and run.
+- No sun position or plane-of-array irradiance, and no hardware. There is no ESP32, serial or Wi-Fi link, and no WebSocket or network service. The in-process Qt signal bus stands in for the design's network bus.
 - Site fields (latitude, longitude, tilt, azimuth) are metadata only. They are stored and shown in the run summary and never enter the physics.
 - One module only: no strings, arrays, MPPT or load modelling.
 - Fault severity is fixed at the defaults. The Setup screen cannot schedule faults; `RunConfig` accepts scheduled faults, but the Setup controls never fill them in.

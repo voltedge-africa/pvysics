@@ -47,6 +47,7 @@ from pvysics.profile import (
     load_bundled_profile,
     parse_profile_table,
 )
+from pvysics.gui.fetch_panel import FetchPanel
 from pvysics.gui.theme import ERROR_ROLE
 from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
 from pvysics.run_setup import datasheet_problems, derive_thresholds, summary_rows, validate_config
@@ -286,6 +287,21 @@ class SetupView(QWidget):
     def _cancel_csv(self) -> None:
         self._say("Load cancelled. The previous profile stays active.")
 
+    def _use_fetched(self, profile: Profile) -> None:
+        self._set_profile(profile)
+        self._say(f"Using fetched {profile.name}: {len(profile.timestamps)} samples. Apply and start to use it.")
+
+    def _show_fetch_message(self, text: str, problem: bool) -> None:
+        self._say(text, error=problem)  # the fetch has already logged the problem at its level
+
+    def _sync_fetch_site(self, *_args) -> None:
+        """The fetch position follows the Site fields while Use Site location is checked."""
+        self.fetch_panel.set_site(self.latitude_spin.value(), self.longitude_spin.value())
+
+    def shutdown(self) -> None:
+        """End a running fetch before the window closes. See FetchPanel.shutdown."""
+        self.fetch_panel.shutdown()
+
     def _on_validate_clicked(self, *_args) -> None:
         self.validate()
 
@@ -416,6 +432,9 @@ class SetupView(QWidget):
         self.profile_info.setWordWrap(True)
         self.load_csv_button = QPushButton("Load CSV...")
         self.load_csv_button.clicked.connect(self._choose_csv)
+        self.fetch_panel = FetchPanel(self)
+        self.fetch_panel.message.connect(self._show_fetch_message)
+        self.fetch_panel.profile_chosen.connect(self._use_fetched)
 
         self.module_label = QLabel()
         self.module_label.setWordWrap(True)
@@ -462,6 +481,8 @@ class SetupView(QWidget):
         self.longitude_spin = _spin(-180.0, 180.0, 2, " °")
         self.tilt_spin = _spin(0.0, 90.0, 1, " °")
         self.azimuth_spin = _spin(0.0, 360.0, 1, " ° (0 is north)")
+        self.latitude_spin.valueChanged.connect(self._sync_fetch_site)
+        self.longitude_spin.valueChanged.connect(self._sync_fetch_site)
 
         self.summary_label = QLabel()
         self.summary_label.setWordWrap(True)
@@ -532,7 +553,7 @@ class SetupView(QWidget):
 
         columns = QHBoxLayout()
         for column in (
-            (profile_group, module_group, site_group),
+            (profile_group, self.fetch_panel, module_group, site_group),
             (mismatch_group, sensor_group),
             (threshold_group, summary_group),
         ):

@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
 
     def closeEvent(self, event) -> None:
         log.debug("Window closed: HMI")
+        self.setup_view.shutdown()  # a running fetch ends before the window closes
         super().closeEvent(event)
 
     def _apply_setup(self, config: RunConfig) -> None:
