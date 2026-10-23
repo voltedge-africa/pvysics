@@ -9,8 +9,7 @@ underline and a small type scale. Widgets opt in with Qt properties, so no widge
     variant "primary" the one main action on a screen, "danger" a destructive action, "active" a toggled-on chip
 """
 
-from pvysics.gui.palette import STATE_COLOURS, Palette
-from pvysics.run import State
+from pvysics.gui.palette import Palette
 
 RADIUS_PX = 8
 FIELD_PADDING_PX = 4
@@ -45,8 +44,6 @@ QFrame[card="true"] {{
     border: 1px solid {p.card_border};
     border-radius: {RADIUS_PX}px;
 }}
-QFrame[tone="good"] {{ border-left: 5px solid {STATE_COLOURS[State.NORMAL]}; }}
-QFrame[tone="attention"] {{ border-left: 5px solid {STATE_COLOURS[State.WARNING]}; }}
 QFrame[card="true"] QLabel {{
     background: transparent;
     border: none;

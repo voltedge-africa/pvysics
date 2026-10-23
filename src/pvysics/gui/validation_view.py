@@ -14,7 +14,6 @@ from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
-    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -209,13 +208,6 @@ class ValidationView(QWidget):
             f"At the limits derived from the healthy run (mean + 2 and 3 sigma): "
             f"warning {derived.warning_pct:.2f} %, abnormal {derived.abnormal_pct:.2f} %."
         )
-        text, good = verdict(report)
-        self.verdict_label.setText(text)
-        note = derived_note(report)
-        self.verdict_note.setText(note)
-        self.verdict_note.setVisible(bool(note))
-        set_property(self.verdict, "tone", "good" if good else "attention")
-        self.status_label.setText("Validation finished for the applied config.")
 
     def _export_samples(self) -> None:
         report = self._report
@@ -292,17 +284,6 @@ class ValidationView(QWidget):
         self.empty_label = role_label(EMPTY_TEXT, "muted", Qt.AlignmentFlag.AlignCenter)
         self.empty_label.setWordWrap(True)
 
-        # The headline answer, in words, before any number.
-        self.verdict = QFrame()
-        self.verdict.setProperty("card", "true")
-        self.verdict_label = role_label("", "strong")
-        self.verdict_label.setWordWrap(True)
-        self.verdict_note = role_label("", "muted")
-        self.verdict_note.setWordWrap(True)
-        verdict_layout = QVBoxLayout(self.verdict)
-        verdict_layout.addWidget(self.verdict_label)
-        verdict_layout.addWidget(self.verdict_note)
-
         self.mean_delay_label = KpiTile(
             "Mean delay", tooltip="Time from a fault starting to the first sample that is not Normal."
         )
@@ -361,7 +342,6 @@ class ValidationView(QWidget):
         self.results = QWidget()
         results_layout = QVBoxLayout(self.results)
         results_layout.setContentsMargins(0, 0, 0, 0)
-        results_layout.addWidget(self.verdict)
         results_layout.addLayout(grid)
         results_layout.addStretch(1)
         self.results.setVisible(False)
@@ -391,36 +371,6 @@ class ValidationView(QWidget):
         root.addWidget(self.config_label)
         root.addLayout(status_row)
         root.addWidget(scroll, 1)
-
-
-def verdict(report: ValidationReport) -> tuple[str, bool]:
-    """The result in a sentence, and whether it is all good (every fault found, no false alarms)."""
-    total = len(report.faults)
-    detected = sum(1 for score in report.faults if score.delay_s is not None)
-    if detected == total:
-        found = f"All {total} faults were detected"
-        mean = report.mean_delay_s
-        if mean is not None:
-            found += " straight away" if mean <= 0 else f", on average {mean:.0f} s after they began"
-    else:
-        found = f"{detected} of {total} faults were detected and {total - detected} missed"
-    false_alarms = report.false_alarm_rate
-    quiet = (
-        "no false alarms on healthy data"
-        if false_alarms == 0
-        else f"{false_alarms * 100:.1f} % false alarms on healthy data"
-    )
-    return f"{found}, with {quiet} at the configured limits.", detected == total and false_alarms == 0
-
-
-def derived_note(report: ValidationReport) -> str:
-    """A caution when limits derived from the healthy run would raise false alarms. Empty when they would not."""
-    if report.false_alarm_rate_derived <= 0:
-        return ""
-    return (
-        f"Limits derived from the healthy run (mean + 2 and 3 sigma) would raise "
-        f"{report.false_alarm_rate_derived * 100:.1f} % false alarms."
-    )
 
 
 def _tinted(colour: str) -> QColor:

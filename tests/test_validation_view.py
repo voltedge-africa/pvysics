@@ -282,41 +282,7 @@ def test_each_fault_shows_a_detected_or_missed_result(qtbot, window):
         assert view.fault_table.item(row, 1).text() == expected
 
 
-def test_the_verdict_says_in_words_what_the_validation_found(qtbot, window):
-    view = run_and_wait(qtbot, window)
-    report = view.report
 
-    text, good = validation_view.verdict(report)
-
-    assert view.verdict_label.text() == text
-    detected = sum(1 for score in report.faults if score.delay_s is not None)
-    assert (f"All {len(report.faults)} faults were detected" in text) == (detected == len(report.faults))
-    assert good == (detected == len(report.faults) and report.false_alarm_rate == 0)
-    assert view.verdict.property("tone") == ("good" if good else "attention")
-
-
-def test_the_verdict_names_missed_faults_and_false_alarms_when_there_are_some(qtbot, window):
-    view = run_and_wait(qtbot, window)
-    report = view.report
-    first = report.faults[0]
-    worse = dc_replace(
-        report,
-        faults=(dc_replace(first, delay_s=None, detection_rate=None),) + report.faults[1:],
-        false_alarm_rate=0.043,
-    )
-
-    text, good = validation_view.verdict(worse)
-
-    assert "1 missed" in text and "4.3 % false alarms" in text
-    assert not good
-
-
-def test_the_derived_limits_note_appears_only_when_they_would_raise_false_alarms(qtbot, window):
-    report = run_and_wait(qtbot, window).report
-
-    assert validation_view.derived_note(dc_replace(report, false_alarm_rate_derived=0.0)) == ""
-    note = validation_view.derived_note(dc_replace(report, false_alarm_rate_derived=0.043))
-    assert "4.3 % false alarms" in note and "mean + 2 and 3 sigma" in note
 
 
 def test_the_confusion_matrix_is_green_where_the_twin_was_right_and_red_where_it_was_wrong():
