@@ -16,12 +16,13 @@ import pyqtgraph as pg
 from PyQt6.QtCore import QByteArray, QRectF, Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPen
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtWidgets import QGroupBox, QHBoxLayout, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QGroupBox, QHBoxLayout, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from pvysics.gui.data_bus import DataBus
 from pvysics.gui.palette import LIGHT, Palette
 from pvysics.gui.playback import PlaybackController
 from pvysics.gui.process_view import ReadingsPanel, format_number, format_readings
+from pvysics.gui.ui_helpers import CompactPlot
 from pvysics.gui.theme import ThemeManager, style_plot
 from pvysics.run import Sample
 from pvysics.single_diode import DiodeParameters, IVCurve, fit_parameters, solve_curve
@@ -134,7 +135,7 @@ class EquationsWidget(QWidget):
         self._images: list[QImage] = []
         self.set_palette(palette)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
-        self.setMinimumSize(self.fontMetrics().height() * 16, self.fontMetrics().height() * 9)
+        self.setMinimumSize(self.fontMetrics().height() * 20, self.fontMetrics().height() * 17)  # legible type
 
     def set_palette(self, palette: Palette) -> None:
         """Recolour the equations to the palette's text colour and redraw them."""
@@ -180,15 +181,21 @@ class EquationsWidget(QWidget):
 
 
 def _curve_plot(left_label: str) -> pg.PlotWidget:
-    plot = pg.PlotWidget()
+    plot = CompactPlot()
+    for side in ("left", "bottom"):
+        plot.getAxis(side).enableAutoSIPrefix(False)  # 0.2 A would otherwise read as 200 (x0.001)
+    plot.setMinimumHeight(plot.fontMetrics().height() * 12)
     plot.showGrid(x=True, y=True, alpha=0.3)
     plot.setLabel("left", left_label)
     plot.setLabel("bottom", "Voltage (V)")
     return plot
 
 
-class ModelView(QWidget):
-    """The Model screen. Shows the twin's model for the measured G and T of the latest Sample."""
+class ModelView(QScrollArea):
+    """The Model screen. Shows the twin's model for the measured G and T of the latest Sample.
+
+    It fills the window and scrolls only when the window is too small to show it.
+    """
 
     def __init__(
         self,
@@ -369,10 +376,14 @@ class ModelView(QWidget):
         curves.addWidget(self.iv_plot, 1)
         curves.addWidget(self.pv_plot, 1)
 
-        layout = QVBoxLayout(self)
+        content = QWidget()
+        layout = QVBoxLayout(content)
         layout.addLayout(top, 3)
         layout.addLayout(readings)
         layout.addWidget(curves_box, 3)
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setWidget(content)
 
 
 def _point_item(plot: pg.PlotWidget) -> pg.ScatterPlotItem:

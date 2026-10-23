@@ -1,9 +1,9 @@
-"""The HMI Process view: plant readings, twin prediction, deviation gauge, state banner,
-fault injection, alarms and run controls.
+"""The HMI Process view: what the plant is doing, what the twin expects, and how far apart they are.
 
-Layout follows the HMI wireframe: banner on top, plant panel left, twin panel middle,
-deviation panel right, fault injection and alarms below, run controls at the bottom.
-Sizes come from layouts and font metrics, so the view scales with the platform font and DPI.
+Top to bottom: a status strip (the state, a sentence that says what it means, and the run controls),
+three headline cards (plant, twin, deviation), a live power trend, then fault injection and alarms.
+The strip puts the answer to "is it OK?" and the controls where the eye starts. Sizes come from layouts
+and font metrics, and colours from the palette and stylesheet, so the view scales with font, DPI and theme.
 """
 
 import logging
@@ -13,6 +13,7 @@ from PyQt6.QtCore import QEvent, QPointF, QRectF, Qt
 from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPalette, QPen
 from PyQt6.QtWidgets import (
     QComboBox,
+    QFrame,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
@@ -20,6 +21,7 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QListWidgetItem,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
@@ -28,29 +30,46 @@ from PyQt6.QtWidgets import (
 from pvysics.alarms import Alarm, AlarmLog
 from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.data_bus import DataBus
-from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS
+from pvysics.gui.palette import LIGHT, STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.playback import SPEEDS, PlaybackController
-from pvysics.run import Sample, State, Thresholds
+from pvysics.gui.trend import PowerTrend
+from pvysics.gui.ui_helpers import role_label, set_property
+from pvysics.history import RunHistory
+from pvysics.run import POWER_FLOOR_W, Sample, State, Thresholds
 
 PLACEHOLDER = "-"
 IDLE_TEXT = "Ready"
 IDLE_COLOUR = "#616161"
+LOWER_ROW_MAX_PX = 120  # fault buttons and alarms stay compact so the trend gets the room
 GAUGE_SCALE_FACTOR = 1.5  # the gauge runs from 0 to this multiple of the abnormal limit
 
+IDLE_SENTENCE = "Press Start to play the run."
+IDLE_DETAIL = "The twin predicts power from the measured irradiance and temperature, then compares."
+NIGHT_SENTENCE = "Night or very low light: too little power to compare."
+NIGHT_DETAIL = "The twin and the plant both read close to zero, so the state stays Normal."
+# (key, caption); the first reading of a panel is its headline figure.
 PLANT_READINGS = [
+    ("P", "Power P measured"),
     ("G", "Irradiance G"),
     ("T", "Module temp T"),
     ("V", "Voltage V"),
     ("I", "Current I"),
-    ("P", "Power P measured"),
 ]
 TWIN_READINGS = [("P_pred", "Power P predicted")]
+TWIN_NOTE = "Single Diode Model with the datasheet parameters, evaluated at the measured G and T."
 FAULT_BUTTON_LABELS = {
     FaultKind.PARTIAL_SHADING: "Partial shading",
     FaultKind.SOILING: "Soiling",
     FaultKind.SERIES_RESISTANCE_RISE: "Rs increase",
     FaultKind.DIODE_FAILURE: "Diode failure",
     FaultKind.SENSOR_DRIFT: "Sensor drift",
+}
+FAULT_TOOLTIPS = {
+    FaultKind.PARTIAL_SHADING: "Part of the module is shaded: less photocurrent, so less power.",
+    FaultKind.SOILING: "Dust on the glass: less light reaches the cells.",
+    FaultKind.SERIES_RESISTANCE_RISE: "A degraded connection: more series resistance, so more loss.",
+    FaultKind.DIODE_FAILURE: "A bypass diode has failed: a group of cells drops out.",
+    FaultKind.SENSOR_DRIFT: "The irradiance sensor reads high: the twin predicts wrongly, the plant is fine.",
 }
 
 
@@ -80,14 +99,12 @@ def _tinted(colour: str, alpha: float) -> QColor:
 
 
 class StateBanner(QLabel):
-    """Full-width banner: the State in green, amber or red, or grey before a run starts."""
+    """The State as a coloured pill: green, amber or red, or grey before a run starts."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = self.font()
-        font.setBold(True)
-        self.setFont(font)
+        self.setMinimumWidth(self.fontMetrics().horizontalAdvance("Abnormal") * 3 // 2)
         self._colour = IDLE_COLOUR
         self.show_state(None)
 
@@ -101,23 +118,44 @@ class StateBanner(QLabel):
             text, colour, text_colour = state.value, STATE_COLOURS[state], STATE_TEXT_COLOURS[state]
         self._colour = colour
         self.setText(text)
-        self.setStyleSheet(f"background-color: {colour}; color: {text_colour};")
+        self.setStyleSheet(
+            f"background-color: {colour}; color: {text_colour}; border-radius: 6px;"
+            " padding: 3px 12px; font-weight: 700;"
+        )
 
 
 class ReadingsPanel(QGroupBox):
-    """A titled group of readings, each a caption and a value."""
+    """A titled card of readings. The first reading is the headline figure, the rest are listed below it."""
 
-    def __init__(self, title: str, readings: list[tuple[str, str]], parent: QWidget | None = None):
+    def __init__(
+        self,
+        title: str,
+        readings: list[tuple[str, str]],
+        note: str = "",
+        parent: QWidget | None = None,
+    ):
         super().__init__(title, parent)
-        grid = QGridLayout(self)
         self._values: dict[str, QLabel] = {}
-        for row, (key, caption) in enumerate(readings):
-            value = QLabel(PLACEHOLDER)
-            value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-            grid.addWidget(QLabel(caption), row, 0)
-            grid.addWidget(value, row, 1)
-            self._values[key] = value
-        grid.setRowStretch(len(readings), 1)
+        layout = QVBoxLayout(self)
+        (head_key, head_caption), rest = readings[0], readings[1:]
+        head_value = role_label(PLACEHOLDER, "hero")
+        self._values[head_key] = head_value
+        layout.addWidget(head_value)
+        layout.addWidget(role_label(head_caption, "caption"))
+        if note:
+            self.setToolTip(note)  # the explanation is a tooltip, so the card stays short
+        if rest:
+            grid = QGridLayout()  # two readings per row: caption, value, caption, value
+            for index, (key, caption) in enumerate(rest):
+                row, column = divmod(index, 2)
+                value = QLabel(PLACEHOLDER)
+                value.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+                grid.addWidget(role_label(caption, "muted"), row, 2 * column)
+                grid.addWidget(value, row, 2 * column + 1)
+                grid.setColumnStretch(2 * column + 1, 1)
+                self._values[key] = value
+            layout.addLayout(grid)
+        layout.addStretch(1)
 
     def value(self, key: str) -> str:
         return self._values[key].text()
@@ -244,6 +282,7 @@ class AlarmPanel(QGroupBox):
         self.log = AlarmLog()
         self.summary_label = QLabel()
         self.list_widget = QListWidget()
+        self.list_widget.setMinimumHeight(self.fontMetrics().height() * 3)  # three rows; it scrolls when more
         self.acknowledge_button = QPushButton("Acknowledge")
         self.acknowledge_button.setEnabled(False)
 
@@ -326,93 +365,181 @@ class AlarmPanel(QGroupBox):
         return self.log.alarms[item.data(Qt.ItemDataRole.UserRole)]
 
 
-class ProcessView(QWidget):
-    """The Process screen. Subscribes to the DataBus and drives the PlaybackController."""
+def describe_state(sample: Sample, thresholds: Thresholds) -> tuple[str, str]:
+    """A sentence and a detail line that say what the state means, in words an operator can read at a glance."""
+    if sample.power_predicted < POWER_FLOOR_W:
+        return NIGHT_SENTENCE, NIGHT_DETAIL
+    deviation = sample.deviation_pct
+    side = "above" if deviation > 0 else "below"
+    sentence = f"Plant output is {abs(deviation):.1f} % {side} the twin's prediction."
+    detail = {
+        State.NORMAL: f"Within the warning limit of {thresholds.warning_pct:g} %: the plant behaves as modelled.",
+        State.WARNING: f"Past the warning limit of {thresholds.warning_pct:g} %: worth a look.",
+        State.ABNORMAL: f"Past the abnormal limit of {thresholds.abnormal_pct:g} %: the plant is not behaving as modelled.",
+    }[sample.state]
+    return sentence, detail
 
-    def __init__(self, controller: PlaybackController, bus: DataBus, parent: QWidget | None = None):
+
+class ProcessView(QScrollArea):
+    """The Process screen. Subscribes to the DataBus and drives the PlaybackController.
+
+    It fills the window and scrolls only when the window is too small to show it, so it never forces the
+    window taller than a laptop screen.
+
+    theme gives the trend its colours (the light palette if none); history, if given, fills the trend
+    with the run so far when the window is first opened in the middle of a run.
+    """
+
+    def __init__(
+        self,
+        controller: PlaybackController,
+        bus: DataBus,
+        parent: QWidget | None = None,
+        theme=None,
+        history: RunHistory | None = None,
+    ):
         super().__init__(parent)
         self._controller = controller
+        palette = LIGHT if theme is None else theme.palette
         self.banner = StateBanner()
+        self.summary_label = role_label(IDLE_SENTENCE, "strong")
+        self.summary_label.setToolTip(IDLE_DETAIL)  # the explanation is a tooltip, so the strip stays one slim row
+        self.summary_label.setMinimumWidth(0)
         self.plant = ReadingsPanel("Plant (measured)", PLANT_READINGS)
-        self.twin = ReadingsPanel("Digital twin (predicted)", TWIN_READINGS)
+        self.twin = ReadingsPanel("Digital twin (predicted)", TWIN_READINGS, note=TWIN_NOTE)
         self.gauge = DeviationGauge(controller.config.thresholds)
-        self.deviation_label = QLabel(PLACEHOLDER)
-        self.deviation_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
+        self.deviation_label = role_label(PLACEHOLDER, "hero", Qt.AlignmentFlag.AlignHCenter)
+        self.trend = PowerTrend(palette)
+        self.alarm_panel = AlarmPanel(bus)
 
         deviation_panel = QGroupBox("Power deviation")
         deviation_layout = QVBoxLayout(deviation_panel)
         deviation_layout.addWidget(self.deviation_label)
+        deviation_layout.addWidget(role_label("of the predicted power", "caption", Qt.AlignmentFlag.AlignHCenter))
         deviation_layout.addWidget(self.gauge)
         deviation_layout.addStretch(1)
 
-        panels = QHBoxLayout()
+        cards = QHBoxLayout()
         for panel in (self.plant, self.twin, deviation_panel):
-            panels.addWidget(panel, 1)
+            cards.addWidget(panel, 1)
 
-        self.alarm_panel = AlarmPanel(bus)
+        trend_panel = QGroupBox("Power over the run")
+        QVBoxLayout(trend_panel).addWidget(self.trend)
+
+        self.alarm_panel.setMaximumHeight(LOWER_ROW_MAX_PX)
         lower = QHBoxLayout()
         lower.addWidget(self._build_fault_panel())
         lower.addWidget(self.alarm_panel, 1)
 
-        layout = QVBoxLayout(self)
-        layout.addWidget(self.banner)
-        layout.addLayout(panels, 1)
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.addWidget(self._build_status_strip())
+        layout.addLayout(cards)
+        layout.addWidget(trend_panel, 1)
         layout.addLayout(lower)
-        layout.addLayout(self._build_controls())
+        self.setWidgetResizable(True)
+        self.setFrameShape(QFrame.Shape.NoFrame)
+        self.setWidget(content)
 
         bus.sample.connect(self._show_sample)
         bus.run_reset.connect(self._show_start)
-        controller.running_changed.connect(lambda _running: self._refresh_controls())
+        controller.running_changed.connect(self._on_running_changed)
+        if theme is not None:
+            theme.changed.connect(self._apply_palette)
+        if history is not None:
+            for sample in history.samples_from(0):
+                self.trend.add_sample(sample)
+            self.trend.flush()
         self._refresh_controls()
+
+    def _build_status_strip(self) -> QFrame:
+        """One slim row: the state, what it means in a sentence, and the run controls."""
+        strip = QFrame()
+        strip.setProperty("card", "true")
+        layout = QHBoxLayout(strip)
+        layout.setContentsMargins(10, 5, 10, 5)
+        layout.setSpacing(10)
+        layout.addWidget(self.banner)
+        layout.addWidget(self.summary_label, 1)
+        layout.addLayout(self._build_controls())
+        return strip
 
     def _build_fault_panel(self) -> QGroupBox:
         panel = QGroupBox("Fault injection")
-        layout = QVBoxLayout(panel)
+        panel.setMaximumHeight(LOWER_ROW_MAX_PX)
+        grid = QGridLayout(panel)
         self.fault_buttons: dict[FaultKind, QPushButton] = {}
-        for kind, label in FAULT_BUTTON_LABELS.items():
+        for index, (kind, label) in enumerate(FAULT_BUTTON_LABELS.items()):
             button = QPushButton(label)
-            button.clicked.connect(lambda _checked=False, kind=kind: self._inject(kind))
-            layout.addWidget(button)
+            button.setToolTip(FAULT_TOOLTIPS[kind])
+            button.clicked.connect(self._on_fault_clicked)
+            button.setProperty("kind", kind.name)
+            grid.addWidget(button, index // 3, index % 3)
             self.fault_buttons[kind] = button
         self.clear_faults_button = QPushButton("Clear all")
-        self.clear_faults_button.clicked.connect(lambda: self._controller.clear_faults())
-        layout.addWidget(self.clear_faults_button)
-        layout.addStretch(1)
+        self.clear_faults_button.setToolTip("Remove every injected fault. The state returns to Normal.")
+        self.clear_faults_button.clicked.connect(self._on_clear_clicked)
+        grid.addWidget(self.clear_faults_button, 1, 2)
         return panel
 
-    def _inject(self, kind: FaultKind) -> None:
+    def _on_fault_clicked(self, *_args) -> None:
+        kind = FaultKind[self.sender().property("kind")]
         self._controller.inject(default_fault(kind))
+
+    def _on_clear_clicked(self, *_args) -> None:
+        self._controller.clear_faults()
 
     def _build_controls(self) -> QHBoxLayout:
         self.start_button = QPushButton("Start")
+        set_property(self.start_button, "variant", "primary")
+        self.start_button.setToolTip("Play the run from where it is.")
         self.pause_button = QPushButton("Pause")
         self.reset_button = QPushButton("Reset")
+        self.reset_button.setToolTip("Go back to the start of the run. Faults and alarms are cleared.")
         self.speed_box = QComboBox()
         for speed in SPEEDS:
             self.speed_box.addItem(f"{speed:g}x", speed)
-        self.time_label = QLabel(PLACEHOLDER)
+        self.speed_box.setToolTip("How many times faster than real time the run plays.")
+        self.time_label = role_label(PLACEHOLDER, "muted")
+        for button in (self.start_button, self.pause_button, self.reset_button):
+            button.setProperty("compact", "true")
 
-        self.start_button.clicked.connect(lambda: self._controller.start())
-        self.pause_button.clicked.connect(lambda: self._controller.pause())
-        self.reset_button.clicked.connect(lambda: self._controller.reset())
+        self.start_button.clicked.connect(self._on_start_clicked)
+        self.pause_button.clicked.connect(self._on_pause_clicked)
+        self.reset_button.clicked.connect(self._on_reset_clicked)
         self.speed_box.currentIndexChanged.connect(self._on_speed_chosen)
 
         row = QHBoxLayout()
+        row.setSpacing(6)
         for button in (self.start_button, self.pause_button, self.reset_button):
             row.addWidget(button)
-        row.addStretch(1)
-        row.addWidget(QLabel("Speed"))
+        row.addSpacing(6)
         row.addWidget(self.speed_box)
         row.addWidget(self.time_label)
         return row
 
+    def _on_start_clicked(self, *_args) -> None:
+        self._controller.start()
+
+    def _on_pause_clicked(self, *_args) -> None:
+        self._controller.pause()
+
+    def _on_reset_clicked(self, *_args) -> None:
+        self._controller.reset()
+
     def _on_speed_chosen(self, index: int) -> None:
         self._controller.set_speed(self.speed_box.itemData(index))
+
+    def _on_running_changed(self, _running: bool) -> None:
+        self._refresh_controls()
 
     def _refresh_controls(self) -> None:
         running = self._controller.is_running
         self.start_button.setEnabled(not running and not self._controller.is_finished)
         self.pause_button.setEnabled(running)
+
+    def _apply_palette(self, palette: Palette) -> None:
+        self.trend.apply_palette(palette)
 
     def _show_sample(self, sample: Sample) -> None:
         readings = format_readings(sample)
@@ -422,6 +549,12 @@ class ProcessView(QWidget):
         self.gauge.show_deviation(sample.deviation_pct, sample.state)
         self.deviation_label.setText(f"{format_number(sample.deviation_pct, 1, signed=True)} %")
         self.time_label.setText(np.datetime_as_string(sample.timestamp, unit="m").replace("T", " "))
+        sentence, detail = describe_state(sample, self._controller.config.thresholds)
+        self.summary_label.setText(sentence)
+        self.summary_label.setToolTip(detail)
+        for kind, button in self.fault_buttons.items():
+            set_property(button, "variant", "active" if kind in sample.active_faults else "")
+        self.trend.add_sample(sample)
 
     def _show_start(self) -> None:
         self.banner.show_state(None)
@@ -431,3 +564,8 @@ class ProcessView(QWidget):
         self.gauge.clear()
         self.deviation_label.setText(PLACEHOLDER)
         self.time_label.setText(PLACEHOLDER)
+        self.summary_label.setText(IDLE_SENTENCE)
+        self.summary_label.setToolTip(IDLE_DETAIL)
+        for button in self.fault_buttons.values():
+            set_property(button, "variant", "")
+        self.trend.clear()

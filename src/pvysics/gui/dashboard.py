@@ -37,6 +37,7 @@ from pvysics.gui.log_pane import bottom_log_pane
 from pvysics.gui.live_charts import LiveCharts
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER, format_readings
+from pvysics.gui.ui_helpers import CompactPlot
 from pvysics.gui.theme import ThemeMenu, style_plot
 from pvysics.gui.validation_view import ValidationView
 from pvysics.gui.widgets import KpiTile
@@ -50,6 +51,9 @@ log = logging.getLogger(__name__)
 UI_INTERVAL_MS = 100  # the Dashboard refreshes at most this often
 IDLE_MESSAGE = "No run in progress. Start a run from the HMI."
 BAND_ALPHA = 0.35
+CARD_COLUMNS = 3
+CARD_ROWS = 4
+CARD_MIN_HEIGHT_PX = 250  # a card is never shorter, so its axes stay legible; the Overview scrolls instead
 TIME_LABEL = "Time since start (h)"
 COLUMNS = (
     "hours",
@@ -152,7 +156,8 @@ class Dashboard(QMainWindow):
         self.open_launcher_action = QAction("Open Launcher", self)
         self.open_launcher_action.triggered.connect(self._on_open_launcher)
         window_menu.addAction(self.open_launcher_action)
-        ThemeMenu(self, self._theme)
+        self.theme_menu = ThemeMenu(self, self._theme)
+        self.theme_menu.add_action(self.log_pane.view_action)
         self._theme.changed.connect(self._apply_palette)
         self._apply_palette(self._theme.palette)
 
@@ -223,7 +228,6 @@ class Dashboard(QMainWindow):
         """The idle message while no HMI is open and no Sample has arrived; the charts otherwise."""
         idle = not self._session.hmi_open and self._history.sample_count == 0
         self._pages.setCurrentWidget(self._idle_page if idle else self.overview)
-        self._live_pages.setCurrentWidget(self._live_idle_page if idle else self.live_scroll)
 
     def _on_open_hmi(self, *_args) -> None:
         self._session.open_hmi()
@@ -290,7 +294,7 @@ class Dashboard(QMainWindow):
         self.temperature_plot.setXLink(self.irradiance_plot)
         self._temperature = self.temperature_plot.plot(name="T")
 
-        self.live = LiveCharts(self._session.config.datasheet, self._theme.palette)
+        self.live = LiveCharts(self._session.config.datasheet, self._theme.palette, own_layout=False)
 
     def _add_bands(self, plot: pg.PlotWidget) -> None:
         """Shade the Normal, Warning and Abnormal bands on both sides of zero, at the thresholds."""
@@ -332,36 +336,42 @@ class Dashboard(QMainWindow):
         events_layout = QVBoxLayout(events_box)
         events_layout.addWidget(self.event_list)
 
+        # One grid of cards, most telling first: power against the twin and the deviation, then the
+        # conditions behind them, then the electrical detail, then the distributions and the event log.
+        live = self.live
         charts = QGridLayout()
-        charts.addWidget(power_box, 0, 0)
-        charts.addWidget(deviation_box, 0, 1)
+        charts.addWidget(power_box, 0, 0, 1, 2)
+        charts.addWidget(deviation_box, 0, 2)
         charts.addWidget(irradiance_box, 1, 0)
-        charts.addWidget(events_box, 1, 1)
-        charts.setRowStretch(0, 1)
-        charts.setRowStretch(1, 1)
-        charts.setColumnStretch(0, 1)
-        charts.setColumnStretch(1, 1)
+        charts.addWidget(live.voltage_current_box, 1, 1)
+        charts.addWidget(live.energy_box, 1, 2)
+        charts.addWidget(live.curves_box, 2, 0, 1, 2)
+        charts.addWidget(live.states_box, 2, 2)
+        charts.addWidget(live.histogram_box, 3, 0)
+        charts.addWidget(events_box, 3, 1, 1, 2)
+        for column in range(CARD_COLUMNS):
+            charts.setColumnStretch(column, 1)
+        for row in range(CARD_ROWS):
+            charts.setRowMinimumHeight(row, CARD_MIN_HEIGHT_PX)
+            charts.setRowStretch(row, 1)
+        body = QWidget()
+        body.setLayout(charts)
+        # The cards scroll, so a short window shows the first rows and the rest a scroll away; the KPI row stays put.
+        self.overview_scroll = QScrollArea()
+        self.overview_scroll.setWidgetResizable(True)
+        self.overview_scroll.setWidget(body)
 
         self.overview = QWidget()
         layout = QVBoxLayout(self.overview)
         layout.addLayout(tiles)
-        layout.addLayout(charts, 1)
+        layout.addWidget(self.overview_scroll, 1)
         self._idle_page, self.idle_message, self.open_hmi_button = self._build_idle_page()
         self._pages = QStackedWidget()
         self._pages.addWidget(self._idle_page)
         self._pages.addWidget(self.overview)
 
-        self.live_scroll = QScrollArea()
-        self.live_scroll.setWidgetResizable(True)
-        self.live_scroll.setWidget(self.live)
-        self._live_idle_page, _message, _button = self._build_idle_page()
-        self._live_pages = QStackedWidget()
-        self._live_pages.addWidget(self._live_idle_page)
-        self._live_pages.addWidget(self.live_scroll)
-
         tabs = QTabWidget()
         tabs.addTab(self._pages, "Overview")
-        tabs.addTab(self._live_pages, "Live charts")
         tabs.addTab(self.validation, "Validation")
         self.setCentralWidget(tabs)
         self.log_pane = bottom_log_pane(self, self._session.log_bridge, self._theme)
@@ -383,7 +393,7 @@ class Dashboard(QMainWindow):
 
 
 def _chart(left_label: str) -> pg.PlotWidget:
-    plot = pg.PlotWidget()
+    plot = CompactPlot()
     plot.showGrid(x=True, y=True, alpha=0.3)
     plot.setLabel("left", left_label)
     plot.setLabel("bottom", TIME_LABEL)

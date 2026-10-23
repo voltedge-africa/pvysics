@@ -4,7 +4,7 @@ import pytest
 
 # Run Qt without a display server so the tests pass headless on any platform.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
-from PyQt6.QtCore import QSettings
+from PyQt6.QtCore import QEvent, QSettings
 from PyQt6.QtWidgets import QApplication
 
 from pvysics.gui.session import Session
@@ -32,4 +32,12 @@ def pytest_runtest_teardown(item):
             session.close()  # detaches the session's log handler, so no test leaks one into the next
         for widget in app.topLevelWidgets():
             widget.close()
-    return (yield)
+    result = yield
+    # The windows are gone now (pytest-qt deleted them). Delete the sessions too: a session is parented to the
+    # application, so it would otherwise live on, and every surviving session re-applies the stylesheet when the
+    # system colour scheme changes, which restyles every widget left over. That cost grows with each test.
+    if app is not None:
+        for session in app.findChildren(Session):
+            session.deleteLater()
+        app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    return result

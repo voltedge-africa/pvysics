@@ -13,6 +13,8 @@ from pvysics.gui.theme import ThemeMenu
 from pvysics.run import RunConfig
 
 log = logging.getLogger(__name__)
+DEFAULT_WIDTH_PX = 1280
+DEFAULT_HEIGHT_PX = 800
 
 if TYPE_CHECKING:
     from pvysics.gui.session import Session
@@ -29,12 +31,13 @@ class MainWindow(QMainWindow):
     def __init__(self, session: "Session") -> None:
         super().__init__()
         self.setWindowTitle("PV Digital Twin")
+        self.resize(DEFAULT_WIDTH_PX, DEFAULT_HEIGHT_PX)
         self.session = session
         self.theme = session.theme
         self.bus = session.bus
         self.history = session.history
         self.playback = session.playback
-        self.process_view = ProcessView(self.playback, self.bus)
+        self.process_view = ProcessView(self.playback, self.bus, theme=self.theme, history=self.history)
         self.model_view = ModelView(self.playback, self.bus, theme=self.theme)
         self.setup_view = SetupView(session.config, self.theme)
         self.setup_view.apply_requested.connect(self._apply_setup)
@@ -52,7 +55,8 @@ class MainWindow(QMainWindow):
         self.open_launcher_action = QAction("Open Launcher", self)
         self.open_launcher_action.triggered.connect(self._on_open_launcher_triggered)
         window_menu.addAction(self.open_launcher_action)
-        ThemeMenu(self, self.theme)
+        self.theme_menu = ThemeMenu(self, self.theme)
+        self.theme_menu.add_action(self.log_pane.view_action)
 
     def closeEvent(self, event) -> None:
         log.debug("Window closed: HMI")

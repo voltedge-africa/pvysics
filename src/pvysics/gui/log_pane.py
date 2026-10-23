@@ -4,7 +4,8 @@ Each window docks one pane at its bottom. Both panes show the same model, so the
 lines and share the level filter. The pane has a level filter, Clear and Copy (Copy puts the visible
 text on the clipboard), and it colours warning and error lines from the theme palette. New lines
 arrive through the bridge and are drawn on a UI tick. The view follows the newest line unless the
-user has scrolled up. Collapsing keeps the header row and hides the list.
+user has scrolled up. Collapsing keeps the header row and hides the list; Hide removes the pane, and the window's
+View > Show log (Ctrl+L) brings it back.
 """
 
 import logging
@@ -55,7 +56,8 @@ class LogPane(QDockWidget):
     def __init__(self, bridge: LogBridge, theme: ThemeManager, parent: QWidget | None = None) -> None:
         super().__init__("Log", parent)
         self.setObjectName("log_pane")
-        self.setFeatures(QDockWidget.DockWidgetFeature.NoDockWidgetFeatures)
+        # Closable, or Qt disables the View > Show log action. The empty title bar below shows no close button.
+        self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.setTitleBarWidget(QWidget())  # the header row below is the title
         self._bridge = bridge
         self._palette = theme.palette
@@ -79,10 +81,19 @@ class LogPane(QDockWidget):
         self.clear_button.clicked.connect(self._on_clear_clicked)
         self.copy_button = QPushButton("Copy")
         self.copy_button.clicked.connect(self._on_copy_clicked)
+        self.hide_button = QPushButton("Hide")
+        self.hide_button.setToolTip("Hide the log. View > Show log (Ctrl+L) brings it back.")
+        self.hide_button.clicked.connect(self._on_hide_clicked)
+        # The window's View menu shows this action checked while the pane is visible, and toggles it.
+        self.view_action = self.toggleViewAction()
+        self.view_action.setText("Show &log")
+        self.view_action.setShortcut("Ctrl+L")
 
         self.text_view = QPlainTextEdit()
         self.text_view.setReadOnly(True)
         self.text_view.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
+        # Two lines is the least that is useful. The dock still opens at DEFAULT_LINES, so a short window can shrink.
+        self.text_view.setMinimumHeight(QFontMetrics(self.text_view.font()).lineSpacing() * 2 + 12)
 
         header = QHBoxLayout()
         header.addWidget(self.collapse_button)
@@ -91,6 +102,7 @@ class LogPane(QDockWidget):
         header.addWidget(self.level_box)
         header.addWidget(self.clear_button)
         header.addWidget(self.copy_button)
+        header.addWidget(self.hide_button)
         layout = QVBoxLayout()
         layout.addLayout(header)
         layout.addWidget(self.text_view, 1)
@@ -194,6 +206,9 @@ class LogPane(QDockWidget):
     def _on_clear_clicked(self, *_args) -> None:
         self._bridge.clear()
         self.refresh()
+
+    def _on_hide_clicked(self, *_args) -> None:
+        self.hide()
 
     def _on_copy_clicked(self, *_args) -> None:
         QGuiApplication.clipboard().setText(self.visible_text())

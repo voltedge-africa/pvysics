@@ -15,6 +15,7 @@ from PyQt6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QPalette
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from pvysics.gui.palette import CHOICE_DARK, CHOICE_LIGHT, CHOICE_SYSTEM, CHOICES, Palette, palette_for
+from pvysics.gui.style import stylesheet
 
 SETTINGS_KEY = "view/theme"
 MENU_CHOICES = ((CHOICE_SYSTEM, "System"), (CHOICE_LIGHT, "Light"), (CHOICE_DARK, "Dark"))
@@ -73,10 +74,11 @@ class ThemeManager(QObject):
 
 
 def apply_palette(palette: Palette) -> None:
-    """Apply a palette to the whole application: the Fusion style and a QPalette built from it."""
+    """Apply a palette to the whole application: the Fusion style, a QPalette built from it and the stylesheet."""
     app = QApplication.instance()
     app.setStyle("Fusion")
     app.setPalette(qt_palette(palette))
+    app.setStyleSheet(stylesheet(palette))
 
 
 def qt_palette(palette: Palette) -> QPalette:
@@ -132,6 +134,7 @@ class ThemeMenu(QObject):
         group = QActionGroup(self)
         group.setExclusive(True)
         menu = window.menuBar().addMenu("&View")
+        self._menu = menu
         for choice, label in MENU_CHOICES:
             action = QAction(label, self)
             action.setCheckable(True)
@@ -142,6 +145,11 @@ class ThemeMenu(QObject):
         group.triggered.connect(self._on_chosen)
         theme.changed.connect(self._sync)
         self._sync(theme.palette)
+
+    def add_action(self, action: QAction) -> None:
+        """Add another View item, after a separator, such as the log pane's Show log."""
+        self._menu.addSeparator()
+        self._menu.addAction(action)
 
     @property
     def actions(self) -> dict[str, QAction]:

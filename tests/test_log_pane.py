@@ -84,6 +84,7 @@ def test_the_pane_is_visible_by_default_and_small(qtbot, session):
 
 def test_collapsing_hides_the_list_keeps_the_header_and_shrinks_the_dock(qtbot, session):
     hmi = shown(qtbot, session.open_hmi())
+    qtbot.wait(100)  # let the dock take its opening height before it is measured
     pane = hmi.log_pane
     expanded_height = pane.height()
 
@@ -97,6 +98,40 @@ def test_collapsing_hides_the_list_keeps_the_header_and_shrinks_the_dock(qtbot, 
     assert not pane.is_collapsed
     assert pane.text_view.isVisible()
     qtbot.waitUntil(lambda: pane.height() == expanded_height)
+
+
+def test_the_hide_button_removes_the_pane_and_the_view_menu_brings_it_back(qtbot, session):
+    hmi = shown(qtbot, session.open_hmi())
+    pane = hmi.log_pane
+    assert pane.view_action.isChecked()
+
+    pane.hide_button.click()
+
+    assert not pane.isVisible()
+    assert not pane.view_action.isChecked()
+    pane.view_action.trigger()  # View > Show log
+    qtbot.waitUntil(pane.isVisible)  # a dock is shown again through the event loop
+    assert pane.view_action.isChecked()
+
+
+def test_hiding_the_log_does_not_lose_lines_and_each_window_hides_its_own(qtbot, session):
+    hmi = shown(qtbot, session.open_hmi())
+    dashboard = shown(qtbot, session.open_dashboard())
+
+    hmi.log_pane.hide_button.click()
+    LOG.warning("logged while hidden")
+    hmi.log_pane.view_action.trigger()
+    qtbot.waitUntil(hmi.log_pane.isVisible)
+
+    assert dashboard.log_pane.isVisible()  # hiding one window's pane leaves the other's alone
+    assert "logged while hidden" in pane_text(hmi.log_pane)
+
+
+def test_show_log_is_in_the_view_menu_of_both_windows_with_a_shortcut(qtbot, session):
+    for window in (shown(qtbot, session.open_hmi()), shown(qtbot, session.open_dashboard())):
+        view_menu = next(a.menu() for a in window.menuBar().actions() if a.text().replace("&", "") == "View")
+        assert window.log_pane.view_action in view_menu.actions()
+        assert window.log_pane.view_action.shortcut().toString() == "Ctrl+L"
 
 
 def test_a_rejected_csv_logs_a_warning_line_with_the_reason(qtbot, session, tmp_path):

@@ -1,5 +1,8 @@
-"""The Dashboard's Live charts tab: voltage and current, the I-V and P-V curves with the measured operating
+"""The Dashboard's live charts: voltage and current, the I-V and P-V curves with the measured operating
 point, cumulative energy, the power deviation histogram, and the time in each State.
+
+The Dashboard Overview places the five panels (voltage_current_box, curves_box, energy_box, histogram_box,
+states_box) in its own grid. Used on its own, LiveCharts lays the panels out in a grid of its own.
 
 Every chart is restyled from the palette, and created in the palette in effect. Each UI tick the
 Dashboard passes the Samples that arrived since the last tick: the curves are handed their full
@@ -17,6 +20,7 @@ from PyQt6.QtWidgets import QGridLayout, QGroupBox, QHBoxLayout, QLabel, QVBoxLa
 
 from pvysics.datasheet import ModuleDatasheet
 from pvysics.gui.palette import STATE_COLOURS, Palette
+from pvysics.gui.ui_helpers import CompactPlot
 from pvysics.gui.theme import style_plot
 from pvysics.live_stats import HISTOGRAM_LIMIT_PCT, DeviationHistogram, StateTimes
 from pvysics.run import POWER_FLOOR_W, Sample, State
@@ -32,7 +36,7 @@ PLOT_LINES = 8  # a plot is never shorter than this many text lines, so its axes
 
 def _plain_plot(minimum_height: int) -> pg.PlotWidget:
     """A chart whose axes show plain values. Auto SI prefixes would turn 0.2 A into 200 (x0.001), so they are off."""
-    plot = pg.PlotWidget()
+    plot = CompactPlot()
     for side in ("left", "bottom"):
         plot.getAxis(side).enableAutoSIPrefix(False)
     plot.setMinimumHeight(minimum_height)
@@ -64,9 +68,15 @@ def _point_item(plot: pg.PlotWidget) -> pg.ScatterPlotItem:
 
 
 class LiveCharts(QWidget):
-    """Five live views of the run, in a grid: voltage and current, I-V and P-V, energy, histogram, state time."""
+    """Five live views of the run: voltage and current, I-V and P-V, energy, histogram, state time."""
 
-    def __init__(self, datasheet: ModuleDatasheet, palette: Palette, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        datasheet: ModuleDatasheet,
+        palette: Palette,
+        parent: QWidget | None = None,
+        own_layout: bool = True,
+    ) -> None:
         super().__init__(parent)
         self._datasheet = datasheet
         self._parameters = fit_parameters(datasheet)  # the same fit the Model tab and the twin use
@@ -76,7 +86,9 @@ class LiveCharts(QWidget):
         self._states = StateTimes()
         minimum = self.fontMetrics().height() * PLOT_LINES
         self._build_charts(minimum)
-        self._build_layout()
+        self._build_panels()
+        if own_layout:
+            self._build_grid()
         self._show_histogram()
         self._show_state_times()
         self.apply_palette(palette)
@@ -233,27 +245,28 @@ class LiveCharts(QWidget):
         self.state_plot.addItem(self._state_bars)
         self.state_caption = _caption()
 
-    def _build_layout(self) -> None:
-        voltage_current = QGroupBox("Voltage and current")
-        voltage_layout = QVBoxLayout(voltage_current)
+    def _build_panels(self) -> None:
+        self.voltage_current_box = QGroupBox("Voltage and current")
+        voltage_layout = QVBoxLayout(self.voltage_current_box)
         voltage_layout.addWidget(self.voltage_plot, 1)
         voltage_layout.addWidget(self.current_plot, 1)
 
-        curves = QGroupBox("I-V and P-V curve at the measured G and T, with the operating point")
-        curve_row = QHBoxLayout(curves)
+        self.curves_box = QGroupBox("I-V and P-V curve at the measured G and T, with the operating point")
+        curve_row = QHBoxLayout(self.curves_box)
         curve_row.addWidget(self.iv_plot, 1)
         curve_row.addWidget(self.pv_plot, 1)
 
-        energy = _framed("Cumulative energy", self.energy_plot)
-        histogram = _framed("Power deviation (daylight)", self.histogram_plot, self.histogram_caption)
-        states = _framed("Time in each state", self.state_plot, self.state_caption)
+        self.energy_box = _framed("Cumulative energy", self.energy_plot)
+        self.histogram_box = _framed("Power deviation (daylight)", self.histogram_plot, self.histogram_caption)
+        self.states_box = _framed("Time in each state", self.state_plot, self.state_caption)
 
+    def _build_grid(self) -> None:
         grid = QGridLayout(self)
-        grid.addWidget(voltage_current, 0, 0)
-        grid.addWidget(curves, 0, 1, 1, 2)
-        grid.addWidget(energy, 1, 0)
-        grid.addWidget(histogram, 1, 1)
-        grid.addWidget(states, 1, 2)
+        grid.addWidget(self.voltage_current_box, 0, 0)
+        grid.addWidget(self.curves_box, 0, 1, 1, 2)
+        grid.addWidget(self.energy_box, 1, 0)
+        grid.addWidget(self.histogram_box, 1, 1)
+        grid.addWidget(self.states_box, 1, 2)
         for column in range(3):
             grid.setColumnStretch(column, 1)
         for row in range(2):

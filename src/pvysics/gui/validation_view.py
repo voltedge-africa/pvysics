@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 from pvysics.export import write_samples_csv, write_validation_csv
 from pvysics.faults import FaultKind
 from pvysics.gui.process_view import PLACEHOLDER
+from pvysics.gui.ui_helpers import role_label, set_property
 from pvysics.gui.widgets import KpiTile
 from pvysics.run import POWER_FLOOR_W, RunConfig
 from pvysics.validation import NEAR_ZERO_W, STATE_ORDER, ValidationReport, run_validation
@@ -41,6 +42,11 @@ NIGHT_NOTE = (
 )
 TRUTH_LABELS = ("Normal operation", "Fault")
 STALE_NOTE = "The applied config has changed since this validation. Run validation again to score it."
+
+EMPTY_TEXT = (
+    "No results yet. Run validation scores the applied setup on a healthy run, to get the error metrics, and on "
+    "one run for each fault, to see how well the twin detects it."
+)
 
 
 class ValidationWorker(QObject):
@@ -157,6 +163,8 @@ class ValidationView(QWidget):
         )
 
     def _show_report(self, report: ValidationReport) -> None:
+        self.results.setVisible(True)
+        self.empty_label.setVisible(False)
         metrics = report.metrics
         self.tiles["mae"].set_value(f"{metrics.mae_w:.2f} W")
         self.tiles["rmse"].set_value(f"{metrics.rmse_w:.2f} W")
@@ -239,16 +247,20 @@ class ValidationView(QWidget):
 
     def _build(self) -> None:
         self.run_button = QPushButton("Run validation")
+        set_property(self.run_button, "variant", "primary")
+        self.run_button.setToolTip("Score the applied setup on a healthy run and on one run for each fault.")
         self.run_button.clicked.connect(self._on_run_clicked)
         self.progress = QProgressBar()
         self.progress.setRange(0, 0)  # busy indicator: no known length
         self.progress.setVisible(False)
         self.status_label = QLabel("Press Run validation to score the applied config.")
         self.status_label.setWordWrap(True)
-        self.config_label = QLabel()
+        self.config_label = role_label("", "muted")
         self.config_label.setWordWrap(True)
-        self.note_label = QLabel(NIGHT_NOTE)
+        self.note_label = role_label(NIGHT_NOTE, "muted")
         self.note_label.setWordWrap(True)
+        self.empty_label = role_label(EMPTY_TEXT, "muted", Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setWordWrap(True)
         self.sample_label = QLabel()
         self.sample_label.setWordWrap(True)
 
@@ -301,15 +313,23 @@ class ValidationView(QWidget):
         charts = QHBoxLayout()
         charts.addWidget(confusion_box, 1)
         charts.addWidget(performance_box, 1)
+        # The results appear with the first report; until then the empty state says what the button does.
+        self.results = QWidget()
+        results_layout = QVBoxLayout(self.results)
+        results_layout.setContentsMargins(0, 0, 0, 0)
+        results_layout.addLayout(tiles)
+        results_layout.addWidget(self.sample_label)
+        results_layout.addLayout(charts, 1)
+        self.results.setVisible(False)
 
         root = QVBoxLayout(self)
-        root.addWidget(self.note_label)
+        root.addWidget(role_label("Validation", "title"))
         root.addWidget(self.config_label)
+        root.addWidget(self.note_label)
         root.addLayout(run_row)
         root.addWidget(self.status_label)
-        root.addLayout(tiles)
-        root.addWidget(self.sample_label)
-        root.addLayout(charts, 1)
+        root.addWidget(self.empty_label, 1)
+        root.addWidget(self.results, 1)
         root.addLayout(exports)
 
 

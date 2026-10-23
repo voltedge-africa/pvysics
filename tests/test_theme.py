@@ -150,10 +150,13 @@ def test_choosing_a_theme_applies_the_palette_to_the_app(qtbot):
 
     window.theme.set_choice(CHOICE_DARK)
     assert app.palette().color(QPalette.ColorRole.Window) == QColor(DARK.window)
-    assert app.style().name().lower() == "fusion"
+    # With a stylesheet active Qt wraps the style, so its name is empty; the sheet itself follows the theme.
+    assert DARK.card_border in app.styleSheet()
 
     window.theme.set_choice(CHOICE_LIGHT)
     assert app.palette().color(QPalette.ColorRole.Window) == QColor(LIGHT.window)
+    assert LIGHT.card_border in app.styleSheet()
+    assert DARK.card_border not in app.styleSheet()
 
 
 def test_view_menus_of_both_windows_stay_in_step(qtbot, tmp_path):

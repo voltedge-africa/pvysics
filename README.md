@@ -7,9 +7,11 @@ A Single Diode Model (SDM) of a PV module runs as the **twin**. It predicts powe
 The prototype is a PyQt6 application with two windows that read the same run:
 
 - **HMI** (PV Digital Twin): Process, Model and Setup tabs. Live plant and twin readings, the deviation gauge, state banner, fault injection, alarms, the SDM circuit and curves, and the run setup.
-- **Dashboard** (PV Digital Twin Dashboard): read-only Overview (KPI tiles, charts, event log), Live charts and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). Live charts: voltage and current, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), and the time in each state (Normal, Warning, Abnormal).
+- **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is one scrolling grid of cards under the KPI tiles: measured vs predicted power and the deviation first, then irradiance and temperature, voltage and current, cumulative energy, the I-V and P-V curves with the measured operating point, the time in each state, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), and the event log. Charts that were once on a separate Live charts tab are part of the Overview.
 
-Each window has a collapsible log pane at its bottom. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
+Each window has a log pane at its bottom. It collapses to its header, and Hide (or View > Show log, Ctrl+L) removes it and brings it back. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
+
+The look is green, black, gray and white (the department's colours), in a light and a dark theme that follow the system setting. View > System, Light or Dark overrides it. Amber and red appear only where they mean something: the Warning and Abnormal states, alarms and errors.
 
 The default input is static: the bundled profile is one hourly NASA POWER sample for Durban, and the default module is a generic 60-cell, 250 W datasheet. The Setup tab can also fetch a profile from NASA POWER for a chosen place and dates (see Fetching a profile below). There is no hardware.
 

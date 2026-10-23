@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSpinBox,
     QVBoxLayout,
     QWidget,
@@ -49,6 +50,7 @@ from pvysics.profile import (
 )
 from pvysics.gui.fetch_panel import FetchPanel
 from pvysics.gui.theme import ERROR_ROLE, ThemeManager
+from pvysics.gui.ui_helpers import role_label, set_property
 from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
 from pvysics.run_setup import datasheet_problems, derive_thresholds, summary_rows, validate_config
 
@@ -176,9 +178,12 @@ class SetupView(QWidget):
         self._datasheet = config.datasheet  # the module the module fields were last set from
         self._shown_module: dict[str, float | int] = {}  # the module values the fields showed then
         self.csv_dialog: ProfileDialog | None = None
+        self._applied_rows: list[tuple[str, str]] | None = None  # what the running run uses; None while building
         self._build()
         self._fill(config)
         self._show_summary(config)
+        self._applied_rows = summary_rows(config)
+        self._update_dirty()
 
     @property
     def profile_name(self) -> str:
@@ -242,6 +247,8 @@ class SetupView(QWidget):
             self._warn("Not applied. " + " ".join(problems))
             return
         self._show_summary(config)
+        self._applied_rows = summary_rows(config)
+        self._update_dirty()
         self._say("Applied. The new run has started from the beginning.")
         log.info("Setup applied: %s", _summary(config))
         self.apply_requested.emit(config)
@@ -416,6 +423,20 @@ class SetupView(QWidget):
         self.tilt_spin.setValue(site.tilt_deg)
         self.azimuth_spin.setValue(site.azimuth_deg)
 
+    @property
+    def has_unapplied_changes(self) -> bool:
+        """True when the controls describe a run different from the one that is running."""
+        return self._applied_rows is not None and summary_rows(self.read_config()) != self._applied_rows
+
+    def _update_dirty(self, *_args) -> None:
+        """Show whether Apply and start would change anything, and call attention to Apply when it would."""
+        if self._applied_rows is None:
+            return
+        dirty = self.has_unapplied_changes
+        self.dirty_label.setText("Changes not applied yet" if dirty else "Matches the current run")
+        set_property(self.dirty_label, "role", "dirty" if dirty else "muted")
+        set_property(self.apply_button, "variant", "primary")
+
     def _say(self, text: str, error: bool = False) -> None:
         self.message_label.setText(text)
         self.message_label.setForegroundRole(ERROR_ROLE if error else QPalette.ColorRole.WindowText)
@@ -498,6 +519,20 @@ class SetupView(QWidget):
         self.apply_button = QPushButton("Apply and start")
         self.apply_button.clicked.connect(self._on_apply_clicked)
 
+        self.dirty_label = role_label("", "muted")
+        set_property(self.apply_button, "variant", "primary")
+        self.apply_button.setToolTip("Validate the setup and start a new run from the beginning.")
+        self.validate_button.setToolTip("Check every value without starting anything.")
+        self.reset_button.setToolTip("Put every control back to its default. Nothing is applied.")
+        for spin in (
+            self.rs_spin, self.rsh_spin, self.temperature_coefficient_spin, self.irradiance_noise_spin,
+            self.temperature_noise_spin, self.voltage_noise_spin, self.current_noise_spin, self.voltage_step_spin,
+            self.current_step_spin, self.seed_spin, self.warning_spin, self.abnormal_spin, self.latitude_spin,
+            self.longitude_spin, self.tilt_spin, self.azimuth_spin, *self._module_spins.values(),
+        ):
+            spin.valueChanged.connect(self._update_dirty)
+        self.profile_box.currentIndexChanged.connect(self._update_dirty)
+
         profile_group = QGroupBox("Input profile")
         layout = QVBoxLayout(profile_group)
         layout.addWidget(self.profile_box)
@@ -555,21 +590,29 @@ class SetupView(QWidget):
 
         columns = QHBoxLayout()
         for column in (
-            (profile_group, self.fetch_panel, module_group, site_group),
-            (mismatch_group, sensor_group),
-            (threshold_group, summary_group),
+            (profile_group, self.fetch_panel, site_group),
+            (module_group, summary_group),
+            (mismatch_group, sensor_group, threshold_group),
         ):
             side = QVBoxLayout()
             for group in column:
                 side.addWidget(group)
             side.addStretch(1)
             columns.addLayout(side, 1)
+        content = QWidget()
+        content.setLayout(columns)
+        # The fields scroll, so a short window does not force the whole window tall; the actions stay in view.
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(content)
 
         actions = QHBoxLayout()
         actions.addWidget(self.message_label, 1)
+        actions.addWidget(self.dirty_label)
+        actions.addSpacing(8)
         for button in (self.validate_button, self.reset_button, self.apply_button):
             actions.addWidget(button)
 
         root = QVBoxLayout(self)
-        root.addLayout(columns, 1)
+        root.addWidget(scroll, 1)
         root.addLayout(actions)
