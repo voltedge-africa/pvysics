@@ -338,6 +338,8 @@ class FetchPanel(QGroupBox):
         self.preview_button.clicked.connect(self._on_preview_clicked)
 
         form = QFormLayout()
+        form.setVerticalSpacing(12)
+        form.setHorizontalSpacing(20)
         form.addRow("Latitude", self.latitude_spin)
         form.addRow("Longitude", self.longitude_spin)
         form.addRow("Start date", self.start_edit)
@@ -352,6 +354,7 @@ class FetchPanel(QGroupBox):
         buttons.addWidget(self.preview_button)
 
         layout = QVBoxLayout(self)
+        layout.setSpacing(12)
         layout.addWidget(self.use_site_check)
         layout.addLayout(form)
         layout.addWidget(self.progress)

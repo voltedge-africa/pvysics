@@ -440,3 +440,53 @@ def test_apply_and_start_changes_the_model_tab_parameters(qtbot):
     assert window.model_view.datasheet_panel.value("impp") == "8.50 A"
     assert window.model_view.parameters == fit_parameters(applied)
     assert window.model_view.parameter_panel.value("iph") != iph_before
+
+
+SECTIONS = ["Profile", "Site", "Module", "Plant and sensors", "Limits", "Review"]
+
+
+def test_setup_is_a_list_of_sections_with_one_page_each_and_starts_on_the_first(qtbot):
+    setup = window_with(qtbot).setup_view
+
+    names = [setup.section_list.item(row).text() for row in range(setup.section_list.count())]
+
+    assert names == SECTIONS
+    assert setup.pages.count() == len(SECTIONS)
+    assert setup.section_list.currentRow() == 0 and setup.pages.currentIndex() == 0
+
+
+def test_choosing_a_section_shows_its_page(qtbot):
+    setup = window_with(qtbot).setup_view
+
+    setup.section_list.setCurrentRow(SECTIONS.index("Module"))
+
+    assert setup.pages.currentIndex() == SECTIONS.index("Module")
+    assert setup.pages.currentWidget().isAncestorOf(setup.isc_spin)
+
+
+def test_every_control_lives_on_a_page_so_nothing_is_lost_in_the_new_layout(qtbot):
+    setup = window_with(qtbot).setup_view
+    controls = (
+        setup.profile_box, setup.load_csv_button, setup.fetch_panel, setup.isc_spin, setup.ns_spin,
+        setup.rs_spin, setup.irradiance_noise_spin, setup.seed_spin, setup.warning_spin,
+        setup.derive_button, setup.latitude_spin, setup.azimuth_spin, setup.summary_label,
+    )
+
+    for control in controls:
+        assert any(setup.pages.widget(i).isAncestorOf(control) for i in range(setup.pages.count()))
+
+
+def test_a_number_field_is_never_stretched_across_the_page(qtbot):
+    setup = window_with(qtbot).setup_view
+    digit = setup.rs_spin.fontMetrics().horizontalAdvance("0")
+
+    assert setup.rs_spin.maximumWidth() <= digit * 22
+
+
+def test_the_review_page_lists_what_the_next_run_uses_as_a_table(qtbot):
+    setup = window_with(qtbot).setup_view
+
+    text = setup.summary_label.text()
+
+    assert "<table" in text
+    assert "Profile" in text and "Thresholds" in text and "Seed" in text

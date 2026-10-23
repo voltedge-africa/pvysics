@@ -6,11 +6,12 @@ actions along the bottom. A CSV is loaded through ProfileDialog, which maps its 
 the file checks. Apply and start hands a validated RunConfig to the window, which starts the run.
 """
 
+import html
 import logging
 from pathlib import Path
 
 import numpy as np
-from PyQt6.QtCore import Qt, QSignalBlocker, pyqtSignal
+from PyQt6.QtCore import QSignalBlocker, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QPalette
 from PyQt6.QtWidgets import (
     QComboBox,
@@ -22,9 +23,13 @@ from PyQt6.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QGridLayout,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QScrollArea,
     QSpinBox,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -60,8 +65,44 @@ MAX_SEED = 2**31 - 1  # the seed spin box is a 32-bit integer
 MAX_CELLS = 100000  # the Ns spin box: cells in series
 
 
+FIELD_MIN_CHARS = 12  # a number field is at least this many digits wide, and never wider than FIELD_MAX_CHARS
+FIELD_MAX_CHARS = 22
+PAGE_MAX_WIDTH_PX = 760  # a page reads as a column, not as fields stretched across the window
+NAV_WIDTH_PX = 190
+
+
+def _fit(spin: QDoubleSpinBox | QSpinBox) -> None:
+    """Keep a number field to a sensible width: wide enough to read, not stretched across the page."""
+    digit = spin.fontMetrics().horizontalAdvance("0")
+    spin.setMinimumWidth(digit * FIELD_MIN_CHARS)
+    spin.setMaximumWidth(digit * FIELD_MAX_CHARS)
+
+
+def _align_labels(*forms: QFormLayout) -> None:
+    """Give the forms one label column, so their fields start at the same place on a page."""
+    widest = max(
+        form.itemAt(row, QFormLayout.ItemRole.LabelRole).widget().sizeHint().width()
+        for form in forms
+        for row in range(form.rowCount())
+        if form.itemAt(row, QFormLayout.ItemRole.LabelRole) is not None
+    )
+    for form in forms:
+        for row in range(form.rowCount()):
+            label = form.itemAt(row, QFormLayout.ItemRole.LabelRole)
+            if label is not None:
+                label.widget().setMinimumWidth(widest)
+
+
+def _roomy(form: QFormLayout) -> None:
+    """Give a form room: a gap between rows, a gap between label and field, labels on the left."""
+    form.setVerticalSpacing(12)
+    form.setHorizontalSpacing(20)
+    form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+
+
 def _spin(low: float, high: float, decimals: int, suffix: str = "") -> QDoubleSpinBox:
     spin = QDoubleSpinBox()
+    _fit(spin)
     spin.setRange(low, high)
     spin.setDecimals(decimals)
     spin.setSingleStep(10.0**-decimals)
@@ -398,7 +439,13 @@ class SetupView(QWidget):
         )
 
     def _show_summary(self, config: RunConfig) -> None:
-        self.summary_label.setText("\n".join(f"{label}: {value}" for label, value in summary_rows(config)))
+        """The Review page: what the next run uses, as a table of label and value."""
+        rows = "".join(
+            f"<tr><td style='padding: 5px 24px 5px 0;'><b>{html.escape(label)}</b></td>"
+            f"<td style='padding: 5px 0;'>{html.escape(value)}</td></tr>"
+            for label, value in summary_rows(config)
+        )
+        self.summary_label.setText(f"<table cellspacing='0'>{rows}</table>")
 
     def _fill(self, config: RunConfig) -> None:
         """Show every control with the values of config. Applies nothing."""
@@ -468,6 +515,7 @@ class SetupView(QWidget):
         self.ki_spin = _spin(-100.0, 100.0, 3)
         self.kv_spin = _spin(-100.0, 100.0, 3)
         self.ns_spin = QSpinBox()
+        _fit(self.ns_spin)
         self.ns_spin.setRange(0, MAX_CELLS)
         self._module_spins = {
             "isc_a": self.isc_spin,
@@ -495,6 +543,7 @@ class SetupView(QWidget):
         self.voltage_step_spin = _spin(0.0, 1.0, 4, " V")
         self.current_step_spin = _spin(0.0, 1.0, 4, " A")
         self.seed_spin = QSpinBox()
+        _fit(self.seed_spin)
         self.seed_spin.setRange(0, MAX_SEED)
         self.warning_spin = _spin(0.01, 200.0, 2, " %")
         self.abnormal_spin = _spin(0.01, 200.0, 2, " %")
@@ -509,7 +558,7 @@ class SetupView(QWidget):
 
         self.summary_label = QLabel()
         self.summary_label.setWordWrap(True)
-        self.summary_label.setTextFormat(Qt.TextFormat.PlainText)
+        self.summary_label.setTextFormat(Qt.TextFormat.RichText)
         self.message_label = QLabel()
         self.message_label.setWordWrap(True)
         self.validate_button = QPushButton("Validate setup")
@@ -542,35 +591,44 @@ class SetupView(QWidget):
         module_group = QGroupBox("Module datasheet")
         layout = QVBoxLayout(module_group)
         layout.addWidget(self.module_label)
-        form = QFormLayout()
-        form.addRow("Isc (A)", self.isc_spin)
-        form.addRow("Voc (V)", self.voc_spin)
-        form.addRow("Impp (A)", self.impp_spin)
-        form.addRow("Vmpp (V)", self.vmpp_spin)
-        form.addRow("Ki (%/C)", self.ki_spin)
-        form.addRow("Kv (%/C)", self.kv_spin)
-        form.addRow("Ns (cells)", self.ns_spin)
-        layout.addLayout(form)
+        grid = QGridLayout()
+        grid.setVerticalSpacing(12)
+        grid.setHorizontalSpacing(20)
+        fields = [
+            ("Isc (A)", self.isc_spin), ("Voc (V)", self.voc_spin),
+            ("Impp (A)", self.impp_spin), ("Vmpp (V)", self.vmpp_spin),
+            ("Ki (%/C)", self.ki_spin), ("Kv (%/C)", self.kv_spin),
+            ("Ns (cells)", self.ns_spin),
+        ]
+        for index, (label, spin) in enumerate(fields):
+            row, pair = divmod(index, 2)
+            grid.addWidget(QLabel(label), row, 2 * pair)
+            grid.addWidget(spin, row, 2 * pair + 1)
+        grid.setColumnStretch(4, 1)
+        layout.addLayout(grid)
         buttons = QHBoxLayout()
         buttons.addWidget(self.load_datasheet_button)
         buttons.addWidget(self.reset_module_button)
         layout.addLayout(buttons)
 
         site_group = QGroupBox("Site (metadata only, does not change the physics)")
-        form = QFormLayout(site_group)
+        form = site_form = QFormLayout(site_group)
+        _roomy(form)
         form.addRow("Latitude", self.latitude_spin)
         form.addRow("Longitude", self.longitude_spin)
         form.addRow("Tilt", self.tilt_spin)
         form.addRow("Azimuth", self.azimuth_spin)
 
         mismatch_group = QGroupBox("Plant vs twin mismatch")
-        form = QFormLayout(mismatch_group)
+        form = mismatch_form = QFormLayout(mismatch_group)
+        _roomy(form)
         form.addRow("Rs offset", self.rs_spin)
         form.addRow("Rsh offset", self.rsh_spin)
         form.addRow("Temperature-coefficient offset", self.temperature_coefficient_spin)
 
         sensor_group = QGroupBox("Sensor model")
-        form = QFormLayout(sensor_group)
+        form = sensor_form = QFormLayout(sensor_group)
+        _roomy(form)
         form.addRow("Irradiance noise", self.irradiance_noise_spin)
         form.addRow("Temperature noise", self.temperature_noise_spin)
         form.addRow("Voltage noise", self.voltage_noise_spin)
@@ -580,31 +638,48 @@ class SetupView(QWidget):
         form.addRow("Seed", self.seed_spin)
 
         threshold_group = QGroupBox("State thresholds")
-        form = QFormLayout(threshold_group)
+        form = threshold_form = QFormLayout(threshold_group)
+        _roomy(form)
         form.addRow("Warning limit", self.warning_spin)
         form.addRow("Abnormal limit", self.abnormal_spin)
         form.addRow(self.derive_button)
 
+        _align_labels(site_form, mismatch_form, sensor_form, threshold_form)
+
         summary_group = QGroupBox("Run summary")
         QVBoxLayout(summary_group).addWidget(self.summary_label)
 
-        columns = QHBoxLayout()
-        for column in (
-            (profile_group, self.fetch_panel, site_group),
-            (module_group, summary_group),
-            (mismatch_group, sensor_group, threshold_group),
-        ):
-            side = QVBoxLayout()
-            for group in column:
-                side.addWidget(group)
-            side.addStretch(1)
-            columns.addLayout(side, 1)
-        content = QWidget()
-        content.setLayout(columns)
-        # The fields scroll, so a short window does not force the whole window tall; the actions stay in view.
+        # A settings page: the sections in a list on the left, one section at a time on the right. Each page
+        # is a column of readable width with a title and a line saying what it is for, so nothing is packed.
+        sections = (
+            ("Profile", "Where the sunlight and temperature come from.", (profile_group, self.fetch_panel)),
+            ("Site", "Where the plant is. This labels the run and sets the default fetch position.", (site_group,)),
+            ("Module", "The datasheet the twin predicts with.", (module_group,)),
+            ("Plant and sensors", "How the simulated plant differs from the twin, and how its sensors misread.",
+             (mismatch_group, sensor_group)),
+            ("Limits", "When the state turns Warning or Abnormal.", (threshold_group,)),
+            ("Review", "What the next run will use. Nothing changes until Apply and start.", (summary_group,)),
+        )
+        self.section_list = QListWidget()
+        self.section_list.setObjectName("sectionNav")
+        self.section_list.setFixedWidth(NAV_WIDTH_PX)
+        self.pages = QStackedWidget()
+        row_height = self.section_list.fontMetrics().height() * 2 + 8  # Qt sizes list rows without the stylesheet's padding
+        for title, blurb, groups in sections:
+            item = QListWidgetItem(title)
+            item.setSizeHint(QSize(NAV_WIDTH_PX, row_height))
+            self.section_list.addItem(item)
+            self.pages.addWidget(self._page(title, blurb, groups))
+        self.section_list.currentRowChanged.connect(self.pages.setCurrentIndex)
+        self.section_list.setCurrentRow(0)
+        # The page scrolls, so a short window shows the top of a page and the rest a scroll away.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setWidget(content)
+        scroll.setWidget(self.pages)
+        body = QHBoxLayout()
+        body.setSpacing(16)
+        body.addWidget(self.section_list)
+        body.addWidget(scroll, 1)
 
         actions = QHBoxLayout()
         actions.addWidget(self.message_label, 1)
@@ -614,5 +689,29 @@ class SetupView(QWidget):
             actions.addWidget(button)
 
         root = QVBoxLayout(self)
-        root.addWidget(scroll, 1)
+        root.addLayout(body, 1)
         root.addLayout(actions)
+
+    def _page(self, title: str, blurb: str, groups: tuple[QGroupBox, ...]) -> QWidget:
+        """One section: its title, what it is for, then its cards, in a column of readable width."""
+        column = QWidget()
+        column.setMaximumWidth(PAGE_MAX_WIDTH_PX)
+        layout = QVBoxLayout(column)
+        layout.setContentsMargins(8, 12, 8, 16)
+        layout.setSpacing(14)
+        layout.addWidget(role_label(title, "title"))
+        description = role_label(blurb, "muted")
+        description.setWordWrap(True)
+        layout.addWidget(description)
+        for group in groups:
+            if len(groups) == 1:  # the page title already names a lone card
+                group.setTitle("")
+                group.setProperty("flat", "true")
+            layout.addWidget(group)
+        layout.addStretch(1)
+        page = QWidget()
+        outer = QHBoxLayout(page)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(column, 100)  # the column takes the room up to its maximum width
+        outer.addStretch(1)
+        return page

@@ -32,6 +32,7 @@ QGroupBox {{
     margin-top: 1.1em;
     padding: 0.9em 0.6em 0.6em 0.6em;
 }}
+QGroupBox[flat="true"] {{ margin-top: 0; padding-top: 0.6em; }}
 QGroupBox::title {{
     subcontrol-origin: margin;
     subcontrol-position: top left;
@@ -118,6 +119,21 @@ QScrollBar::handle:horizontal {{ background: {p.card_border}; border-radius: 5px
 QScrollBar::handle:hover {{ background: {p.muted_text}; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
 QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+
+QListWidget#sectionNav {{ background: transparent; border: none; outline: none; }}
+QListWidget#sectionNav::item {{
+    padding: 10px 14px;
+    margin: 2px 0;
+    border-radius: 6px;
+    color: {p.muted_text};
+    font-weight: 600;
+}}
+QListWidget#sectionNav::item:hover {{ color: {p.text}; }}
+QListWidget#sectionNav::item:selected {{
+    color: {p.text};
+    background-color: {p.card};
+    border: 1px solid {p.card_border};
+}}
 
 QListWidget, QPlainTextEdit {{
     background-color: {p.base};
