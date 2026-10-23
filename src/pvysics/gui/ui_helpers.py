@@ -3,7 +3,7 @@
 import pyqtgraph as pg
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QPainter
-from PyQt6.QtWidgets import QFrame, QLabel, QWidget
+from PyQt6.QtWidgets import QFrame, QHBoxLayout, QLabel, QWidget
 
 PLOT_HINT = QSize(320, 220)
 
@@ -25,6 +25,18 @@ def role_label(text: str, role: str, alignment=None) -> QLabel:
     if alignment is not None:
         label.setAlignment(alignment)
     return label
+
+
+def unit_row(field: QWidget, unit: str) -> QWidget:
+    """A field with its unit in a muted label beside it, so the number field holds only the number."""
+    row = QWidget()
+    layout = QHBoxLayout(row)
+    layout.setContentsMargins(0, 0, 0, 0)
+    layout.setSpacing(8)
+    layout.addWidget(field)
+    layout.addWidget(role_label(unit, "muted"))
+    layout.addStretch(1)
+    return row
 
 
 class CompactPlot(pg.PlotWidget):

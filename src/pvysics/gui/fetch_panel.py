@@ -43,6 +43,7 @@ from pvysics.fetch import (
 )
 from pvysics.gui.profile_preview import ProfilePreview
 from pvysics.gui.theme import ThemeManager
+from pvysics.gui.ui_helpers import unit_row
 from pvysics.profile import Profile
 
 log = logging.getLogger(__name__)
@@ -310,8 +311,8 @@ class FetchPanel(QGroupBox):
         self.use_site_check = QCheckBox("Use Site location")
         self.use_site_check.setChecked(True)
         self.use_site_check.toggled.connect(self._on_use_site_toggled)
-        self.latitude_spin = _spin(-90.0, 90.0, 2, " °")
-        self.longitude_spin = _spin(-180.0, 180.0, 2, " °")
+        self.latitude_spin = _spin(-90.0, 90.0, 2)
+        self.longitude_spin = _spin(-180.0, 180.0, 2)
         self.start_edit = _date_edit()
         self.end_edit = _date_edit()
         start, end = default_dates(date.today())
@@ -340,8 +341,8 @@ class FetchPanel(QGroupBox):
         form = QFormLayout()
         form.setVerticalSpacing(12)
         form.setHorizontalSpacing(20)
-        form.addRow("Latitude", self.latitude_spin)
-        form.addRow("Longitude", self.longitude_spin)
+        form.addRow("Latitude", unit_row(self.latitude_spin, "°"))
+        form.addRow("Longitude", unit_row(self.longitude_spin, "°"))
         form.addRow("Start date", self.start_edit)
         form.addRow("End date", self.end_edit)
         form.addRow("Irradiance", self.irradiance_box)
@@ -362,12 +363,11 @@ class FetchPanel(QGroupBox):
         layout.addLayout(buttons)
 
 
-def _spin(low: float, high: float, decimals: int, suffix: str) -> QDoubleSpinBox:
+def _spin(low: float, high: float, decimals: int) -> QDoubleSpinBox:
     spin = QDoubleSpinBox()
     spin.setRange(low, high)
     spin.setDecimals(decimals)
     spin.setSingleStep(10.0**-decimals)
-    spin.setSuffix(suffix)
     return spin
 
 

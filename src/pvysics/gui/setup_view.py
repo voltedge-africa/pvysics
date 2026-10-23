@@ -6,7 +6,10 @@ actions along the bottom. A CSV is loaded through ProfileDialog, which maps its 
 the file checks. Apply and start hands a validated RunConfig to the window, which starts the run.
 """
 
+import csv
 import html
+import io
+import itertools
 import logging
 from pathlib import Path
 
@@ -17,7 +20,12 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QDialog,
     QDialogButtonBox,
+    QAbstractItemView,
     QDoubleSpinBox,
+    QFrame,
+    QHeaderView,
+    QTableWidget,
+    QTableWidgetItem,
     QFileDialog,
     QFormLayout,
     QGroupBox,
@@ -55,7 +63,7 @@ from pvysics.profile import (
 )
 from pvysics.gui.fetch_panel import FetchPanel
 from pvysics.gui.theme import ERROR_ROLE, ThemeManager
-from pvysics.gui.ui_helpers import role_label, set_property
+from pvysics.gui.ui_helpers import role_label, set_property, unit_row
 from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
 from pvysics.run_setup import datasheet_problems, derive_thresholds, summary_rows, validate_config
 
@@ -67,6 +75,8 @@ MAX_CELLS = 100000  # the Ns spin box: cells in series
 
 FIELD_MIN_CHARS = 12  # a number field is at least this many digits wide, and never wider than FIELD_MAX_CHARS
 FIELD_MAX_CHARS = 22
+DIALOG_MIN_WIDTH_PX = 560
+PREVIEW_ROWS = 5  # rows of the file the CSV dialog shows
 PAGE_MAX_WIDTH_PX = 760  # a page reads as a column, not as fields stretched across the window
 NAV_WIDTH_PX = 190
 
@@ -100,13 +110,12 @@ def _roomy(form: QFormLayout) -> None:
     form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
 
 
-def _spin(low: float, high: float, decimals: int, suffix: str = "") -> QDoubleSpinBox:
+def _spin(low: float, high: float, decimals: int) -> QDoubleSpinBox:
     spin = QDoubleSpinBox()
     _fit(spin)
     spin.setRange(low, high)
     spin.setDecimals(decimals)
     spin.setSingleStep(10.0**-decimals)
-    spin.setSuffix(suffix)
     return spin
 
 
@@ -135,6 +144,24 @@ def _column_box(header: list[str], guessed: str, nasa: bool = False) -> QComboBo
     return box
 
 
+def _preview_table(text: str, header: list[str]) -> QTableWidget:
+    """The first rows of the file as a read-only table, so the user can see what the columns hold."""
+    rows = list(itertools.islice(csv.reader(io.StringIO(text)), 1, 1 + PREVIEW_ROWS))
+    table = QTableWidget(len(rows), len(header))
+    table.setHorizontalHeaderLabels(header)
+    for row_index, row in enumerate(rows):
+        for column_index, value in enumerate(row[: len(header)]):
+            table.setItem(row_index, column_index, QTableWidgetItem(value))
+    table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+    table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+    table.verticalHeader().setVisible(False)
+    table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+    table.setFixedHeight(
+        table.horizontalHeader().sizeHint().height() + table.verticalHeader().defaultSectionSize() * max(len(rows), 1) + 6
+    )
+    return table
+
+
 class ProfileDialog(QDialog):
     """Column mapping and file checks for a CSV profile. Use profile is enabled only when the file passes."""
 
@@ -145,27 +172,43 @@ class ProfileDialog(QDialog):
         self._text = text
         self._profile: Profile | None = None
         guess = guess_columns(header)
+        self.setMinimumWidth(DIALOG_MIN_WIDTH_PX)
 
         self.timestamp_box = _column_box(header, guess.timestamp, nasa=True)
         self.irradiance_box = _column_box(header, guess.irradiance)
         self.temperature_box = _column_box(header, guess.temperature)
         mapping = QFormLayout()
+        _roomy(mapping)
         mapping.addRow("Timestamp", self.timestamp_box)
-        mapping.addRow("Irradiance G", self.irradiance_box)
-        mapping.addRow("Temperature T", self.temperature_box)
+        mapping.addRow("Irradiance G", unit_row(self.irradiance_box, "W/m²"))
+        mapping.addRow("Temperature T", unit_row(self.temperature_box, "°C"))
+
+        self.preview_table = _preview_table(text, header)
 
         self.checks_label = QLabel()
         self.checks_label.setWordWrap(True)
+        self.checks_card = QFrame()
+        set_property(self.checks_card, "card", "true")
+        card_layout = QVBoxLayout(self.checks_card)
+        card_layout.setContentsMargins(14, 10, 14, 10)
+        card_layout.addWidget(self.checks_label)
+
         buttons = QDialogButtonBox()
         self.use_button = buttons.addButton("Use profile", QDialogButtonBox.ButtonRole.AcceptRole)
+        set_property(self.use_button, "variant", "primary")
         buttons.addButton(QDialogButtonBox.StandardButton.Cancel)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
 
         layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(f"{file_name}: map the columns, then check the file."))
+        layout.setContentsMargins(20, 18, 20, 16)
+        layout.setSpacing(14)
+        layout.addWidget(role_label(file_name, "title"))
+        layout.addWidget(role_label("Choose the column that holds each value.", "muted"))
         layout.addLayout(mapping)
-        layout.addWidget(self.checks_label)
+        layout.addWidget(role_label("FIRST ROWS", "section"))
+        layout.addWidget(self.preview_table)
+        layout.addWidget(self.checks_card)
         layout.addWidget(buttons)
         for box in (self.timestamp_box, self.irradiance_box, self.temperature_box):
             box.currentIndexChanged.connect(self._check)
@@ -533,26 +576,26 @@ class SetupView(QWidget):
         self.reset_module_button = QPushButton("Reset to generic module")
         self.reset_module_button.clicked.connect(self._reset_module)
 
-        self.rs_spin = _spin(-90.0, 500.0, 1, " %")
-        self.rsh_spin = _spin(-90.0, 500.0, 1, " %")
-        self.temperature_coefficient_spin = _spin(-90.0, 500.0, 1, " %")
-        self.irradiance_noise_spin = _spin(0.0, 20.0, 2, " %")
-        self.temperature_noise_spin = _spin(0.0, 10.0, 2, " °C")
-        self.voltage_noise_spin = _spin(0.0, 1.0, 4, " V")
-        self.current_noise_spin = _spin(0.0, 5.0, 4, " A")
-        self.voltage_step_spin = _spin(0.0, 1.0, 4, " V")
-        self.current_step_spin = _spin(0.0, 1.0, 4, " A")
+        self.rs_spin = _spin(-90.0, 500.0, 1)
+        self.rsh_spin = _spin(-90.0, 500.0, 1)
+        self.temperature_coefficient_spin = _spin(-90.0, 500.0, 1)
+        self.irradiance_noise_spin = _spin(0.0, 20.0, 2)
+        self.temperature_noise_spin = _spin(0.0, 10.0, 2)
+        self.voltage_noise_spin = _spin(0.0, 1.0, 4)
+        self.current_noise_spin = _spin(0.0, 5.0, 4)
+        self.voltage_step_spin = _spin(0.0, 1.0, 4)
+        self.current_step_spin = _spin(0.0, 1.0, 4)
         self.seed_spin = QSpinBox()
         _fit(self.seed_spin)
         self.seed_spin.setRange(0, MAX_SEED)
-        self.warning_spin = _spin(0.01, 200.0, 2, " %")
-        self.abnormal_spin = _spin(0.01, 200.0, 2, " %")
+        self.warning_spin = _spin(0.01, 200.0, 2)
+        self.abnormal_spin = _spin(0.01, 200.0, 2)
         self.derive_button = QPushButton("Derive from healthy run")
         self.derive_button.clicked.connect(self._derive)
-        self.latitude_spin = _spin(-90.0, 90.0, 2, " °")
-        self.longitude_spin = _spin(-180.0, 180.0, 2, " °")
-        self.tilt_spin = _spin(0.0, 90.0, 1, " °")
-        self.azimuth_spin = _spin(0.0, 360.0, 1, " ° (0 is north)")
+        self.latitude_spin = _spin(-90.0, 90.0, 2)
+        self.longitude_spin = _spin(-180.0, 180.0, 2)
+        self.tilt_spin = _spin(0.0, 90.0, 1)
+        self.azimuth_spin = _spin(0.0, 360.0, 1)
         self.latitude_spin.valueChanged.connect(self._sync_fetch_site)
         self.longitude_spin.valueChanged.connect(self._sync_fetch_site)
 
@@ -595,16 +638,17 @@ class SetupView(QWidget):
         grid.setVerticalSpacing(12)
         grid.setHorizontalSpacing(20)
         fields = [
-            ("Isc (A)", self.isc_spin), ("Voc (V)", self.voc_spin),
-            ("Impp (A)", self.impp_spin), ("Vmpp (V)", self.vmpp_spin),
-            ("Ki (%/C)", self.ki_spin), ("Kv (%/C)", self.kv_spin),
-            ("Ns (cells)", self.ns_spin),
+            ("Isc", self.isc_spin, "A"), ("Voc", self.voc_spin, "V"),
+            ("Impp", self.impp_spin, "A"), ("Vmpp", self.vmpp_spin, "V"),
+            ("Ki", self.ki_spin, "%/°C"), ("Kv", self.kv_spin, "%/°C"),
+            ("Ns", self.ns_spin, "cells"),
         ]
-        for index, (label, spin) in enumerate(fields):
+        for index, (label, spin, unit) in enumerate(fields):
             row, pair = divmod(index, 2)
-            grid.addWidget(QLabel(label), row, 2 * pair)
-            grid.addWidget(spin, row, 2 * pair + 1)
-        grid.setColumnStretch(4, 1)
+            grid.addWidget(QLabel(label), row, 3 * pair)
+            grid.addWidget(spin, row, 3 * pair + 1)
+            grid.addWidget(role_label(unit, "muted"), row, 3 * pair + 2)
+        grid.setColumnStretch(6, 1)
         layout.addLayout(grid)
         buttons = QHBoxLayout()
         buttons.addWidget(self.load_datasheet_button)
@@ -614,34 +658,34 @@ class SetupView(QWidget):
         site_group = QGroupBox("Site (metadata only, does not change the physics)")
         form = site_form = QFormLayout(site_group)
         _roomy(form)
-        form.addRow("Latitude", self.latitude_spin)
-        form.addRow("Longitude", self.longitude_spin)
-        form.addRow("Tilt", self.tilt_spin)
-        form.addRow("Azimuth", self.azimuth_spin)
+        form.addRow("Latitude", unit_row(self.latitude_spin, "°"))
+        form.addRow("Longitude", unit_row(self.longitude_spin, "°"))
+        form.addRow("Tilt", unit_row(self.tilt_spin, "°"))
+        form.addRow("Azimuth", unit_row(self.azimuth_spin, "° (0 is north)"))
 
         mismatch_group = QGroupBox("Plant vs twin mismatch")
         form = mismatch_form = QFormLayout(mismatch_group)
         _roomy(form)
-        form.addRow("Rs offset", self.rs_spin)
-        form.addRow("Rsh offset", self.rsh_spin)
-        form.addRow("Temperature-coefficient offset", self.temperature_coefficient_spin)
+        form.addRow("Rs offset", unit_row(self.rs_spin, "%"))
+        form.addRow("Rsh offset", unit_row(self.rsh_spin, "%"))
+        form.addRow("Temperature-coefficient offset", unit_row(self.temperature_coefficient_spin, "%"))
 
         sensor_group = QGroupBox("Sensor model")
         form = sensor_form = QFormLayout(sensor_group)
         _roomy(form)
-        form.addRow("Irradiance noise", self.irradiance_noise_spin)
-        form.addRow("Temperature noise", self.temperature_noise_spin)
-        form.addRow("Voltage noise", self.voltage_noise_spin)
-        form.addRow("Current noise", self.current_noise_spin)
-        form.addRow("Voltage quantisation", self.voltage_step_spin)
-        form.addRow("Current quantisation", self.current_step_spin)
+        form.addRow("Irradiance noise", unit_row(self.irradiance_noise_spin, "%"))
+        form.addRow("Temperature noise", unit_row(self.temperature_noise_spin, "°C"))
+        form.addRow("Voltage noise", unit_row(self.voltage_noise_spin, "V"))
+        form.addRow("Current noise", unit_row(self.current_noise_spin, "A"))
+        form.addRow("Voltage quantisation", unit_row(self.voltage_step_spin, "V"))
+        form.addRow("Current quantisation", unit_row(self.current_step_spin, "A"))
         form.addRow("Seed", self.seed_spin)
 
         threshold_group = QGroupBox("State thresholds")
         form = threshold_form = QFormLayout(threshold_group)
         _roomy(form)
-        form.addRow("Warning limit", self.warning_spin)
-        form.addRow("Abnormal limit", self.abnormal_spin)
+        form.addRow("Warning limit", unit_row(self.warning_spin, "%"))
+        form.addRow("Abnormal limit", unit_row(self.abnormal_spin, "%"))
         form.addRow(self.derive_button)
 
         _align_labels(site_form, mismatch_form, sensor_form, threshold_form)
