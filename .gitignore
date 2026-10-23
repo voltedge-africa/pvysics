@@ -10,3 +10,4 @@ documentation/presentation/*.pdf
 
 # editor and OS noise
 .DS_Store
+dist/

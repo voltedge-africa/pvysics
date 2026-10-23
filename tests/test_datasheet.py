@@ -50,6 +50,22 @@ def test_toml_datasheet_loads_in_the_existing_format(tmp_path):
     assert load_datasheet(path) == load_generic_datasheet()
 
 
+def test_json_datasheet_saved_with_a_byte_order_mark_loads(tmp_path):
+    # Windows editors can save UTF-8 with a byte-order mark; the file is still a valid datasheet.
+    path = tmp_path / "bom_module.json"
+    path.write_bytes(b"\xef\xbb\xbf" + json.dumps(JSON_DATASHEET).encode("utf-8"))
+
+    assert load_datasheet(path).isc_a == pytest.approx(9.1)
+
+
+def test_toml_datasheet_saved_with_a_byte_order_mark_loads(tmp_path):
+    generic = files("pvysics") / "data" / "generic_60cell_250w.toml"
+    path = tmp_path / "generic_bom.toml"
+    path.write_bytes(b"\xef\xbb\xbf" + generic.read_bytes())
+
+    assert load_datasheet(path) == load_generic_datasheet()
+
+
 @pytest.mark.parametrize(
     ("content", "message"),
     [

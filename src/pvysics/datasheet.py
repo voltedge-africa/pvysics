@@ -96,7 +96,7 @@ def _json_values(path: Path) -> dict:
 
 def _read_text(path: Path) -> str:
     try:
-        return path.read_text(encoding="utf-8")
+        return path.read_text(encoding="utf-8-sig")  # -sig also accepts a byte-order mark, as Windows editors add
     except (OSError, UnicodeDecodeError) as error:
         raise DatasheetError(f"{path.name}: cannot read the file as text ({error})") from error
 

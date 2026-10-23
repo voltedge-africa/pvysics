@@ -1,0 +1,160 @@
+# PV Digital Twin (pvysics)
+
+A physics-informed digital twin for PV state estimation, as a runnable desktop prototype.
+
+A Single Diode Model (SDM) of a PV module runs as the **twin**. It predicts power from measured irradiance and temperature. A **simulated plant**, the same module with perturbed parameters, optional faults and sensor noise, stands in for the physical test bench, which does not exist yet. The state estimator compares measured with predicted power (the power deviation) against warning and abnormal limits and reports Normal, Warning or Abnormal.
+
+The prototype is a PyQt6 application with two windows that read the same run:
+
+- **HMI** (PV Digital Twin): Process, Model and Setup tabs. Live plant and twin readings, the deviation gauge, state banner, fault injection, alarms, the SDM circuit and curves, and the run setup.
+- **Dashboard** (PV Digital Twin Dashboard): read-only Overview (KPI tiles, charts, event log) and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export).
+
+All input data is static. The bundled profile is one hourly NASA POWER sample for Durban, and the default module is a generic 60-cell, 250 W datasheet. There is no live data fetching and no hardware.
+
+The design documents (wireframes, block diagrams, deck) are in `documentation/`. The specification and tickets are in `.scratch/pvysics-prototype/`.
+
+## Requirements
+
+- Python 3.13 (the project pins it in `.python-version`; `requires-python` is `>=3.13`)
+- [uv](https://docs.astral.sh/uv/) to manage Python and the dependencies
+
+## Install and run
+
+### Install uv
+
+Linux and macOS:
+
+```sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows (PowerShell):
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+Then install Python 3.13 with uv, which keeps it separate from any system Python:
+
+```sh
+uv python install 3.13
+```
+
+### Run from the repository
+
+These steps are run from the repository root. `uv sync` creates `.venv` and installs the dependencies, including the test tools. `uv run` starts the app.
+
+Linux:
+
+```sh
+uv sync
+uv run pvysics
+```
+
+macOS: the same commands, in Terminal.
+
+Windows: the same commands, in PowerShell.
+
+`uv run pvysics` opens the HMI and the Dashboard together.
+
+### Linux Qt library note
+
+Qt's X11 (xcb) platform plugin needs `libxcb-cursor0`. On the build machine (Linux Mint 22.3, Wayland session) `ldd` showed `libxcb-cursor.so.0` missing for the PyQt6 xcb plugin. On Debian, Ubuntu and Mint the package is installed with `sudo apt install libxcb-cursor0`. I did not reproduce the failure that a missing library causes, because the machine has a working Wayland session.
+
+### Run the tests
+
+Linux and macOS:
+
+```sh
+QT_QPA_PLATFORM=offscreen uv run pytest
+```
+
+Windows (PowerShell):
+
+```powershell
+$env:QT_QPA_PLATFORM = "offscreen"; uv run pytest
+```
+
+The tests set `QT_QPA_PLATFORM=offscreen` themselves (`tests/conftest.py`), so the variable is optional. The GUI tests need no display.
+
+### Build a wheel
+
+`uv build` writes `dist/`, which is git-ignored. The wheel includes the bundled data and the design assets under `src/pvysics/gui/assets/`.
+
+## Architecture
+
+- **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV). Tests and scripts call these directly.
+- **Qt GUI layer** (`src/pvysics/gui/`): `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive.
+- **Data bus** (`gui/data_bus.py`): an in-process `DataBus` of Qt signals (`sample`, `event`, `run_reset`). Both windows subscribe to it. It stands in for the WebSocket and CSV bus in the design. The `Sample` record is the one an ESP32 would publish later.
+
+## Demo script
+
+Use this checklist against the running app. Each step describes what the code does.
+
+**Setup**
+
+- [ ] Open the Setup tab. The profile list offers the three bundled days, 15 to 17 January 2025. The module is the generic 60-cell, 250 W datasheet. Defaults: mismatch Rs +3 %, Rsh +5 %, temperature coefficient +2 %; warning limit 5 %, abnormal limit 10 %; seed 0.
+- [ ] Press **Validate setup**. The message says the setup is valid, or lists what is wrong.
+- [ ] Press **Apply and start**. The run restarts from the beginning, the window switches to the Process tab, and the Dashboard follows the new setup.
+
+**Normal operation**
+
+- [ ] On the Process tab, set **Speed** to 28800x. A day plays in about 3 s; the default 1x is real time.
+- [ ] Press **Start** (or **Pause** to stop). The banner shows Normal in green. The plant readings (G, T, V, I, P measured) and the twin's P predicted update on every step.
+- [ ] The deviation gauge stays near zero. On the bundled day with defaults the deviation stayed within 2 % (largest 1.9 % at seed 0). Where predicted power is below 5 W (night), the deviation is shown as 0 %.
+- [ ] Open the Dashboard Overview. The KPI tiles (P measured, P predicted, Deviation, State, Energy) and the charts fill in. The event list is empty while nothing changes.
+
+**Fault and alarm**
+
+- [ ] Press **Partial shading** in Fault injection. The other four buttons (Soiling, Rs increase, Diode failure, Sensor drift) inject their faults the same way.
+- [ ] The banner goes **Abnormal** (red) on the next step. A new alarm appears in the Alarms list with its time, ABNORMAL, the deviation, and "Probable cause: partial shading". Its row is bold and tinted until it is acknowledged.
+- [ ] The Dashboard event list shows the fault and the state change, as "Fault: none -> partial shading" and "State: Normal -> Abnormal".
+- [ ] Select the alarm and press **Acknowledge**. The row turns grey and is marked "(acknowledged)".
+
+I measured this with the faults injected at 10:00 on the bundled day at the default severities: each fault went to Abnormal at the first step after injection.
+
+**Recovery**
+
+- [ ] Press **Clear all**. The faults are removed, and the banner returns to Normal on the next step. The alarm stays in the list. Only **Reset** or **Apply and start** clears the list.
+- [ ] Optional: press **Reset**. The run starts again from its first sample, paused, with no faults and an empty alarm list.
+
+**Model**
+
+- [ ] Open the Model tab. It shows the SDM circuit and three equations, the parameters in use (Iph at STC, Rs, Rsh, n, Ns), the module datasheet values, the live G, T, V and I, P predicted, the model Pmpp and the deviation.
+- [ ] The I-V and P-V curves are computed for the measured G and T. The measured operating point is marked on both. The curves are recomputed when G or T changes.
+
+**Validation (Dashboard)**
+
+- [ ] Open the Validation tab in the Dashboard window and press **Run validation**. It runs one healthy run and five fault runs in the background, which takes a few seconds. The button is disabled while it runs.
+- [ ] Check the error metrics. On the bundled day with defaults the build machine measured MAE 0.24 W, RMSE 0.35 W and MAPE 0.47 % over 702 daylight samples.
+- [ ] Check the fault detection. The confusion matrix has rows for truth (normal, fault) and columns for the estimated state. Each of the five faults has a detection delay and a detection rate. On the bundled day the delay was 0 s and the rate 100 % for every fault.
+- [ ] Check the false-alarm rates. With the config thresholds (5 % and 10 %) the rate was 0.0 %. With the derived thresholds (mean + 2 and 3 standard deviations) it was 4.3 %.
+- [ ] Press **Export samples CSV...** or **Export metrics CSV...** to save the results.
+
+## Known limitations
+
+**Platforms tested**
+
+- Tested: Linux Mint 22.3, x86_64, Python 3.13.15, PyQt6 6.11.0 (Qt 6.11.0). The full test suite passed offscreen. The wheel built and installed in a clean virtual environment, with the bundled data loading from it. `uv run pvysics` stayed up for the full 8 s `timeout` on the desktop session.
+- Not tested: **Windows** and **macOS**. I did not run the app, the tests, the uv install, or the PowerShell command on either. The uv install commands above come from the uv documentation, not from a run.
+- Not tested on any platform: clicking through the windows by hand on a real display, native file dialogs, and high-DPI on real hardware. High-DPI scaling is on by default in Qt 6, and nothing in the code sets a fixed scale; with `QT_SCALE_FACTOR=2` offscreen the device pixel ratio became 2.0.
+
+**Model and validation**
+
+- **Derived thresholds produce false alarms on healthy data.** The derived limits (mean + 2 and mean + 3 standard deviations of the healthy deviation) assume the deviation is roughly Gaussian. It is not: on the bundled day the healthy absolute deviation has a median of 0.41 % and a 90th percentile of 0.97 %, and its maximum is 1.9 %. The 2-sigma warning limit (1.18 %) is exceeded by 4.3 % of daylight samples. The default 5 % and 10 % limits gave 0 % on the same run.
+- **Fault detection scores are perfect by construction.** Validation injects each fault as a severe step change at 10:00 on the first bundled day, at the default severity, held for one hour. A step is detected at once, so the delay is 0 s, the detection rate 100 % and the confusion matrix is diagonal. Gradual real faults would not score this well. The scores do not show how the twin performs on other times, severities or profiles.
+- **The plant and the twin are the same model family.** Both are an SDM built from the same datasheet, so the healthy error comes from the chosen mismatch (Rs, Rsh, temperature coefficient) and the sensor noise. MAE, RMSE and MAPE show how well the twin matches the simulated plant. They say nothing about accuracy against a real module.
+- Metrics and the confusion matrix use daylight samples only, where predicted power is at least 5 W. MAPE also skips samples where measured power is below 5 W.
+- The bundled data is hourly NASA POWER values, linearly interpolated to a 60 s step.
+
+**Scope and deferred items**
+
+- No live data fetching (NASA POWER or PVGIS), no sun position or plane-of-array irradiance, and no hardware. There is no ESP32, serial or Wi-Fi link, and no WebSocket or network service. The in-process Qt signal bus stands in for the design's network bus.
+- Site fields (latitude, longitude, tilt, azimuth) are metadata only. They are stored and shown in the run summary and never enter the physics.
+- One module only: no strings, arrays, MPPT or load modelling.
+- Fault severity is fixed at the defaults. The Setup screen cannot schedule faults; `RunConfig` accepts scheduled faults, but the Setup controls never fill them in.
+- Alarms persist after **Clear all** and are cleared only by **Reset** or **Apply and start**.
+- The Validation tab uses the setup that was last applied. After a change to the setup, the old result is marked stale until validation is run again.
+- The time step is fixed at 60 s and is not a control in the app.
+- Closing the Dashboard while a validation runs waits for the batch to finish, a few seconds at most.
+- Machine learning fault classification is out of scope, as are installers and code signing. Run from source with uv is the supported path.
