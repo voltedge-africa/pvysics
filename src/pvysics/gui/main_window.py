@@ -44,10 +44,10 @@ class MainWindow(QMainWindow):
         self.menuBar().addMenu("&Window").addAction(self.open_dashboard_action)
 
     def _apply_setup(self, config: RunConfig) -> None:
-        """Start a new run from config. The bus resets the history and the views; the Dashboard takes the new limits."""
+        """Start a new run from config. The bus resets the history and the views; the Dashboard follows the new config."""
         self.playback.load(config)
         if self._dashboard is not None:
-            self._dashboard.set_thresholds(config.thresholds)
+            self._dashboard.set_config(config)
         self.playback.start()
         self._tabs.setCurrentWidget(self.process_view)
 
@@ -57,9 +57,7 @@ class MainWindow(QMainWindow):
     def open_dashboard(self) -> Dashboard:
         """Show the Dashboard, creating it on first use. Closing it leaves the HMI and the run running."""
         if self._dashboard is None:
-            self._dashboard = Dashboard(
-                self.history, self.bus, self.playback.config.thresholds, parent=self
-            )
+            self._dashboard = Dashboard(self.history, self.bus, self.playback.config, parent=self)
         self._dashboard.show()
         self._dashboard.raise_()
         self._dashboard.activateWindow()

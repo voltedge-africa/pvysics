@@ -81,14 +81,16 @@ def test_dashboard_and_hmi_show_the_same_run(qtbot):
     assert len(plotted_deviation(dashboard)) == window.history.sample_count
 
 
-def test_dashboard_has_no_controls_that_change_the_run(qtbot):
+def test_overview_has_no_controls_that_change_the_run(qtbot):
     window = window_with(qtbot, config=midday_config())
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
 
-    controls = dashboard.findChildren((QAbstractButton, QComboBox, QAbstractSpinBox, QLineEdit, QSlider))
+    controls = dashboard.overview.findChildren(
+        (QAbstractButton, QComboBox, QAbstractSpinBox, QLineEdit, QSlider)
+    )
 
-    assert controls == []
+    assert controls == []  # the only controls are on the Validation tab, and they do not touch the run
 
 
 def test_deviation_chart_draws_warning_and_abnormal_bands_at_the_current_thresholds(qtbot):

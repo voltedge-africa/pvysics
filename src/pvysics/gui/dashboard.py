@@ -5,6 +5,8 @@ the deviation chart in the middle, irradiance and temperature with the event log
 The Dashboard has no controls that change the run; it subscribes to the DataBus for new data
 and reads the run's history on each UI tick. Plots are updated once per tick, with only the
 Samples that arrived since the last tick appended, so a full day stays responsive.
+The Overview tab holds the live view. The Validation tab runs its own headless batch on the
+applied config and never changes or restarts the run.
 """
 
 import numpy as np
@@ -12,12 +14,11 @@ import pyqtgraph as pg
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QFrame,
     QGridLayout,
     QGroupBox,
-    QLabel,
     QListWidget,
     QMainWindow,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -30,8 +31,10 @@ from pvysics.gui.process_view import (
     STATE_TEXT_COLOURS,
     format_readings,
 )
+from pvysics.gui.validation_view import ValidationView
+from pvysics.gui.widgets import KpiTile
 from pvysics.history import RunHistory
-from pvysics.run import Event, Sample, State, Thresholds
+from pvysics.run import Event, RunConfig, Sample, State, Thresholds
 
 UI_INTERVAL_MS = 100  # the Dashboard refreshes at most this often
 BAND_ALPHA = 0.35
@@ -92,35 +95,6 @@ def _row(sample: Sample, origin: np.datetime64) -> list[float]:
     ]
 
 
-class KpiTile(QFrame):
-    """A headline number with its caption. A tile can be tinted, as the State tile is."""
-
-    def __init__(self, caption: str, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setFrameShape(QFrame.Shape.StyledPanel)
-        self._colour: str | None = None
-        self._value = QLabel(PLACEHOLDER)
-        self._value.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        font = self._value.font()
-        font.setBold(True)
-        self._value.setFont(font)
-        layout = QVBoxLayout(self)
-        layout.addWidget(QLabel(caption), alignment=Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(self._value)
-
-    def text(self) -> str:
-        return self._value.text()
-
-    def colour(self) -> str | None:
-        return self._colour
-
-    def set_value(self, text: str, colour: str | None = None, text_colour: str = "#000000") -> None:
-        self._colour = colour
-        self._value.setText(text)
-        style = f"background-color: {colour}; color: {text_colour};" if colour else ""
-        self._value.setStyleSheet(style)
-
-
 class Dashboard(QMainWindow):
     """The read-only Dashboard. Built from the run's history, then kept current from the DataBus."""
 
@@ -128,13 +102,14 @@ class Dashboard(QMainWindow):
         self,
         history: RunHistory,
         bus: DataBus,
-        thresholds: Thresholds,
+        config: RunConfig,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle("PV Digital Twin Dashboard")
         self._history = history
-        self._thresholds = thresholds
+        self._thresholds = config.thresholds
+        self.validation = ValidationView(config)
         self._band_items: list[pg.LinearRegionItem] = []
         self._columns = SampleColumns()
         self._samples_shown = 0
@@ -167,12 +142,20 @@ class Dashboard(QMainWindow):
         """The limits the deviation bands are drawn at."""
         return self._thresholds
 
-    def set_thresholds(self, thresholds: Thresholds) -> None:
-        """Redraw the deviation bands at new limits. The plotted run is unchanged."""
+    def set_config(self, config: RunConfig) -> None:
+        """Follow the applied config: redraw the deviation bands and validate this config next.
+
+        The plotted run is unchanged; a new run arrives through the bus.
+        """
         for item in self._band_items:
             self.deviation_plot.removeItem(item)
-        self._thresholds = thresholds
+        self._thresholds = config.thresholds
         self._add_bands(self.deviation_plot)
+        self.validation.set_config(config)
+
+    def closeEvent(self, event) -> None:
+        self.validation.shutdown()  # a running validation ends before the window closes
+        super().closeEvent(event)
 
     def refresh(self) -> None:
         """The UI tick: plot the Samples and list the Events that arrived since the last tick.
@@ -308,11 +291,14 @@ class Dashboard(QMainWindow):
         charts.setColumnStretch(0, 1)
         charts.setColumnStretch(1, 1)
 
-        central = QWidget()
-        layout = QVBoxLayout(central)
+        self.overview = QWidget()
+        layout = QVBoxLayout(self.overview)
         layout.addLayout(tiles)
         layout.addLayout(charts, 1)
-        self.setCentralWidget(central)
+        tabs = QTabWidget()
+        tabs.addTab(self.overview, "Overview")
+        tabs.addTab(self.validation, "Validation")
+        self.setCentralWidget(tabs)
 
 
 def _chart(left_label: str) -> pg.PlotWidget:
