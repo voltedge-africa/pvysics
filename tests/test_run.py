@@ -10,6 +10,7 @@ from pvysics.run import (
     Mismatch,
     RunConfig,
     SensorModel,
+    Site,
     State,
     Thresholds,
     bundled_run_config,
@@ -152,3 +153,18 @@ def test_run_api_imports_without_qt():
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_site_is_stored_with_the_run_and_does_not_change_the_samples():
+    site = Site(latitude_deg=-26.2, longitude_deg=28.04, tilt_deg=10.0, azimuth_deg=180.0)
+
+    durban = run(configured())
+    elsewhere = run(configured(site=site))
+
+    assert elsewhere.config.site == site
+    assert elsewhere.samples == durban.samples
+
+
+def test_site_defaults_to_durban():
+    assert Site() == Site(latitude_deg=-29.85, longitude_deg=31.00, tilt_deg=26.0, azimuth_deg=0.0)
+    assert bundled_run_config().site == Site()

@@ -6,14 +6,16 @@ from pvysics.gui.data_bus import DataBus
 from pvysics.gui.model_view import ModelView
 from pvysics.gui.playback import PlaybackController
 from pvysics.gui.process_view import ProcessView
+from pvysics.gui.setup_view import SetupView
 from pvysics.history import RunHistory
 from pvysics.run import RunConfig, bundled_run_config
 
 
 class MainWindow(QMainWindow):
-    """The operator HMI window: a tab view of the Process and Model views on one run.
+    """The operator HMI window: a tab view of the Process, Model and Setup views on one run.
 
     The window keeps the run's history, fed from the bus, and opens the read-only Dashboard on it.
+    Apply on the Setup view replaces the run through the playback controller.
     """
 
     def __init__(self, bus: DataBus | None = None, config: RunConfig | None = None) -> None:
@@ -28,15 +30,29 @@ class MainWindow(QMainWindow):
         self.playback = PlaybackController(config, self.bus, self)
         self.process_view = ProcessView(self.playback, self.bus)
         self.model_view = ModelView(self.playback, self.bus)
-        tabs = QTabWidget()
-        tabs.addTab(self.process_view, "Process")
-        tabs.addTab(self.model_view, "Model")
-        self.setCentralWidget(tabs)
+        self.setup_view = SetupView(config)
+        self.setup_view.apply_requested.connect(self._apply_setup)
+        self._tabs = QTabWidget()
+        self._tabs.addTab(self.process_view, "Process")
+        self._tabs.addTab(self.model_view, "Model")
+        self._tabs.addTab(self.setup_view, "Setup")
+        self.setCentralWidget(self._tabs)
 
         self._dashboard: Dashboard | None = None
         self.open_dashboard_action = QAction("Open Dashboard", self)
-        self.open_dashboard_action.triggered.connect(lambda: self.open_dashboard())
+        self.open_dashboard_action.triggered.connect(self._on_open_dashboard_triggered)
         self.menuBar().addMenu("&Window").addAction(self.open_dashboard_action)
+
+    def _apply_setup(self, config: RunConfig) -> None:
+        """Start a new run from config. The bus resets the history and the views; the Dashboard takes the new limits."""
+        self.playback.load(config)
+        if self._dashboard is not None:
+            self._dashboard.set_thresholds(config.thresholds)
+        self.playback.start()
+        self._tabs.setCurrentWidget(self.process_view)
+
+    def _on_open_dashboard_triggered(self, *_args) -> None:
+        self.open_dashboard()
 
     def open_dashboard(self) -> Dashboard:
         """Show the Dashboard, creating it on first use. Closing it leaves the HMI and the run running."""

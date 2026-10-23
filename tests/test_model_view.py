@@ -235,7 +235,7 @@ def test_main_window_has_process_and_model_tabs_and_the_model_tab_follows_the_ru
     window.show()
     qtbot.waitExposed(window)
     tabs = window.centralWidget()
-    assert [tabs.tabText(index) for index in range(tabs.count())] == ["Process", "Model"]
+    assert [tabs.tabText(index) for index in range(tabs.count())] == ["Process", "Model", "Setup"]
 
     tabs.setCurrentWidget(window.model_view)
     window.playback.set_speed(SPEEDS[-1])

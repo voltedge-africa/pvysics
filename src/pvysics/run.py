@@ -66,6 +66,17 @@ class Thresholds:
 
 
 @dataclass(frozen=True)
+class Site:
+    """Where the module is. Metadata only: it is stored with the run and shown in its summary,
+    and never enters the physics. The default is Durban, the department's site."""
+
+    latitude_deg: float = -29.85
+    longitude_deg: float = 31.00
+    tilt_deg: float = 26.0  # from horizontal
+    azimuth_deg: float = 0.0  # 0 is north
+
+
+@dataclass(frozen=True)
 class RunConfig:
     profile: Profile
     datasheet: ModuleDatasheet
@@ -75,6 +86,7 @@ class RunConfig:
     seed: int = 0
     time_step_s: float = 60.0
     faults: tuple[ScheduledFault, ...] = ()
+    site: Site = Site()
 
 
 @dataclass(frozen=True)

@@ -4,13 +4,13 @@
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The bundled profile days appear as presets.
-- [ ] A valid CSV loads; a CSV with a missing column, non-numeric values, decreasing time or negative irradiance is rejected with a specific message and the previous profile stays active.
-- [ ] A datasheet file loads; a malformed one is rejected with a message.
-- [ ] Changing mismatch, noise, seed or thresholds changes the next run and nothing is applied until Apply and start.
-- [ ] Derive thresholds runs a healthy run and fills warning and abnormal limits from its deviation statistics; the values are shown and can be edited.
-- [ ] Site fields are saved and shown in the run summary but do not alter the physics.
+- [x] The bundled profile days appear as presets.
+- [x] A valid CSV loads; a CSV with a missing column, non-numeric values, decreasing time or negative irradiance is rejected with a specific message and the previous profile stays active.
+- [x] A datasheet file loads; a malformed one is rejected with a message.
+- [x] Changing mismatch, noise, seed or thresholds changes the next run and nothing is applied until Apply and start.
+- [x] Derive thresholds runs a healthy run and fills warning and abnormal limits from its deviation statistics; the values are shown and can be edited.
+- [x] Site fields are saved and shown in the run summary but do not alter the physics.
 - [ ] Settings use sensible defaults and Reset to defaults works on every platform's file paths.
-- [ ] An offscreen smoke test applies a changed setup and starts a run.
+- [x] An offscreen smoke test applies a changed setup and starts a run.

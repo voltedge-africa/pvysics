@@ -6,7 +6,7 @@ from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.data_bus import DataBus
 from pvysics.gui.playback import SPEEDS, TICKS_PER_SECOND, PlaybackController
 from pvysics.profile import Profile
-from pvysics.run import RunConfig, Simulation, bundled_run_config
+from pvysics.run import RunConfig, Simulation, Thresholds, bundled_run_config
 
 FASTEST = SPEEDS[-1]
 
@@ -212,3 +212,34 @@ def test_speed_must_be_positive(bus):
 
     with pytest.raises(ValueError):
         controller.set_speed(0.0)
+
+
+def test_load_replaces_the_run_and_starts_it_from_the_beginning(bus):
+    recorder = Recorder(bus)
+    controller = PlaybackController(bundled_run_config(), bus)
+    controller.set_speed(FASTEST)
+    controller.start()
+    controller.tick()
+    new_config = replace(bundled_run_config(seed=7), profile=short_config(2).profile)
+
+    controller.load(new_config)
+    recorder.samples.clear()
+    controller.start()
+    controller.tick()
+
+    assert controller.config is new_config
+    assert recorder.resets == 1
+    assert recorder.samples[0] == Simulation(new_config).step()
+
+
+def test_load_with_an_invalid_config_keeps_the_current_run(bus):
+    recorder = Recorder(bus)
+    config = bundled_run_config()
+    controller = PlaybackController(config, bus)
+    bad = replace(config, thresholds=Thresholds(warning_pct=10.0, abnormal_pct=5.0))
+
+    with pytest.raises(ValueError):
+        controller.load(bad)
+
+    assert controller.config is config
+    assert recorder.resets == 0

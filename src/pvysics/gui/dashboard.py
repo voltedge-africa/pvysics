@@ -135,6 +135,7 @@ class Dashboard(QMainWindow):
         self.setWindowTitle("PV Digital Twin Dashboard")
         self._history = history
         self._thresholds = thresholds
+        self._band_items: list[pg.LinearRegionItem] = []
         self._columns = SampleColumns()
         self._samples_shown = 0
         self._events_shown = 0
@@ -160,6 +161,18 @@ class Dashboard(QMainWindow):
         self._timer.setInterval(UI_INTERVAL_MS)
         self._timer.timeout.connect(self.refresh)
         self._timer.start()
+
+    @property
+    def thresholds(self) -> Thresholds:
+        """The limits the deviation bands are drawn at."""
+        return self._thresholds
+
+    def set_thresholds(self, thresholds: Thresholds) -> None:
+        """Redraw the deviation bands at new limits. The plotted run is unchanged."""
+        for item in self._band_items:
+            self.deviation_plot.removeItem(item)
+        self._thresholds = thresholds
+        self._add_bands(self.deviation_plot)
 
     def refresh(self) -> None:
         """The UI tick: plot the Samples and list the Events that arrived since the last tick.
@@ -268,6 +281,7 @@ class Dashboard(QMainWindow):
             )
             region.setZValue(-10)
             plot.addItem(region)
+            self._band_items.append(region)
 
     def _build_layout(self) -> None:
         tiles = QGridLayout()

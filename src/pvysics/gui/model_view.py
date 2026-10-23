@@ -149,6 +149,7 @@ class ModelView(QWidget):
 
     def __init__(self, controller: PlaybackController, bus: DataBus, parent: QWidget | None = None):
         super().__init__(parent)
+        self._controller = controller
         self._datasheet = controller.config.datasheet
         self._parameters = fit_parameters(self._datasheet)  # the same fit the twin predicts with
         self._sample: Sample | None = None
@@ -176,7 +177,7 @@ class ModelView(QWidget):
         self._show_start()
 
         bus.sample.connect(self._on_sample)
-        bus.run_reset.connect(self._show_start)
+        bus.run_reset.connect(self._on_reset)
         self._timer = QTimer(self)
         self._timer.setInterval(UI_INTERVAL_MS)
         self._timer.timeout.connect(self.refresh)
@@ -223,6 +224,13 @@ class ModelView(QWidget):
     def _on_sample(self, sample: Sample) -> None:
         self._sample = sample
         self._dirty = True
+
+    def _on_reset(self) -> None:
+        """A new run may bring another module: refit the parameters the twin predicts with."""
+        self._datasheet = self._controller.config.datasheet
+        self._parameters = fit_parameters(self._datasheet)
+        self._show_parameters()
+        self._show_start()
 
     def _show_parameters(self) -> None:
         p, ds = self._parameters, self._datasheet

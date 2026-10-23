@@ -72,11 +72,18 @@ class PlaybackController(QObject):
     def pause(self) -> None:
         self._set_running(False)
 
-    def reset(self) -> None:
+    def load(self, config: RunConfig) -> None:
+        """Replace the run with a new one from config. It starts paused, at its first Sample."""
+        simulation = Simulation(config)  # checks the config before anything changes
         self._set_running(False)
+        self._config = config
+        self._simulation = simulation
         self._clock_s = 0.0
-        self._simulation = Simulation(self._config)
         self._bus.run_reset.emit()
+
+    def reset(self) -> None:
+        """Start the current run again from its first Sample, with its faults cleared."""
+        self.load(self._config)
 
     def tick(self) -> None:
         """Advance the clock by one tick and emit everything it has reached."""

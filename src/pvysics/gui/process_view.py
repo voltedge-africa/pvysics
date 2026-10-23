@@ -154,6 +154,11 @@ class DeviationGauge(QWidget):
     def scale_pct(self) -> float:
         return GAUGE_SCALE_FACTOR * self._thresholds.abnormal_pct
 
+    def set_thresholds(self, thresholds: Thresholds) -> None:
+        """Redraw the bands and the scale for new limits."""
+        self._thresholds = thresholds
+        self.update()
+
     def show_deviation(self, deviation_pct: float, state: State) -> None:
         self._reading_pct = abs(deviation_pct)
         self._state = state
@@ -395,6 +400,7 @@ class ProcessView(QWidget):
 
     def _show_start(self) -> None:
         self.banner.show_state(None)
+        self.gauge.set_thresholds(self._controller.config.thresholds)
         self.plant.clear()
         self.twin.clear()
         self.gauge.clear()
