@@ -54,15 +54,22 @@ FAULT_BUTTON_LABELS = {
 MUTED_TEXT_COLOUR = "#757575"
 
 
+def format_number(value: float, decimals: int, signed: bool = False) -> str:
+    """Fixed-point text. A value that rounds to zero is shown as 0, never as negative zero."""
+    if round(value, decimals) == 0:
+        value = 0.0
+    return f"{value:+.{decimals}f}" if signed else f"{value:.{decimals}f}"
+
+
 def format_readings(sample: Sample) -> dict[str, str]:
     """The display text for every reading in a Sample, keyed as in PLANT_READINGS and TWIN_READINGS."""
     return {
-        "G": f"{sample.measured_irradiance:.0f} W/m²",
-        "T": f"{sample.measured_temperature:.1f} °C",
-        "V": f"{sample.measured_voltage:.1f} V",
-        "I": f"{sample.measured_current:.1f} A",
-        "P": f"{sample.power_measured:.1f} W",
-        "P_pred": f"{sample.power_predicted:.1f} W",
+        "G": f"{format_number(sample.measured_irradiance, 0)} W/m²",
+        "T": f"{format_number(sample.measured_temperature, 1)} °C",
+        "V": f"{format_number(sample.measured_voltage, 1)} V",
+        "I": f"{format_number(sample.measured_current, 1)} A",
+        "P": f"{format_number(sample.power_measured, 1)} W",
+        "P_pred": f"{format_number(sample.power_predicted, 1)} W",
     }
 
 
@@ -383,7 +390,7 @@ class ProcessView(QWidget):
         self.twin.set_values(readings)
         self.banner.show_state(sample.state)
         self.gauge.show_deviation(sample.deviation_pct, sample.state)
-        self.deviation_label.setText(f"{sample.deviation_pct:+.1f} %")
+        self.deviation_label.setText(f"{format_number(sample.deviation_pct, 1, signed=True)} %")
         self.time_label.setText(np.datetime_as_string(sample.timestamp, unit="m").replace("T", " "))
 
     def _show_start(self) -> None:

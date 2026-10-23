@@ -6,7 +6,7 @@ from pvysics.faults import Fault, FaultKind
 from pvysics.gui.data_bus import DataBus
 from pvysics.gui.main_window import MainWindow
 from pvysics.gui.playback import SPEEDS
-from pvysics.gui.process_view import PLACEHOLDER, STATE_COLOURS
+from pvysics.gui.process_view import PLACEHOLDER, STATE_COLOURS, format_number
 from pvysics.profile import Profile
 from pvysics.run import RunConfig, State, bundled_run_config
 
@@ -37,7 +37,7 @@ def window_with(qtbot, config: RunConfig | None = None, bus: DataBus | None = No
 
 def test_start_plays_pause_freezes_and_reset_returns_to_the_start(qtbot):
     window = window_with(qtbot)
-    view = window.centralWidget()
+    view = window.process_view
     first = bundled_run_config().profile.timestamps[0]
     first_stamp = np.datetime_as_string(first, unit="m").replace("T", " ")
 
@@ -60,7 +60,7 @@ def test_start_plays_pause_freezes_and_reset_returns_to_the_start(qtbot):
 
 def test_start_and_pause_buttons_follow_the_run_state(qtbot):
     window = window_with(qtbot)
-    view = window.centralWidget()
+    view = window.process_view
     assert view.start_button.isEnabled() and not view.pause_button.isEnabled()
 
     view.start_button.click()
@@ -72,7 +72,7 @@ def test_start_and_pause_buttons_follow_the_run_state(qtbot):
 
 def test_speed_control_changes_the_rate_without_restarting_the_run(qtbot):
     window = window_with(qtbot)
-    view = window.centralWidget()
+    view = window.process_view
     window.playback.set_speed(SPEEDS[0])
     resets = []
     window.bus.run_reset.connect(lambda: resets.append(True))
@@ -91,7 +91,7 @@ def test_speed_control_changes_the_rate_without_restarting_the_run(qtbot):
 
 def test_plant_and_twin_readings_update_on_every_sample(qtbot):
     window = window_with(qtbot)
-    view = window.centralWidget()
+    view = window.process_view
     seen = []
     window.bus.sample.connect(seen.append)
     view.start_button.click()
@@ -101,19 +101,19 @@ def test_plant_and_twin_readings_update_on_every_sample(qtbot):
         window.playback.tick()
         if seen:
             latest = seen[-1]
-            assert view.plant.value("G") == f"{latest.measured_irradiance:.0f} W/m²"
-            assert view.plant.value("T") == f"{latest.measured_temperature:.1f} °C"
-            assert view.plant.value("V") == f"{latest.measured_voltage:.1f} V"
-            assert view.plant.value("I") == f"{latest.measured_current:.1f} A"
-            assert view.plant.value("P") == f"{latest.power_measured:.1f} W"
-            assert view.twin.value("P_pred") == f"{latest.power_predicted:.1f} W"
+            assert view.plant.value("G") == f"{format_number(latest.measured_irradiance, 0)} W/m²"
+            assert view.plant.value("T") == f"{format_number(latest.measured_temperature, 1)} °C"
+            assert view.plant.value("V") == f"{format_number(latest.measured_voltage, 1)} V"
+            assert view.plant.value("I") == f"{format_number(latest.measured_current, 1)} A"
+            assert view.plant.value("P") == f"{format_number(latest.power_measured, 1)} W"
+            assert view.twin.value("P_pred") == f"{format_number(latest.power_predicted, 1)} W"
             shown_values.append(view.plant.value("P"))
     assert len(set(shown_values)) > 1
 
 
 def test_banner_and_gauge_follow_normal_warning_and_abnormal_faults(qtbot):
     window = window_with(qtbot, config=midday_config())
-    view = window.centralWidget()
+    view = window.process_view
     view.start_button.click()
 
     window.playback.tick()
@@ -135,7 +135,7 @@ def test_banner_and_gauge_follow_normal_warning_and_abnormal_faults(qtbot):
 
 def test_fault_button_injects_and_clear_all_returns_the_banner_to_normal(qtbot):
     window = window_with(qtbot, config=midday_config())
-    view = window.centralWidget()
+    view = window.process_view
     view.start_button.click()
     window.playback.tick()
 
@@ -150,7 +150,7 @@ def test_fault_button_injects_and_clear_all_returns_the_banner_to_normal(qtbot):
 
 def test_alarm_list_shows_time_severity_and_cause_and_can_be_acknowledged(qtbot):
     window = window_with(qtbot, config=midday_config())
-    view = window.centralWidget()
+    view = window.process_view
     panel = view.alarm_panel
     view.start_button.click()
     window.playback.tick()
@@ -180,10 +180,10 @@ def test_injected_faults_and_state_changes_are_emitted_on_the_bus(qtbot):
     window = window_with(qtbot, config=midday_config())
     events = []
     window.bus.event.connect(events.append)
-    window.centralWidget().start_button.click()
+    window.process_view.start_button.click()
     window.playback.tick()
 
-    window.centralWidget().fault_buttons[FaultKind.SOILING].click()
+    window.process_view.fault_buttons[FaultKind.SOILING].click()
     window.playback.tick()
 
     details = [(event.kind, event.detail) for event in events]
@@ -193,7 +193,7 @@ def test_injected_faults_and_state_changes_are_emitted_on_the_bus(qtbot):
 
 def test_reset_clears_the_alarm_list(qtbot):
     window = window_with(qtbot, config=midday_config())
-    view = window.centralWidget()
+    view = window.process_view
     view.start_button.click()
     view.fault_buttons[FaultKind.PARTIAL_SHADING].click()
     window.playback.tick()
@@ -210,12 +210,12 @@ def test_the_window_shows_the_bus_it_was_given(qtbot):
     bus.sample.connect(other_subscriber.append)
     window = window_with(qtbot, bus=bus)
 
-    window.centralWidget().start_button.click()
+    window.process_view.start_button.click()
     window.playback.tick()
 
     assert window.bus is bus
     assert other_subscriber
-    assert window.centralWidget().time_label.text() != PLACEHOLDER
+    assert window.process_view.time_label.text() != PLACEHOLDER
 
 
 def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
@@ -223,7 +223,7 @@ def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)
-    view = window.centralWidget()
+    view = window.process_view
     assert view.banner.text() == "Ready"
 
     window.playback.set_speed(FASTEST)

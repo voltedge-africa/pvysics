@@ -64,7 +64,7 @@ def test_dashboard_and_hmi_show_the_same_run(qtbot):
     window = window_with(qtbot, config=midday_config())
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
-    window.centralWidget().start_button.click()
+    window.process_view.start_button.click()
     for _ in range(3):
         window.playback.tick()
     dashboard.refresh()
@@ -76,7 +76,7 @@ def test_dashboard_and_hmi_show_the_same_run(qtbot):
     assert dashboard.tiles["deviation"].text() == f"{latest.deviation_pct:+.1f} %"
     assert dashboard.tiles["state"].text() == latest.state.value
     assert dashboard.tiles["energy"].text() == f"{window.history.energy_wh:.1f} Wh"
-    assert window.centralWidget().plant.value("P") == readings["P"]
+    assert window.process_view.plant.value("P") == readings["P"]
     assert window.history.energy_wh > 0.0
     assert len(plotted_deviation(dashboard)) == window.history.sample_count
 
@@ -117,7 +117,7 @@ def test_fault_injected_in_the_hmi_shows_in_the_charts_and_event_log(qtbot):
     window = window_with(qtbot, config=midday_config())
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
-    view = window.centralWidget()
+    view = window.process_view
     view.start_button.click()
     window.playback.tick()
 
@@ -140,7 +140,7 @@ def test_a_full_day_is_plotted_in_one_update_per_curve_per_ui_tick(qtbot, plot_c
     window = window_with(qtbot)
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
-    window.centralWidget().start_button.click()
+    window.process_view.start_button.click()
     while window.playback.is_running:
         window.playback.tick()  # the bus fills the history; the Dashboard has not ticked yet
     assert window.history.sample_count == 1381
@@ -156,7 +156,7 @@ def test_a_ui_tick_with_nothing_new_plots_nothing(qtbot, plot_calls):
     window = window_with(qtbot, config=midday_config())
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
-    window.centralWidget().start_button.click()
+    window.process_view.start_button.click()
     window.playback.tick()
     dashboard.refresh()
 
@@ -171,7 +171,7 @@ def test_a_ui_tick_with_nothing_new_plots_nothing(qtbot, plot_calls):
 
 def test_closing_the_dashboard_leaves_the_hmi_running_and_reopening_shows_the_history(qtbot):
     window = window_with(qtbot, config=midday_config())
-    view = window.centralWidget()
+    view = window.process_view
     view.start_button.click()
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
@@ -194,7 +194,7 @@ def test_closing_the_dashboard_leaves_the_hmi_running_and_reopening_shows_the_hi
 
 def test_a_dashboard_opened_mid_run_shows_the_history_so_far_including_faults(qtbot):
     window = window_with(qtbot, config=midday_config())
-    window.centralWidget().start_button.click()
+    window.process_view.start_button.click()
     window.playback.tick()
     window.playback.inject(default_fault(FaultKind.SOILING))
     for _ in range(3):
@@ -211,7 +211,7 @@ def test_reset_clears_the_dashboard(qtbot):
     window = window_with(qtbot, config=midday_config())
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
-    view = window.centralWidget()
+    view = window.process_view
     view.start_button.click()
     window.playback.tick()
     window.playback.inject(default_fault(FaultKind.SOILING))
@@ -236,7 +236,7 @@ def test_offscreen_smoke_opens_the_dashboard_and_logs_events_for_a_run_with_a_fa
     window.open_dashboard_action.trigger()
     dashboard = window.open_dashboard()
     qtbot.waitExposed(dashboard)
-    view = window.centralWidget()
+    view = window.process_view
 
     view.start_button.click()
     for _ in range(5):

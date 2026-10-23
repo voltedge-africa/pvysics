@@ -4,11 +4,11 @@
 
 **Blocked by:** 02, 04.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The schematic and typeset equations already made for the presentation are reused from the documentation folder's assets, copied into the package so the app is self-contained.
-- [ ] The parameters shown match the ones the twin uses in the current run.
-- [ ] The curve is for the current measured G and T and updates as the profile plays.
-- [ ] The measured operating point is drawn on the curve and sits at or below the twin's maximum power point for a healthy plant.
-- [ ] The view scales sensibly on common window sizes and a high-DPI display.
-- [ ] An offscreen smoke test opens the view during a run.
+- [x] The schematic and typeset equations already made for the presentation are reused from the documentation folder's assets, copied into the package so the app is self-contained.
+- [x] The parameters shown match the ones the twin uses in the current run.
+- [x] The curve is for the current measured G and T and updates as the profile plays.
+- [x] The measured operating point is drawn on the curve and sits at or below the twin's maximum power point for a healthy plant.
+- [x] The view scales sensibly on common window sizes and a high-DPI display.
+- [x] An offscreen smoke test opens the view during a run.
