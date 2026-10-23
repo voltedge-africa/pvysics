@@ -6,9 +6,10 @@ their colours from the theme, and follow it when the theme changes.
 The Dashboard has no controls that change the run; it subscribes to the DataBus for new data
 and reads the run's history on each UI tick. Plots are updated once per tick, with only the
 Samples that arrived since the last tick appended, so a full day stays responsive.
-The Overview tab holds the live view. The Validation tab runs its own headless batch on the
+The Overview tab holds the live view. The Live charts tab holds five more live views (live_charts.py).
+The Validation tab runs its own headless batch on the
 applied config and never changes or restarts the run. With no HMI open and no Sample yet, the
-Overview tab shows an idle message and a button that opens the HMI.
+Overview and Live charts tabs show an idle message and a button that opens the HMI.
 """
 
 import logging
@@ -25,14 +26,16 @@ from PyQt6.QtWidgets import (
     QListWidget,
     QMainWindow,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.log_pane import bottom_log_pane
+from pvysics.gui.live_charts import LiveCharts
+from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER, format_readings
 from pvysics.gui.theme import ThemeMenu, style_plot
 from pvysics.gui.validation_view import ValidationView
@@ -48,7 +51,17 @@ UI_INTERVAL_MS = 100  # the Dashboard refreshes at most this often
 IDLE_MESSAGE = "No run in progress. Start a run from the HMI."
 BAND_ALPHA = 0.35
 TIME_LABEL = "Time since start (h)"
-COLUMNS = ("hours", "power_measured", "power_predicted", "deviation", "irradiance", "temperature")
+COLUMNS = (
+    "hours",
+    "power_measured",
+    "power_predicted",
+    "deviation",
+    "irradiance",
+    "temperature",
+    "voltage",
+    "current",
+    "energy_wh",
+)
 COLUMN_INDEX = {name: index for index, name in enumerate(COLUMNS)}
 INITIAL_CAPACITY = 1024
 
@@ -73,8 +86,8 @@ class SampleColumns:
     def clear(self) -> None:
         self._count = 0
 
-    def append(self, samples: list[Sample], origin: np.datetime64) -> None:
-        rows = np.array([_row(sample, origin) for sample in samples], dtype=float).T
+    def append(self, samples: list[Sample], origin: np.datetime64, energies: list[float]) -> None:
+        rows = np.array([_row(sample, origin, energy) for sample, energy in zip(samples, energies)], dtype=float).T
         needed = self._count + rows.shape[1]
         if needed > self._data.shape[1]:
             grown = np.empty((len(COLUMNS), max(needed, 2 * self._data.shape[1])))
@@ -87,7 +100,7 @@ class SampleColumns:
         return self._data[COLUMN_INDEX[name], : self._count]
 
 
-def _row(sample: Sample, origin: np.datetime64) -> list[float]:
+def _row(sample: Sample, origin: np.datetime64, energy_wh: float) -> list[float]:
     hours = (sample.timestamp - origin) / np.timedelta64(1, "h")
     return [
         hours,
@@ -96,6 +109,9 @@ def _row(sample: Sample, origin: np.datetime64) -> list[float]:
         sample.deviation_pct,
         sample.measured_irradiance,
         sample.measured_temperature,
+        sample.measured_voltage,
+        sample.measured_current,
+        energy_wh,
     ]
 
 
@@ -164,6 +180,7 @@ class Dashboard(QMainWindow):
             self.deviation_plot.removeItem(item)
         self._thresholds = config.thresholds
         self._add_bands(self.deviation_plot)
+        self.live.set_datasheet(config.datasheet)
         self.validation.set_config(config)
 
     def closeEvent(self, event) -> None:
@@ -184,9 +201,11 @@ class Dashboard(QMainWindow):
         self._dirty = False
         new_samples = self._history.samples_from(self._samples_shown)
         if new_samples:
-            self._columns.append(new_samples, self._history.origin)
+            energies = self._history.energies_from(self._samples_shown)
+            self._columns.append(new_samples, self._history.origin, energies)
             self._samples_shown += len(new_samples)
             self._plot_columns()
+            self.live.update(self._columns, new_samples)
             self._show_kpis(self._history.latest, self._history.energy_wh)
         for event in self._history.events_from(self._events_shown):
             self.event_list.insertItem(0, format_event(event))  # newest first
@@ -201,9 +220,10 @@ class Dashboard(QMainWindow):
         self._dirty = True
 
     def _update_pages(self) -> None:
-        """The idle message while no HMI is open and no Sample has arrived; the Overview otherwise."""
+        """The idle message while no HMI is open and no Sample has arrived; the charts otherwise."""
         idle = not self._session.hmi_open and self._history.sample_count == 0
         self._pages.setCurrentWidget(self._idle_page if idle else self.overview)
+        self._live_pages.setCurrentWidget(self._live_idle_page if idle else self.live_scroll)
 
     def _on_open_hmi(self, *_args) -> None:
         self._session.open_hmi()
@@ -217,6 +237,7 @@ class Dashboard(QMainWindow):
         self._events_shown = 0
         self.event_list.clear()
         self._plot_columns()
+        self.live.clear()
         self._show_kpis(None, 0.0)
         self._dirty = True
 
@@ -224,6 +245,7 @@ class Dashboard(QMainWindow):
         """Restyle the charts and their curves for a palette. Runs at start and on each theme change."""
         for plot in (self.power_plot, self.deviation_plot, self.irradiance_plot, self.temperature_plot):
             style_plot(plot, palette)
+        self.live.apply_palette(palette)
         self._power_measured.setPen(pg.mkPen(palette.measured, width=2))
         self._power_predicted.setPen(pg.mkPen(palette.predicted, width=2, style=Qt.PenStyle.DashLine))
         self._deviation.setPen(pg.mkPen(palette.deviation, width=2))
@@ -267,6 +289,8 @@ class Dashboard(QMainWindow):
         self.temperature_plot = _chart("T (°C)")
         self.temperature_plot.setXLink(self.irradiance_plot)
         self._temperature = self.temperature_plot.plot(name="T")
+
+        self.live = LiveCharts(self._session.config.datasheet, self._theme.palette)
 
     def _add_bands(self, plot: pg.PlotWidget) -> None:
         """Shade the Normal, Warning and Abnormal bands on both sides of zero, at the thresholds."""
@@ -322,29 +346,40 @@ class Dashboard(QMainWindow):
         layout = QVBoxLayout(self.overview)
         layout.addLayout(tiles)
         layout.addLayout(charts, 1)
-        self._idle_page = self._build_idle_page()
+        self._idle_page, self.idle_message, self.open_hmi_button = self._build_idle_page()
         self._pages = QStackedWidget()
         self._pages.addWidget(self._idle_page)
         self._pages.addWidget(self.overview)
+
+        self.live_scroll = QScrollArea()
+        self.live_scroll.setWidgetResizable(True)
+        self.live_scroll.setWidget(self.live)
+        self._live_idle_page, _message, _button = self._build_idle_page()
+        self._live_pages = QStackedWidget()
+        self._live_pages.addWidget(self._live_idle_page)
+        self._live_pages.addWidget(self.live_scroll)
+
         tabs = QTabWidget()
         tabs.addTab(self._pages, "Overview")
+        tabs.addTab(self._live_pages, "Live charts")
         tabs.addTab(self.validation, "Validation")
         self.setCentralWidget(tabs)
         self.log_pane = bottom_log_pane(self, self._session.log_bridge, self._theme)
 
-    def _build_idle_page(self) -> QWidget:
-        self.idle_message = QLabel(IDLE_MESSAGE)
-        self.idle_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.idle_message.setWordWrap(True)
-        self.open_hmi_button = QPushButton("Open HMI")
-        self.open_hmi_button.clicked.connect(self._on_open_hmi)
+    def _build_idle_page(self) -> tuple[QWidget, QLabel, QPushButton]:
+        """The page shown while no run is in progress: the message, and a button that opens the HMI."""
+        message = QLabel(IDLE_MESSAGE)
+        message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        message.setWordWrap(True)
+        button = QPushButton("Open HMI")
+        button.clicked.connect(self._on_open_hmi)
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.addStretch(1)
-        layout.addWidget(self.idle_message)
-        layout.addWidget(self.open_hmi_button, 0, Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(message)
+        layout.addWidget(button, 0, Qt.AlignmentFlag.AlignCenter)
         layout.addStretch(1)
-        return page
+        return page, message, button
 
 
 def _chart(left_label: str) -> pg.PlotWidget:

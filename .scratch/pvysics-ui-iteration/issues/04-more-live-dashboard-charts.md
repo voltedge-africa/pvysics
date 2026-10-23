@@ -4,11 +4,11 @@
 
 **Blocked by:** 01.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Each of the five charts exists and updates while a run plays; Reset clears them; reopening the Dashboard shows history so far.
-- [ ] The layout stays readable at common window sizes (a scrollable or tabbed arrangement is fine), with the existing KPI tiles and charts intact.
-- [ ] The curve, histogram and state-time numbers come from headless helpers that have tests (for example "time in state sums to the elapsed time").
-- [ ] Update cost per tick is bounded, asserted by sample counts not wall-clock time.
-- [ ] Charts use the theme palette; screenshots in both themes were checked.
-- [ ] An offscreen smoke test runs a short run with a fault and checks the new charts have data.
+- [x] Each of the five charts exists and updates while a run plays; Reset clears them; reopening the Dashboard shows history so far.
+- [x] The layout stays readable at common window sizes (a scrollable or tabbed arrangement is fine), with the existing KPI tiles and charts intact.
+- [x] The curve, histogram and state-time numbers come from headless helpers that have tests (for example "time in state sums to the elapsed time").
+- [x] Update cost per tick is bounded, asserted by sample counts not wall-clock time.
+- [x] Charts use the theme palette; screenshots in both themes were checked.
+- [x] An offscreen smoke test runs a short run with a fault and checks the new charts have data.

@@ -151,7 +151,10 @@ def test_a_full_day_is_plotted_in_one_update_per_curve_per_ui_tick(qtbot, plot_c
     plot_calls.clear()
     dashboard.refresh()
 
-    assert len(plot_calls) == CURVE_COUNT
+    overview_curves = (dashboard._power_measured, dashboard._power_predicted, dashboard._deviation,
+                       dashboard._irradiance, dashboard._temperature)
+    overview_calls = [curve for curve in plot_calls if curve in overview_curves]
+    assert len(overview_calls) == CURVE_COUNT  # the Live charts tab adds its own curves, counted in test_live_charts
     assert len(plotted_deviation(dashboard)) == 1381
 
 

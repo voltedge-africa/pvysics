@@ -15,6 +15,7 @@ class RunHistory:
     def __init__(self) -> None:
         self._samples: list[Sample] = []
         self._events: list[Event] = []
+        self._energies: list[float] = []  # the cumulative energy at each Sample
         self._energy_wh = 0.0
 
     @property
@@ -42,6 +43,10 @@ class RunHistory:
         """The Samples from position index onwards, in time order."""
         return self._samples[index:]
 
+    def energies_from(self, index: int) -> list[float]:
+        """The cumulative energy in Wh at each Sample from position index onwards."""
+        return self._energies[index:]
+
     def events_from(self, index: int) -> list[Event]:
         return self._events[index:]
 
@@ -51,6 +56,7 @@ class RunHistory:
             hours = (sample.timestamp - previous.timestamp) / np.timedelta64(1, "h")
             self._energy_wh += (previous.power_measured + sample.power_measured) / 2.0 * hours
         self._samples.append(sample)
+        self._energies.append(self._energy_wh)
 
     def record_event(self, event: Event) -> None:
         self._events.append(event)
@@ -58,4 +64,5 @@ class RunHistory:
     def clear(self) -> None:
         self._samples.clear()
         self._events.clear()
+        self._energies.clear()
         self._energy_wh = 0.0

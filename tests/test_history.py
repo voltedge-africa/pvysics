@@ -65,3 +65,19 @@ def test_clear_empties_the_history_and_restarts_the_energy():
     assert history.latest is None
     assert history.origin is None
     assert history.energy_wh == 0.0
+
+
+def test_cumulative_energy_is_kept_at_each_sample_for_the_energy_chart():
+    history = RunHistory()
+    history.record_sample(sample_at(0.0, 100.0))
+    history.record_sample(sample_at(1.0, 300.0))
+    history.record_sample(sample_at(1.5, 300.0))
+
+    assert history.energies_from(0) == [0.0, 200.0, 350.0]
+    assert history.energies_from(2) == [350.0]
+    assert history.energies_from(3) == []
+    assert history.energies_from(0)[-1] == history.energy_wh
+
+    history.clear()
+
+    assert history.energies_from(0) == []

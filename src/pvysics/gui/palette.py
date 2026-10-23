@@ -41,6 +41,8 @@ class Palette:
     deviation: str
     irradiance: str
     temperature: str
+    voltage: str  # the measured module voltage V
+    current: str  # the measured module current I
     model_iv: str  # the model's I-V curve
     model_pv: str  # the model's P-V curve
     operating_point: str  # the measured operating point on the model curves
@@ -67,6 +69,8 @@ LIGHT = Palette(
     deviation="#424242",
     irradiance="#a67c00",
     temperature="#c62828",
+    voltage="#6a1b9a",
+    current="#00838f",
     model_iv="#1565c0",
     model_pv="#e65100",
     operating_point="#c62828",
@@ -93,6 +97,8 @@ DARK = Palette(
     deviation="#e0e0e0",
     irradiance="#fdd835",
     temperature="#ef5350",
+    voltage="#ce93d8",
+    current="#4dd0e1",
     model_iv="#64b5f6",
     model_pv="#ffb74d",
     operating_point="#ff5252",

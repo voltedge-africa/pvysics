@@ -7,7 +7,7 @@ A Single Diode Model (SDM) of a PV module runs as the **twin**. It predicts powe
 The prototype is a PyQt6 application with two windows that read the same run:
 
 - **HMI** (PV Digital Twin): Process, Model and Setup tabs. Live plant and twin readings, the deviation gauge, state banner, fault injection, alarms, the SDM circuit and curves, and the run setup.
-- **Dashboard** (PV Digital Twin Dashboard): read-only Overview (KPI tiles, charts, event log) and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export).
+- **Dashboard** (PV Digital Twin Dashboard): read-only Overview (KPI tiles, charts, event log), Live charts and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). Live charts: voltage and current, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), and the time in each state (Normal, Warning, Abnormal).
 
 Each window has a collapsible log pane at its bottom. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
 
