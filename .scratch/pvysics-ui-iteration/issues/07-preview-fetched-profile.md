@@ -4,12 +4,12 @@
 
 **Blocked by:** 06.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The preview shows both charts and the statistics for the staged profile, themed with the active palette.
-- [ ] Statistics come from a headless helper with tests (known profile in, known numbers out).
-- [ ] Use profile makes the staged profile active and it appears in the run summary; the next Apply and start uses it.
-- [ ] Discard removes the staged profile and the previous active profile stays.
-- [ ] A fetch that fails or fails validation never reaches the preview.
-- [ ] The preview handles a multi-day range (charts stay responsive and readable).
-- [ ] Offscreen smoke test: fetch with a fake transport, preview, use, apply, start.
+- [x] The preview shows both charts and the statistics for the staged profile, themed with the active palette.
+- [x] Statistics come from a headless helper with tests (known profile in, known numbers out).
+- [x] Use profile makes the staged profile active and it appears in the run summary; the next Apply and start uses it.
+- [x] Discard removes the staged profile and the previous active profile stays.
+- [x] A fetch that fails or fails validation never reaches the preview.
+- [x] The preview handles a multi-day range (charts stay responsive and readable).
+- [x] Offscreen smoke test: fetch with a fake transport, preview, use, apply, start.

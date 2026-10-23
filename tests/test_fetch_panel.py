@@ -36,6 +36,11 @@ def finish(qtbot, panel: FetchPanel) -> None:
     qtbot.waitUntil(lambda: not panel.is_running, timeout=WAIT_MS)
 
 
+def close_preview(panel: FetchPanel) -> None:
+    """Close the preview the way a user does, without choosing: the profile stays staged."""
+    panel.preview_dialog.close()
+
+
 def set_end_date(panel: FetchPanel, day: date) -> None:
     panel.end_edit.setDate(QDate(day.year, day.month, day.day))
 
@@ -58,7 +63,7 @@ def test_fetch_group_defaults_to_the_site_location_three_days_and_all_sky(qtbot)
     assert (options.end - options.start).days == 2
     assert options.end < date.today()
     assert panel.staged_profile is None
-    assert not panel.use_button.isEnabled()
+    assert not panel.preview_button.isEnabled()
 
 
 def test_unchecking_use_site_location_enables_its_own_fields(qtbot):
@@ -121,26 +126,28 @@ def test_a_fetch_is_staged_with_a_summary_and_does_not_change_the_active_profile
 
     assert panel.staged_profile is not None
     assert setup.profile_name == active
-    assert panel.use_button.isEnabled()
+    assert panel.preview_button.isEnabled()
     summary = panel.status_label.text()
     assert "72 samples" in summary
     assert "from the network" in summary
     assert "2025-01-15 00:00" in summary and "2025-01-17 23:00" in summary
 
 
-def test_use_fetched_profile_makes_the_fetched_profile_active_and_it_shows_in_the_run_summary(qtbot, tmp_path):
+def test_use_profile_in_the_preview_makes_the_fetched_profile_active_and_it_shows_in_the_run_summary(qtbot, tmp_path):
     transport = FakeTransport(response_text())
     setup, panel = panel_with(qtbot, transport, tmp_path)
     panel.start_fetch()
     finish(qtbot, panel)
     staged_name = panel.staged_profile.name
 
-    panel.use_button.click()
+    panel.preview_dialog.use_button.click()
 
     assert setup.profile_name == staged_name
     assert "NASA POWER" in setup.read_config().profile.name
+    assert staged_name in setup.summary_label.text()
     assert "Apply and start" in setup.message
     assert setup.profile_box.findData(staged_name) >= 0
+    assert panel.preview_dialog is None
 
 
 def test_a_repeat_fetch_is_served_from_cache_and_the_summary_says_so(qtbot, tmp_path):
@@ -190,6 +197,7 @@ def test_a_previous_staged_profile_survives_a_failed_fetch(qtbot, tmp_path):
     finish(qtbot, panel)
     staged = panel.staged_profile
 
+    close_preview(panel)
     transport.error = urllib.error.URLError("offline now")
     set_start_date(panel, date(2025, 1, 10))
     set_end_date(panel, date(2025, 1, 12))
@@ -197,7 +205,7 @@ def test_a_previous_staged_profile_survives_a_failed_fetch(qtbot, tmp_path):
     finish(qtbot, panel)
 
     assert panel.staged_profile is staged
-    assert panel.use_button.isEnabled()
+    assert panel.preview_button.isEnabled()
 
 
 def test_rejected_options_are_a_warning_and_make_no_request(qtbot, tmp_path, caplog):
@@ -279,7 +287,7 @@ def test_cancel_discards_the_result_and_leaves_the_active_profile(qtbot, tmp_pat
     assert panel.staged_profile is None
     assert setup.profile_name == active
     assert "Fetch cancelled" in setup.message
-    assert not panel.use_button.isEnabled()
+    assert not panel.preview_button.isEnabled()
 
 
 def test_shutdown_ends_a_running_fetch_before_the_window_closes(qtbot, tmp_path):
@@ -330,10 +338,10 @@ def test_fetch_group_is_part_of_the_setup_tab_and_its_buttons_are_named(qtbot):
     panel = window.setup_view.fetch_panel
 
     assert panel.title() == "Fetch profile (NASA POWER)"
-    assert [button.text() for button in (panel.fetch_button, panel.cancel_button, panel.use_button)] == [
+    assert [button.text() for button in (panel.fetch_button, panel.cancel_button, panel.preview_button)] == [
         "Fetch",
         "Cancel",
-        "Use fetched profile",
+        "Preview...",
     ]
 
 

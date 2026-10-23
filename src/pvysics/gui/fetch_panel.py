@@ -3,8 +3,9 @@
 A fetch runs on a QThread so the window stays usable. While it runs the controls are disabled, a busy bar
 shows, and Cancel is enabled. Cancel cannot stop a request that is already on the wire, so the request
 finishes in the background and its result is discarded. The result comes back to the UI thread as a
-signal. A fetched profile is only staged here. It becomes the active profile when the user presses
-Use fetched profile, and the Setup view takes it from the profile_chosen signal.
+signal. A fetched profile is only staged here. A successful fetch opens its preview (ProfilePreview),
+and the profile becomes the active one only when the user chooses Use profile there. The Setup view
+takes it from the profile_chosen signal. A failed fetch never opens the preview.
 """
 
 import logging
@@ -40,6 +41,8 @@ from pvysics.fetch import (
     default_dates,
     http_transport,
 )
+from pvysics.gui.profile_preview import ProfilePreview
+from pvysics.gui.theme import ThemeManager
 from pvysics.profile import Profile
 
 log = logging.getLogger(__name__)
@@ -105,18 +108,21 @@ class FetchWorker(QObject):
 
 
 class FetchPanel(QGroupBox):
-    """Fetch options, the Fetch and Cancel buttons, and the staged profile with its Use fetched profile button."""
+    """Fetch options, the Fetch and Cancel buttons, and the staged profile with its Preview... button."""
 
     message = pyqtSignal(str, bool)  # text for the Setup message area; True when it reports a problem
-    profile_chosen = pyqtSignal(object)  # Profile: the staged profile, chosen with Use fetched profile
+    profile_chosen = pyqtSignal(object)  # Profile: the staged profile, chosen with Use profile in the preview
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(self, theme: ThemeManager, parent: QWidget | None = None) -> None:
         super().__init__("Fetch profile (NASA POWER)", parent)
+        self._theme = theme
         self._fetcher = ProfileFetcher(http_transport, default_cache_dir())
         self._thread: QThread | None = None
         self._worker: FetchWorker | None = None
         self._staged: Profile | None = None
+        self._request: FetchOptions | None = None  # the options that fetched the staged profile
         self._from_cache = False
+        self._preview: ProfilePreview | None = None
         self._site = (0.0, 0.0)
         self._build()
         self._set_busy(False)
@@ -127,8 +133,13 @@ class FetchPanel(QGroupBox):
 
     @property
     def staged_profile(self) -> Profile | None:
-        """The fetched profile waiting for Use fetched profile. It is not the active profile until chosen."""
+        """The fetched profile waiting in the preview. It is not the active profile until Use profile."""
         return self._staged
+
+    @property
+    def preview_dialog(self) -> ProfilePreview | None:
+        """The preview on screen, or None when it is closed."""
+        return self._preview
 
     def set_fetcher(self, fetcher: ProfileFetcher) -> None:
         """Fetch through fetcher from now on: a test passes one with a fake transport and a temporary cache."""
@@ -160,7 +171,8 @@ class FetchPanel(QGroupBox):
         if self.is_running:
             return
         self._thread = QThread(self)
-        self._worker = FetchWorker(self._fetcher, self.options())
+        self._request = self.options()
+        self._worker = FetchWorker(self._fetcher, self._request)
         self._worker.moveToThread(self._thread)
         self._thread.started.connect(self._worker.work)
         self._worker.succeeded.connect(self._on_succeeded)
@@ -181,16 +193,43 @@ class FetchPanel(QGroupBox):
             "Cancelling. The request finishes in the background and its result is discarded."
         )
 
+    def show_preview(self) -> None:
+        """Open the preview of the staged profile, unless it is open already. Closing it keeps the profile staged."""
+        if self._staged is None or self._preview is not None:
+            return
+        preview = ProfilePreview(self._staged, self._request, self._from_cache, self._theme, self)
+        preview.use_requested.connect(self._on_preview_use)
+        preview.discard_requested.connect(self._on_preview_discard)
+        preview.finished.connect(self._on_preview_closed)
+        self._preview = preview
+        log.debug("Fetched profile preview opened: %s", self._staged.name)
+        preview.open()
+
     def use_fetched(self) -> None:
-        """Make the staged profile the active one, through the Setup view."""
+        """Make the staged profile the active one, through the Setup view. Called from the preview's Use profile."""
         if self._staged is not None and not self.is_running:
+            log.info("Fetched profile used: %s", self._staged.name)
             self.profile_chosen.emit(self._staged)
 
+    def discard(self) -> None:
+        """Drop the staged profile. The active profile does not change."""
+        if self._staged is None or self.is_running:
+            return
+        name = self._staged.name
+        self._staged = None
+        self._from_cache = False
+        self._request = None
+        self._set_busy(False)
+        self.message.emit(f"Discarded {name}. The active profile is unchanged.", False)
+        log.info("Fetched profile discarded: %s", name)
+
     def shutdown(self) -> None:
-        """End a running fetch before the window closes, so its thread is never destroyed while running.
+        """End a running fetch and close an open preview before the window closes.
 
         The UI thread waits here until the request returns, at most the 30 s timeout.
         """
+        if self._preview is not None:
+            self._preview.close()
         if self._thread is not None:
             self._worker.cancel()
             self._thread.quit()
@@ -201,7 +240,8 @@ class FetchPanel(QGroupBox):
         self._staged = result.profile
         self._from_cache = result.from_cache
         self.status_label.setText(summary_line(result.profile, result.from_cache))
-        self.message.emit(f"Fetched {result.profile.name}. Use fetched profile makes it active.", False)
+        self.message.emit(f"Fetched {result.profile.name}. Preview it to use or discard it.", False)
+        self.show_preview()
 
     def _on_failed(self, text: str) -> None:
         self.status_label.setText(self._status_text())
@@ -219,7 +259,7 @@ class FetchPanel(QGroupBox):
     def _set_busy(self, busy: bool) -> None:
         self.fetch_button.setEnabled(not busy)
         self.cancel_button.setEnabled(busy)
-        self.use_button.setEnabled(not busy and self._staged is not None)
+        self.preview_button.setEnabled(not busy and self._staged is not None)
         self.progress.setVisible(busy)
         for widget in (self.use_site_check, self.start_edit, self.end_edit, self.irradiance_box, self.standard_box):
             widget.setEnabled(not busy)
@@ -254,8 +294,17 @@ class FetchPanel(QGroupBox):
     def _on_cancel_clicked(self, *_args) -> None:
         self.cancel()
 
-    def _on_use_clicked(self, *_args) -> None:
+    def _on_preview_clicked(self, *_args) -> None:
+        self.show_preview()
+
+    def _on_preview_use(self) -> None:
         self.use_fetched()
+
+    def _on_preview_discard(self) -> None:
+        self.discard()
+
+    def _on_preview_closed(self, *_args) -> None:
+        self._preview = None
 
     def _build(self) -> None:
         self.use_site_check = QCheckBox("Use Site location")
@@ -285,8 +334,8 @@ class FetchPanel(QGroupBox):
         self.fetch_button.clicked.connect(self._on_fetch_clicked)
         self.cancel_button = QPushButton("Cancel")
         self.cancel_button.clicked.connect(self._on_cancel_clicked)
-        self.use_button = QPushButton("Use fetched profile")
-        self.use_button.clicked.connect(self._on_use_clicked)
+        self.preview_button = QPushButton("Preview...")
+        self.preview_button.clicked.connect(self._on_preview_clicked)
 
         form = QFormLayout()
         form.addRow("Latitude", self.latitude_spin)
@@ -300,7 +349,7 @@ class FetchPanel(QGroupBox):
         buttons.addWidget(self.fetch_button)
         buttons.addWidget(self.cancel_button)
         buttons.addStretch(1)
-        buttons.addWidget(self.use_button)
+        buttons.addWidget(self.preview_button)
 
         layout = QVBoxLayout(self)
         layout.addWidget(self.use_site_check)

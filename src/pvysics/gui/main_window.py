@@ -36,7 +36,7 @@ class MainWindow(QMainWindow):
         self.playback = session.playback
         self.process_view = ProcessView(self.playback, self.bus)
         self.model_view = ModelView(self.playback, self.bus, theme=self.theme)
-        self.setup_view = SetupView(session.config)
+        self.setup_view = SetupView(session.config, self.theme)
         self.setup_view.apply_requested.connect(self._apply_setup)
         self._tabs = QTabWidget()
         self._tabs.addTab(self.process_view, "Process")

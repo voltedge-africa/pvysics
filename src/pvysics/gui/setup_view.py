@@ -48,7 +48,7 @@ from pvysics.profile import (
     parse_profile_table,
 )
 from pvysics.gui.fetch_panel import FetchPanel
-from pvysics.gui.theme import ERROR_ROLE
+from pvysics.gui.theme import ERROR_ROLE, ThemeManager
 from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
 from pvysics.run_setup import datasheet_problems, derive_thresholds, summary_rows, validate_config
 
@@ -165,8 +165,9 @@ class SetupView(QWidget):
 
     apply_requested = pyqtSignal(object)  # RunConfig
 
-    def __init__(self, config: RunConfig, parent: QWidget | None = None) -> None:
+    def __init__(self, config: RunConfig, theme: ThemeManager, parent: QWidget | None = None) -> None:
         super().__init__(parent)
+        self._theme = theme  # the fetch preview is themed from it
         self._profiles: dict[str, Profile] = {}
         for day in BUNDLED_DAYS:
             profile = load_bundled_profile(day)
@@ -289,6 +290,7 @@ class SetupView(QWidget):
 
     def _use_fetched(self, profile: Profile) -> None:
         self._set_profile(profile)
+        self._show_summary(self.read_config())  # the Run summary shows the profile the next Apply and start will use
         self._say(f"Using fetched {profile.name}: {len(profile.timestamps)} samples. Apply and start to use it.")
 
     def _show_fetch_message(self, text: str, problem: bool) -> None:
@@ -432,7 +434,7 @@ class SetupView(QWidget):
         self.profile_info.setWordWrap(True)
         self.load_csv_button = QPushButton("Load CSV...")
         self.load_csv_button.clicked.connect(self._choose_csv)
-        self.fetch_panel = FetchPanel(self)
+        self.fetch_panel = FetchPanel(self._theme, self)
         self.fetch_panel.message.connect(self._show_fetch_message)
         self.fetch_panel.profile_chosen.connect(self._use_fetched)
 
