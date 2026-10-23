@@ -1,25 +1,30 @@
-"""The HMI Process view: plant readings, twin prediction, deviation gauge, state banner and run controls.
+"""The HMI Process view: plant readings, twin prediction, deviation gauge, state banner,
+fault injection, alarms and run controls.
 
 Layout follows the HMI wireframe: banner on top, plant panel left, twin panel middle,
-deviation panel right, operator controls below. Sizes come from layouts and font metrics,
-so the view scales with the platform font and DPI.
+deviation panel right, fault injection and alarms below, run controls at the bottom.
+Sizes come from layouts and font metrics, so the view scales with the platform font and DPI.
 """
 
 import numpy as np
 from PyQt6.QtCore import QPointF, QRectF, Qt
-from PyQt6.QtGui import QColor, QPainter, QPen
+from PyQt6.QtGui import QBrush, QColor, QFont, QPainter, QPen
 from PyQt6.QtWidgets import (
     QComboBox,
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QListWidget,
+    QListWidgetItem,
     QPushButton,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 
+from pvysics.alarms import Alarm, AlarmLog
+from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.data_bus import DataBus
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.run import Sample, State, Thresholds
@@ -39,6 +44,14 @@ PLANT_READINGS = [
     ("P", "Power P measured"),
 ]
 TWIN_READINGS = [("P_pred", "Power P predicted")]
+FAULT_BUTTON_LABELS = {
+    FaultKind.PARTIAL_SHADING: "Partial shading",
+    FaultKind.SOILING: "Soiling",
+    FaultKind.SERIES_RESISTANCE_RISE: "Rs increase",
+    FaultKind.DIODE_FAILURE: "Diode failure",
+    FaultKind.SENSOR_DRIFT: "Sensor drift",
+}
+MUTED_TEXT_COLOUR = "#757575"
 
 
 def format_readings(sample: Sample) -> dict[str, str]:
@@ -187,6 +200,95 @@ class DeviationGauge(QWidget):
         painter.end()
 
 
+def format_alarm(alarm: Alarm) -> str:
+    stamp = np.datetime_as_string(alarm.timestamp, unit="s").split("T")[1]
+    text = (
+        f"{stamp}  {alarm.severity.value.upper()}  Deviation {abs(alarm.deviation_pct):.1f} %"
+        f"  Probable cause: {alarm.cause}"
+    )
+    return f"{text}  (acknowledged)" if alarm.acknowledged else text
+
+
+class AlarmPanel(QGroupBox):
+    """The alarm list, newest first. Unacknowledged alarms are bold and tinted by severity."""
+
+    def __init__(self, bus: DataBus, parent: QWidget | None = None) -> None:
+        super().__init__("Alarms", parent)
+        self.log = AlarmLog()
+        self.summary_label = QLabel()
+        self.list_widget = QListWidget()
+        self.acknowledge_button = QPushButton("Acknowledge")
+        self.acknowledge_button.setEnabled(False)
+
+        header = QHBoxLayout()
+        header.addWidget(self.summary_label)
+        header.addStretch(1)
+        header.addWidget(self.acknowledge_button)
+        layout = QVBoxLayout(self)
+        layout.addLayout(header)
+        layout.addWidget(self.list_widget)
+
+        self.acknowledge_button.clicked.connect(self._acknowledge_selected)
+        self.list_widget.itemSelectionChanged.connect(self._refresh_buttons)
+        bus.sample.connect(self._on_sample)
+        bus.run_reset.connect(self._on_reset)
+        self._refresh()
+
+    def _on_sample(self, sample: Sample) -> None:
+        if self.log.record(sample) is not None:
+            self._refresh()
+
+    def _on_reset(self) -> None:
+        self.log.clear()
+        self._refresh()
+
+    def _acknowledge_selected(self) -> None:
+        item = self.list_widget.currentItem()
+        if item is not None:
+            self.log.acknowledge(item.data(Qt.ItemDataRole.UserRole))
+            self._refresh()
+
+    def _refresh(self) -> None:
+        current = self.list_widget.currentItem()
+        selected = None if current is None else current.data(Qt.ItemDataRole.UserRole)
+        self.list_widget.blockSignals(True)  # rebuild quietly, then update the buttons once
+        self.list_widget.clear()
+        for index, alarm in reversed(list(enumerate(self.log.alarms))):
+            item = QListWidgetItem(format_alarm(alarm))
+            item.setData(Qt.ItemDataRole.UserRole, index)
+            if alarm.acknowledged:
+                item.setForeground(QBrush(QColor(MUTED_TEXT_COLOUR)))
+            else:
+                font = QFont(item.font())
+                font.setBold(True)
+                item.setFont(font)
+                item.setBackground(QBrush(_tinted(STATE_COLOURS[alarm.severity], 0.25)))
+            self.list_widget.addItem(item)
+            if index == selected:
+                self.list_widget.setCurrentItem(item)
+        self.list_widget.blockSignals(False)
+        if selected is None:
+            self._select_newest_unacknowledged()
+        unacknowledged = self.log.unacknowledged_count
+        self.summary_label.setText(f"{unacknowledged} new" if unacknowledged else "No new alarms")
+        self._refresh_buttons()
+
+    def _select_newest_unacknowledged(self) -> None:
+        for row in range(self.list_widget.count()):
+            item = self.list_widget.item(row)
+            if not self._alarm_of(item).acknowledged:
+                self.list_widget.setCurrentItem(item)
+                return
+
+    def _refresh_buttons(self) -> None:
+        item = self.list_widget.currentItem()
+        selected = item is not None and not self._alarm_of(item).acknowledged
+        self.acknowledge_button.setEnabled(selected)
+
+    def _alarm_of(self, item: QListWidgetItem) -> Alarm:
+        return self.log.alarms[item.data(Qt.ItemDataRole.UserRole)]
+
+
 class ProcessView(QWidget):
     """The Process screen. Subscribes to the DataBus and drives the PlaybackController."""
 
@@ -196,7 +298,7 @@ class ProcessView(QWidget):
         self.banner = StateBanner()
         self.plant = ReadingsPanel("Plant (measured)", PLANT_READINGS)
         self.twin = ReadingsPanel("Digital twin (predicted)", TWIN_READINGS)
-        self.gauge = DeviationGauge(controller.result.config.thresholds)
+        self.gauge = DeviationGauge(controller.config.thresholds)
         self.deviation_label = QLabel(PLACEHOLDER)
         self.deviation_label.setAlignment(Qt.AlignmentFlag.AlignHCenter)
 
@@ -210,15 +312,39 @@ class ProcessView(QWidget):
         for panel in (self.plant, self.twin, deviation_panel):
             panels.addWidget(panel, 1)
 
+        self.alarm_panel = AlarmPanel(bus)
+        lower = QHBoxLayout()
+        lower.addWidget(self._build_fault_panel())
+        lower.addWidget(self.alarm_panel, 1)
+
         layout = QVBoxLayout(self)
         layout.addWidget(self.banner)
         layout.addLayout(panels, 1)
+        layout.addLayout(lower)
         layout.addLayout(self._build_controls())
 
         bus.sample.connect(self._show_sample)
         bus.run_reset.connect(self._show_start)
         controller.running_changed.connect(lambda _running: self._refresh_controls())
         self._refresh_controls()
+
+    def _build_fault_panel(self) -> QGroupBox:
+        panel = QGroupBox("Fault injection")
+        layout = QVBoxLayout(panel)
+        self.fault_buttons: dict[FaultKind, QPushButton] = {}
+        for kind, label in FAULT_BUTTON_LABELS.items():
+            button = QPushButton(label)
+            button.clicked.connect(lambda _checked=False, kind=kind: self._inject(kind))
+            layout.addWidget(button)
+            self.fault_buttons[kind] = button
+        self.clear_faults_button = QPushButton("Clear all")
+        self.clear_faults_button.clicked.connect(lambda: self._controller.clear_faults())
+        layout.addWidget(self.clear_faults_button)
+        layout.addStretch(1)
+        return panel
+
+    def _inject(self, kind: FaultKind) -> None:
+        self._controller.inject(default_fault(kind))
 
     def _build_controls(self) -> QHBoxLayout:
         self.start_button = QPushButton("Start")

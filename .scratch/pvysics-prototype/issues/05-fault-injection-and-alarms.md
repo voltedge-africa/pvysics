@@ -4,12 +4,12 @@
 
 **Blocked by:** 04.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Partial shading, soiling, series-resistance rise and bypass-diode failure each lower the plant's measured power while the twin's prediction stays at the healthy value.
-- [ ] Sensor drift makes the twin's prediction wrong (a false deviation) while true plant power is unchanged.
-- [ ] Injecting a clear fault at mid-day drives the state to Abnormal within a stated, short delay; Clear all returns it to Normal.
-- [ ] Each state transition adds an alarm with time, severity and a cause that names the active fault, or "unknown" when none.
-- [ ] An alarm can be acknowledged; unacknowledged alarms are visibly distinct.
-- [ ] Faults are available through the headless run API as a schedule, so they can be tested without the GUI.
-- [ ] Tests cover each fault's observable effect and the Clear all behaviour.
+- [x] Partial shading, soiling, series-resistance rise and bypass-diode failure each lower the plant's measured power while the twin's prediction stays at the healthy value.
+- [x] Sensor drift makes the twin's prediction wrong (a false deviation) while true plant power is unchanged.
+- [x] Injecting a clear fault at mid-day drives the state to Abnormal within a stated, short delay; Clear all returns it to Normal.
+- [x] Each state transition adds an alarm with time, severity and a cause that names the active fault, or "unknown" when none.
+- [x] An alarm can be acknowledged; unacknowledged alarms are visibly distinct.
+- [x] Faults are available through the headless run API as a schedule, so they can be tested without the GUI.
+- [x] Tests cover each fault's observable effect and the Clear all behaviour.

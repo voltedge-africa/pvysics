@@ -6,7 +6,6 @@ I0 is set from Voc with its temperature shift (Kv), and Rs and Rsh are fitted
 at standard test conditions so the curve reproduces the datasheet MPP.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
 from functools import lru_cache
 
@@ -25,7 +24,7 @@ DEFAULT_IDEALITY = 1.3
 CURVE_POINTS = 500
 MPP_SLOPE_STEP = 1e-4  # V, half-width of the finite difference at the MPP
 FIT_TOLERANCE = 1e-3  # relative residual accepted from the parameter fit
-BISECTION_STEPS = 100
+NEWTON_STEPS = 8  # from the starting points used below, 8 steps reach double precision
 
 
 @dataclass(frozen=True)
@@ -141,36 +140,33 @@ def _saturation_current(isc: float, voc: float, thermal: float, rsh: float) -> f
 
 
 def _open_circuit_voltage(iph: float, i0: float, thermal: float, rsh: float) -> float:
-    """Voltage where the current is zero (Rs carries no current there)."""
-    def residual(voltage: NDArray[np.float64]) -> NDArray[np.float64]:
-        return iph - i0 * np.expm1(voltage / thermal) - voltage / rsh
+    """Voltage where the current is zero (Rs carries no current there).
 
-    upper = thermal * np.log1p(iph / i0)
-    return float(_bisect(residual, np.zeros(()), np.asarray(upper)))
+    Newton's method from the upper bound. The residual is concave and decreasing, so the
+    iterates approach the root from above and never overshoot.
+    """
+    voltage = thermal * np.log1p(iph / i0)
+    for _ in range(NEWTON_STEPS):
+        diode = i0 * np.expm1(voltage / thermal)
+        residual = iph - diode - voltage / rsh
+        slope = -(diode + i0) / thermal - 1.0 / rsh
+        voltage = voltage - residual / slope
+    return float(voltage)
 
 
 def _current(
     voltage: NDArray[np.float64], iph: float, i0: float, thermal: float, rs: float, rsh: float
 ) -> NDArray[np.float64]:
-    """Terminal current at each voltage. The implicit equation has one root in [0, Iph]."""
-    def residual(current: NDArray[np.float64]) -> NDArray[np.float64]:
+    """Terminal current at each voltage: the root of the implicit equation in [0, Iph].
+
+    Newton's method from Iph. The residual is concave and decreasing in current, so the
+    iterates approach the root from above, stay non-negative and never overshoot.
+    """
+    current = np.full_like(voltage, iph)
+    for _ in range(NEWTON_STEPS):
         diode_voltage = voltage + current * rs
-        return iph - i0 * np.expm1(diode_voltage / thermal) - diode_voltage / rsh - current
-
-    lower = np.zeros_like(voltage)
-    upper = np.full_like(voltage, iph)
-    return _bisect(residual, lower, upper)
-
-
-def _bisect(
-    residual: Callable[[NDArray[np.float64]], NDArray[np.float64]],
-    lower: NDArray[np.float64],
-    upper: NDArray[np.float64],
-) -> NDArray[np.float64]:
-    """Vectorised bisection for the root of a decreasing function. Always converges."""
-    for _ in range(BISECTION_STEPS):
-        middle = 0.5 * (lower + upper)
-        above_root = residual(middle) > 0.0
-        lower = np.where(above_root, middle, lower)
-        upper = np.where(above_root, upper, middle)
-    return 0.5 * (lower + upper)
+        diode = i0 * np.expm1(diode_voltage / thermal)
+        residual = iph - diode - diode_voltage / rsh - current
+        slope = -(diode + i0) * rs / thermal - rs / rsh - 1.0
+        current = current - residual / slope
+    return current

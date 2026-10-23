@@ -1,34 +1,35 @@
+from dataclasses import replace
+
 import numpy as np
 
+from pvysics.faults import Fault, FaultKind
 from pvysics.gui.data_bus import DataBus
-from pvysics.gui.main_window import MainWindow, bundled_result
+from pvysics.gui.main_window import MainWindow
 from pvysics.gui.playback import SPEEDS
 from pvysics.gui.process_view import PLACEHOLDER, STATE_COLOURS
-from pvysics.run import RunResult, Sample, State, bundled_run_config
+from pvysics.profile import Profile
+from pvysics.run import RunConfig, State, bundled_run_config
 
 FASTEST = SPEEDS[-1]
-GREEN, AMBER, RED = STATE_COLOURS[State.NORMAL], STATE_COLOURS[State.WARNING], STATE_COLOURS[State.ABNORMAL]
-ORIGIN = np.datetime64("2025-01-15T12:00:00")
+GREEN = STATE_COLOURS[State.NORMAL]
+AMBER = STATE_COLOURS[State.WARNING]
+RED = STATE_COLOURS[State.ABNORMAL]
 
 
-def sample_at(offset_s: float, state: State, deviation: float) -> Sample:
-    return Sample(
-        timestamp=ORIGIN + np.timedelta64(offset_s, "s"),
-        true_irradiance=800.0,
-        true_temperature=40.0,
-        measured_irradiance=800.0,
-        measured_temperature=40.0,
-        measured_voltage=30.0,
-        measured_current=7.5,
-        power_measured=225.0,
-        power_predicted=225.0 / (1.0 + deviation / 100.0),
-        deviation_pct=deviation,
-        state=state,
+def midday_config() -> RunConfig:
+    """The bundled day cut to 10:00 to 14:00, so a few ticks at the fastest speed cover it."""
+    config = bundled_run_config(seed=1)
+    profile = config.profile
+    cut = Profile(
+        timestamps=profile.timestamps[10:15],
+        irradiance=profile.irradiance[10:15],
+        temperature=profile.temperature[10:15],
     )
+    return replace(config, profile=cut)
 
 
-def window_with(qtbot, run_result: RunResult | None = None, bus: DataBus | None = None) -> MainWindow:
-    window = MainWindow(bus=bus, run_result=run_result)
+def window_with(qtbot, config: RunConfig | None = None, bus: DataBus | None = None) -> MainWindow:
+    window = MainWindow(bus=bus, config=config)
     qtbot.addWidget(window)
     window.playback.set_speed(FASTEST)
     return window
@@ -37,7 +38,8 @@ def window_with(qtbot, run_result: RunResult | None = None, bus: DataBus | None 
 def test_start_plays_pause_freezes_and_reset_returns_to_the_start(qtbot):
     window = window_with(qtbot)
     view = window.centralWidget()
-    first_stamp = np.datetime_as_string(bundled_result().samples[0].timestamp, unit="m").replace("T", " ")
+    first = bundled_run_config().profile.timestamps[0]
+    first_stamp = np.datetime_as_string(first, unit="m").replace("T", " ")
 
     view.start_button.click()
     window.playback.tick()
@@ -109,35 +111,97 @@ def test_plant_and_twin_readings_update_on_every_sample(qtbot):
     assert len(set(shown_values)) > 1
 
 
-def test_banner_and_gauge_follow_normal_warning_and_abnormal_samples(qtbot):
-    run_result = RunResult(
-        config=bundled_run_config(),
-        samples=[
-            sample_at(0, State.NORMAL, 1.0),
-            sample_at(60, State.WARNING, -6.0),
-            sample_at(120, State.ABNORMAL, 12.0),
-        ],
-    )
-    window = window_with(qtbot, run_result=run_result)
+def test_banner_and_gauge_follow_normal_warning_and_abnormal_faults(qtbot):
+    window = window_with(qtbot, config=midday_config())
     view = window.centralWidget()
-    window.playback.set_speed(900.0)  # 30 simulated seconds per tick: one sample every two ticks
     view.start_button.click()
 
     window.playback.tick()
     assert view.banner.colour() == GREEN
     assert view.gauge.state is State.NORMAL
 
+    window.playback.inject(Fault(FaultKind.SENSOR_DRIFT, 0.08))  # a deviation between the limits
     window.playback.tick()
     assert view.banner.colour() == AMBER
     assert view.banner.text() == "Warning"
     assert view.gauge.state is State.WARNING
-    assert view.gauge.reading_pct == 6.0
 
-    window.playback.tick()
+    view.fault_buttons[FaultKind.SENSOR_DRIFT].click()  # the default drift, past the abnormal limit
     window.playback.tick()
     assert view.banner.colour() == RED
     assert view.banner.text() == "Abnormal"
-    assert view.gauge.reading_pct == 12.0
+    assert view.gauge.state is State.ABNORMAL
+
+
+def test_fault_button_injects_and_clear_all_returns_the_banner_to_normal(qtbot):
+    window = window_with(qtbot, config=midday_config())
+    view = window.centralWidget()
+    view.start_button.click()
+    window.playback.tick()
+
+    view.fault_buttons[FaultKind.PARTIAL_SHADING].click()
+    window.playback.tick()
+    assert view.banner.text() == "Abnormal"
+
+    view.clear_faults_button.click()
+    window.playback.tick()
+    assert view.banner.text() == "Normal"
+
+
+def test_alarm_list_shows_time_severity_and_cause_and_can_be_acknowledged(qtbot):
+    window = window_with(qtbot, config=midday_config())
+    view = window.centralWidget()
+    panel = view.alarm_panel
+    view.start_button.click()
+    window.playback.tick()
+    assert panel.list_widget.count() == 0
+    assert panel.summary_label.text() == "No new alarms"
+
+    view.fault_buttons[FaultKind.PARTIAL_SHADING].click()
+    window.playback.tick()
+
+    assert panel.list_widget.count() == 1
+    item = panel.list_widget.item(0)
+    assert "ABNORMAL" in item.text()
+    assert "Probable cause: partial shading" in item.text()
+    assert item.font().bold()
+    assert panel.summary_label.text() == "1 new"
+    assert panel.acknowledge_button.isEnabled()
+
+    panel.acknowledge_button.click()
+
+    assert "(acknowledged)" in panel.list_widget.item(0).text()
+    assert not panel.list_widget.item(0).font().bold()
+    assert panel.summary_label.text() == "No new alarms"
+    assert not panel.acknowledge_button.isEnabled()
+
+
+def test_injected_faults_and_state_changes_are_emitted_on_the_bus(qtbot):
+    window = window_with(qtbot, config=midday_config())
+    events = []
+    window.bus.event.connect(events.append)
+    window.centralWidget().start_button.click()
+    window.playback.tick()
+
+    window.centralWidget().fault_buttons[FaultKind.SOILING].click()
+    window.playback.tick()
+
+    details = [(event.kind, event.detail) for event in events]
+    assert ("fault", "none -> soiling") in details
+    assert ("state", "Normal -> Abnormal") in details
+
+
+def test_reset_clears_the_alarm_list(qtbot):
+    window = window_with(qtbot, config=midday_config())
+    view = window.centralWidget()
+    view.start_button.click()
+    view.fault_buttons[FaultKind.PARTIAL_SHADING].click()
+    window.playback.tick()
+    assert view.alarm_panel.list_widget.count() == 1
+
+    view.reset_button.click()
+
+    assert view.alarm_panel.list_widget.count() == 0
 
 
 def test_the_window_shows_the_bus_it_was_given(qtbot):
@@ -164,6 +228,9 @@ def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
 
     window.playback.set_speed(FASTEST)
     view.start_button.click()
+    for _ in range(5):
+        window.playback.tick()
+    view.fault_buttons[FaultKind.SENSOR_DRIFT].click()
     for _ in range(5):
         window.playback.tick()
     window.grab()
