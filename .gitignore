@@ -11,3 +11,8 @@ documentation/presentation/*.pdf
 # editor and OS noise
 .DS_Store
 dist/
+
+# screen recordings
+*.mp4
+*.mov
+*.webm
