@@ -1,8 +1,9 @@
 """Small helpers for widgets that take their look from the stylesheet (gui/style.py)."""
 
 import pyqtgraph as pg
-from PyQt6.QtCore import QSize
-from PyQt6.QtWidgets import QLabel, QWidget
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QPainter
+from PyQt6.QtWidgets import QFrame, QLabel, QWidget
 
 PLOT_HINT = QSize(320, 220)
 
@@ -34,3 +35,29 @@ class CompactPlot(pg.PlotWidget):
 
     def sizeHint(self) -> QSize:
         return self.hint
+
+
+class ElidedLabel(QLabel):
+    """A one-line label that shortens its text with an ellipsis instead of widening its row.
+
+    text() is the whole text. The toolbar's status sentence uses it, so a long sentence never pushes the
+    buttons off the row; the full text is the tooltip.
+    """
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(0, super().minimumSizeHint().height())
+
+    def paintEvent(self, event) -> None:
+        painter = QPainter(self)
+        shown = self.fontMetrics().elidedText(self.text(), Qt.TextElideMode.ElideRight, self.width())
+        painter.setPen(self.palette().windowText().color())
+        painter.drawText(self.rect(), int(self.alignment()), shown)
+        painter.end()
+
+
+def vertical_separator() -> QFrame:
+    """A thin vertical rule between groups of toolbar controls."""
+    rule = QFrame()
+    rule.setObjectName("toolSeparator")
+    rule.setFixedWidth(1)
+    return rule

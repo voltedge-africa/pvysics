@@ -34,7 +34,7 @@ from pvysics.gui.metric_tile import MetricSet, MetricTile, section_label
 from pvysics.gui.palette import LIGHT, STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.gui.trend import PowerTrend
-from pvysics.gui.ui_helpers import role_label, set_property
+from pvysics.gui.ui_helpers import ElidedLabel, role_label, set_property, vertical_separator
 from pvysics.history import RunHistory
 from pvysics.run import POWER_FLOOR_W, Sample, State, Thresholds
 
@@ -42,7 +42,7 @@ PLACEHOLDER = "-"
 IDLE_TEXT = "Ready"
 IDLE_COLOUR = "#616161"
 DEVIATION_COLUMNS = 3  # the deviation tile is this many tiles wide: its gauge needs the room
-LOWER_ROW_MAX_PX = 120  # fault buttons and alarms stay compact so the trend gets the room
+ALARMS_MAX_PX = 120  # the alarm list stays compact so the trend gets the room
 GAUGE_SCALE_FACTOR = 1.5  # the gauge runs from 0 to this multiple of the abnormal limit
 
 IDLE_SENTENCE = "Press Start to play the run."
@@ -404,9 +404,10 @@ class ProcessView(QScrollArea):
         self._controller = controller
         palette = LIGHT if theme is None else theme.palette
         self.banner = StateBanner()
-        self.summary_label = role_label(IDLE_SENTENCE, "strong")
-        self.summary_label.setToolTip(IDLE_DETAIL)  # the explanation is a tooltip, so the strip stays one slim row
-        self.summary_label.setMinimumWidth(0)
+        self.summary_label = ElidedLabel(IDLE_SENTENCE)
+        self.summary_label.setProperty("role", "strong")
+        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.summary_label.setToolTip(IDLE_DETAIL)  # the explanation is a tooltip, so the toolbar stays one row
         self.plant = MetricSet({key: MetricTile(caption) for key, caption in PLANT_READINGS})
         self.twin = MetricSet({key: MetricTile(caption) for key, caption in TWIN_READINGS})
         self.twin.tiles["P_pred"].setToolTip(TWIN_NOTE)
@@ -420,17 +421,14 @@ class ProcessView(QScrollArea):
         trend_panel = QGroupBox("Power over the run")
         QVBoxLayout(trend_panel).addWidget(self.trend)
 
-        self.alarm_panel.setMaximumHeight(LOWER_ROW_MAX_PX)
-        lower = QHBoxLayout()
-        lower.addWidget(self._build_fault_panel())
-        lower.addWidget(self.alarm_panel, 1)
+        self.alarm_panel.setMaximumHeight(ALARMS_MAX_PX)
 
         content = QWidget()
         layout = QVBoxLayout(content)
-        layout.addWidget(self._build_status_strip())
+        layout.addWidget(self._build_toolbar())
         layout.addLayout(cards)
         layout.addWidget(trend_panel, 1)
-        layout.addLayout(lower)
+        layout.addWidget(self.alarm_panel)
         self.setWidgetResizable(True)
         self.setFrameShape(QFrame.Shape.NoFrame)
         self.setWidget(content)
@@ -465,35 +463,64 @@ class ProcessView(QScrollArea):
             grid.setColumnStretch(column, 1)
         return grid
 
-    def _build_status_strip(self) -> QFrame:
-        """One slim row: the state, what it means in a sentence, and the run controls."""
-        strip = QFrame()
-        strip.setProperty("card", "true")
-        layout = QHBoxLayout(strip)
-        layout.setContentsMargins(10, 5, 10, 5)
-        layout.setSpacing(10)
-        layout.addWidget(self.banner)
-        layout.addWidget(self.summary_label, 1)
-        layout.addLayout(self._build_controls())
-        return strip
+    def _build_toolbar(self) -> QFrame:
+        """One row, as an editor has: run controls, speed and clock, fault injection, then the state.
 
-    def _build_fault_panel(self) -> QGroupBox:
-        panel = QGroupBox("Fault injection")
-        panel.setMaximumHeight(LOWER_ROW_MAX_PX)
-        grid = QGridLayout(panel)
+        The left is what the operator does, the right is what the plant is doing, so the controls and the
+        answer to "is it OK?" share a line and the faults are always one click away.
+        """
+        self.start_button = QPushButton("Start")
+        set_property(self.start_button, "variant", "primary")
+        self.start_button.setToolTip("Play the run from where it is.")
+        self.pause_button = QPushButton("Pause")
+        self.reset_button = QPushButton("Reset")
+        self.reset_button.setToolTip("Go back to the start of the run. Faults and alarms are cleared.")
+        self.start_button.clicked.connect(self._on_start_clicked)
+        self.pause_button.clicked.connect(self._on_pause_clicked)
+        self.reset_button.clicked.connect(self._on_reset_clicked)
+        self.speed_box = QComboBox()
+        for speed in SPEEDS:
+            self.speed_box.addItem(f"{speed:g}x", speed)
+        self.speed_box.setToolTip("How many times faster than real time the run plays.")
+        self.speed_box.currentIndexChanged.connect(self._on_speed_chosen)
+        self.time_label = role_label(PLACEHOLDER, "muted")
+
         self.fault_buttons: dict[FaultKind, QPushButton] = {}
-        for index, (kind, label) in enumerate(FAULT_BUTTON_LABELS.items()):
+        for kind, label in FAULT_BUTTON_LABELS.items():
             button = QPushButton(label)
             button.setToolTip(FAULT_TOOLTIPS[kind])
-            button.clicked.connect(self._on_fault_clicked)
             button.setProperty("kind", kind.name)
-            grid.addWidget(button, index // 3, index % 3)
+            button.clicked.connect(self._on_fault_clicked)
             self.fault_buttons[kind] = button
         self.clear_faults_button = QPushButton("Clear all")
         self.clear_faults_button.setToolTip("Remove every injected fault. The state returns to Normal.")
         self.clear_faults_button.clicked.connect(self._on_clear_clicked)
-        grid.addWidget(self.clear_faults_button, 1, 2)
-        return panel
+
+        for button in (self.pause_button, self.reset_button, self.clear_faults_button, *self.fault_buttons.values()):
+            set_property(button, "variant", "tool")  # flat until hovered, like an editor's toolbar
+        for button in (self.start_button, self.pause_button, self.reset_button, self.clear_faults_button,
+                       *self.fault_buttons.values()):
+            button.setProperty("compact", "true")
+
+        toolbar = QFrame()
+        toolbar.setProperty("card", "true")
+        row = QHBoxLayout(toolbar)
+        row.setContentsMargins(8, 4, 8, 4)
+        row.setSpacing(4)
+        for widget in (self.start_button, self.pause_button, self.reset_button):
+            row.addWidget(widget)
+        row.addWidget(vertical_separator())
+        row.addWidget(self.speed_box)
+        row.addWidget(self.time_label)
+        row.addWidget(vertical_separator())
+        row.addWidget(role_label("Inject", "muted"))
+        for button in self.fault_buttons.values():
+            row.addWidget(button)
+        row.addWidget(self.clear_faults_button)
+        row.addWidget(vertical_separator())
+        row.addWidget(self.summary_label, 1)
+        row.addWidget(self.banner)
+        return toolbar
 
     def _on_fault_clicked(self, *_args) -> None:
         kind = FaultKind[self.sender().property("kind")]
@@ -501,35 +528,6 @@ class ProcessView(QScrollArea):
 
     def _on_clear_clicked(self, *_args) -> None:
         self._controller.clear_faults()
-
-    def _build_controls(self) -> QHBoxLayout:
-        self.start_button = QPushButton("Start")
-        set_property(self.start_button, "variant", "primary")
-        self.start_button.setToolTip("Play the run from where it is.")
-        self.pause_button = QPushButton("Pause")
-        self.reset_button = QPushButton("Reset")
-        self.reset_button.setToolTip("Go back to the start of the run. Faults and alarms are cleared.")
-        self.speed_box = QComboBox()
-        for speed in SPEEDS:
-            self.speed_box.addItem(f"{speed:g}x", speed)
-        self.speed_box.setToolTip("How many times faster than real time the run plays.")
-        self.time_label = role_label(PLACEHOLDER, "muted")
-        for button in (self.start_button, self.pause_button, self.reset_button):
-            button.setProperty("compact", "true")
-
-        self.start_button.clicked.connect(self._on_start_clicked)
-        self.pause_button.clicked.connect(self._on_pause_clicked)
-        self.reset_button.clicked.connect(self._on_reset_clicked)
-        self.speed_box.currentIndexChanged.connect(self._on_speed_chosen)
-
-        row = QHBoxLayout()
-        row.setSpacing(6)
-        for button in (self.start_button, self.pause_button, self.reset_button):
-            row.addWidget(button)
-        row.addSpacing(6)
-        row.addWidget(self.speed_box)
-        row.addWidget(self.time_label)
-        return row
 
     def _on_start_clicked(self, *_args) -> None:
         self._controller.start()
@@ -566,7 +564,7 @@ class ProcessView(QScrollArea):
         self.summary_label.setText(sentence)
         self.summary_label.setToolTip(detail)
         for kind, button in self.fault_buttons.items():
-            set_property(button, "variant", "active" if kind in sample.active_faults else "")
+            set_property(button, "variant", "active" if kind in sample.active_faults else "tool")
         self.trend.add_sample(sample)
 
     def _show_start(self) -> None:
@@ -580,5 +578,5 @@ class ProcessView(QScrollArea):
         self.summary_label.setText(IDLE_SENTENCE)
         self.summary_label.setToolTip(IDLE_DETAIL)
         for button in self.fault_buttons.values():
-            set_property(button, "variant", "")
+            set_property(button, "variant", "tool")
         self.trend.clear()

@@ -132,7 +132,7 @@ Use this checklist against the running app. Each step describes what the code do
 
 **Fault and alarm**
 
-- [ ] Press **Partial shading** in Fault injection. The other four buttons (Soiling, Rs increase, Diode failure, Sensor drift) inject their faults the same way.
+- [ ] Press **Partial shading** in the toolbar's Inject group. The other four buttons (Soiling, Rs increase, Diode failure, Sensor drift) inject their faults the same way.
 - [ ] The banner goes **Abnormal** (red) on the next step. A new alarm appears in the Alarms list with its time, ABNORMAL, the deviation, and "Probable cause: partial shading". Its row is bold and tinted until it is acknowledged.
 - [ ] The Dashboard event list shows the fault and the state change, as "Fault: none -> partial shading" and "State: Normal -> Abnormal".
 - [ ] Select the alarm and press **Acknowledge**. The row turns grey and is marked "(acknowledged)".

@@ -19,6 +19,8 @@ def stylesheet(palette: Palette) -> str:
     """The application stylesheet for a palette."""
     p = palette
     return f"""
+#toolSeparator {{ background-color: {p.card_border}; }}
+
 QToolTip {{
     background-color: {p.base}; color: {p.text}; border: 1px solid {p.card_border}; padding: 4px;
 }}
@@ -72,6 +74,9 @@ QPushButton:hover {{ border-color: {p.highlight}; }}
 QPushButton:pressed {{ background-color: {p.window}; }}
 QPushButton:focus {{ border-color: {p.highlight}; }}
 QPushButton:disabled {{ color: {p.muted_text}; background-color: {p.window}; border-color: {p.card_border}; }}
+QPushButton[variant="tool"] {{ background-color: transparent; border-color: transparent; }}
+QPushButton[variant="tool"]:hover {{ background-color: {p.window}; border-color: {p.card_border}; }}
+QPushButton[variant="tool"]:disabled {{ background-color: transparent; border-color: transparent; color: {p.muted_text}; }}
 QPushButton[compact="true"] {{ padding: 2px 10px; min-height: 0; }}
 QPushButton[variant="primary"] {{
     background-color: {p.highlight};
