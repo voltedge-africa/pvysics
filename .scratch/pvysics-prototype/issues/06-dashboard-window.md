@@ -4,12 +4,12 @@
 
 **Blocked by:** 05.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The app opens the Dashboard alongside the HMI, and both update from one run.
-- [ ] The Dashboard has no controls that change the run.
-- [ ] The deviation chart draws the warning and abnormal bands at the current thresholds.
-- [ ] Injecting a fault in the HMI shows up in the Dashboard's charts and event log.
-- [ ] Charts stay responsive over a full day of samples.
-- [ ] Closing the Dashboard does not stop the HMI, and it can be reopened.
-- [ ] An offscreen smoke test runs a short run with a fault and checks the event log has entries.
+- [x] The app opens the Dashboard alongside the HMI, and both update from one run.
+- [x] The Dashboard has no controls that change the run.
+- [x] The deviation chart draws the warning and abnormal bands at the current thresholds.
+- [x] Injecting a fault in the HMI shows up in the Dashboard's charts and event log.
+- [x] Charts stay responsive over a full day of samples.
+- [x] Closing the Dashboard does not stop the HMI, and it can be reopened.
+- [x] An offscreen smoke test runs a short run with a fault and checks the event log has entries.

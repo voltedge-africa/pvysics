@@ -11,4 +11,5 @@ def main() -> int:
     bus = DataBus()  # the single data bus for the app; every window subscribes to it
     window = MainWindow(bus=bus)
     window.show()
+    window.open_dashboard()  # the Dashboard opens alongside the HMI
     return app.exec()

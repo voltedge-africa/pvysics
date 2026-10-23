@@ -28,3 +28,4 @@ def test_console_entry_point_shows_the_window_and_exits_cleanly(qtbot):
 
     assert main() == 0
     assert "PV Digital Twin" in visible_titles
+    assert "PV Digital Twin Dashboard" in visible_titles  # the Dashboard opens alongside the HMI
