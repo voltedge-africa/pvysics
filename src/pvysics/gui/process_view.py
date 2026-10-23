@@ -40,6 +40,7 @@ from pvysics.run import POWER_FLOOR_W, Sample, State, Thresholds
 PLACEHOLDER = "-"
 IDLE_TEXT = "Ready"
 IDLE_COLOUR = "#616161"
+CARD_MAX_PX = 150  # the metric cards stay compact so the trend gets the room
 LOWER_ROW_MAX_PX = 120  # fault buttons and alarms stay compact so the trend gets the room
 GAUGE_SCALE_FACTOR = 1.5  # the gauge runs from 0 to this multiple of the abnormal limit
 
@@ -49,11 +50,11 @@ NIGHT_SENTENCE = "Night or very low light: too little power to compare."
 NIGHT_DETAIL = "The twin and the plant both read close to zero, so the state stays Normal."
 # (key, caption); the first reading of a panel is its headline figure.
 PLANT_READINGS = [
-    ("P", "Power P measured"),
     ("G", "Irradiance G"),
     ("T", "Module temp T"),
     ("V", "Voltage V"),
     ("I", "Current I"),
+    ("P", "Power P measured"),
 ]
 TWIN_READINGS = [("P_pred", "Power P predicted")]
 TWIN_NOTE = "Single Diode Model with the datasheet parameters, evaluated at the measured G and T."
@@ -156,6 +157,43 @@ class ReadingsPanel(QGroupBox):
                 self._values[key] = value
             layout.addLayout(grid)
         layout.addStretch(1)
+
+    def value(self, key: str) -> str:
+        return self._values[key].text()
+
+    def set_values(self, values: dict[str, str]) -> None:
+        for key, label in self._values.items():
+            label.setText(values[key])
+
+    def clear(self) -> None:
+        for label in self._values.values():
+            label.setText(PLACEHOLDER)
+
+
+class MetricsPanel(QGroupBox):
+    """A titled card of key metrics, side by side: a small caption over a large figure.
+
+    The measurements an operator watches (irradiance, temperature, voltage, current, power) are the point of
+    the screen, so each gets a large figure of its own. The API matches ReadingsPanel.
+    """
+
+    def __init__(self, title: str, readings: list[tuple[str, str]], note: str = "", parent: QWidget | None = None):
+        super().__init__(title, parent)
+        self._values: dict[str, QLabel] = {}
+        row = QHBoxLayout(self)
+        row.setSpacing(18)
+        for key, caption in readings:
+            column = QVBoxLayout()
+            column.setSpacing(0)
+            value = role_label(PLACEHOLDER, "metric")
+            self._values[key] = value
+            column.addStretch(1)  # caption and figure stay together, centred in the card
+            column.addWidget(role_label(caption, "caption"))
+            column.addWidget(value)
+            column.addStretch(1)
+            row.addLayout(column, 1)
+        if note:
+            self.setToolTip(note)
 
     def value(self, key: str) -> str:
         return self._values[key].text()
@@ -405,23 +443,23 @@ class ProcessView(QScrollArea):
         self.summary_label = role_label(IDLE_SENTENCE, "strong")
         self.summary_label.setToolTip(IDLE_DETAIL)  # the explanation is a tooltip, so the strip stays one slim row
         self.summary_label.setMinimumWidth(0)
-        self.plant = ReadingsPanel("Plant (measured)", PLANT_READINGS)
-        self.twin = ReadingsPanel("Digital twin (predicted)", TWIN_READINGS, note=TWIN_NOTE)
+        self.plant = MetricsPanel("Plant (measured)", PLANT_READINGS)
+        self.twin = MetricsPanel("Digital twin (predicted)", TWIN_READINGS, note=TWIN_NOTE)
         self.gauge = DeviationGauge(controller.config.thresholds)
-        self.deviation_label = role_label(PLACEHOLDER, "hero", Qt.AlignmentFlag.AlignHCenter)
+        self.deviation_label = role_label(PLACEHOLDER, "metric")
         self.trend = PowerTrend(palette)
         self.alarm_panel = AlarmPanel(bus)
 
         deviation_panel = QGroupBox("Power deviation")
         deviation_layout = QVBoxLayout(deviation_panel)
+        deviation_layout.addWidget(role_label("Deviation from the prediction", "caption"))
         deviation_layout.addWidget(self.deviation_label)
-        deviation_layout.addWidget(role_label("of the predicted power", "caption", Qt.AlignmentFlag.AlignHCenter))
         deviation_layout.addWidget(self.gauge)
-        deviation_layout.addStretch(1)
 
         cards = QHBoxLayout()
-        for panel in (self.plant, self.twin, deviation_panel):
-            cards.addWidget(panel, 1)
+        for panel, stretch in ((self.plant, 6), (self.twin, 2), (deviation_panel, 3)):
+            panel.setMaximumHeight(CARD_MAX_PX)
+            cards.addWidget(panel, stretch)
 
         trend_panel = QGroupBox("Power over the run")
         QVBoxLayout(trend_panel).addWidget(self.trend)

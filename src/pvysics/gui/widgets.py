@@ -10,7 +10,7 @@ from pvysics.gui.ui_helpers import role_label
 class KpiTile(QFrame):
     """A headline number with its caption, as a card. A tile can be tinted, as the State tile is."""
 
-    def __init__(self, caption: str, parent: QWidget | None = None) -> None:
+    def __init__(self, caption: str, parent: QWidget | None = None, tooltip: str = "") -> None:
         super().__init__(parent)
         self.setProperty("card", "true")
         self._colour: str | None = None
@@ -18,6 +18,8 @@ class KpiTile(QFrame):
         layout = QVBoxLayout(self)
         layout.addWidget(role_label(caption, "caption", Qt.AlignmentFlag.AlignCenter))
         layout.addWidget(self._value)
+        if tooltip:  # what the figure means, on hover, so the tile stays short
+            self.setToolTip(tooltip)
 
     def text(self) -> str:
         return self._value.text()

@@ -10,16 +10,19 @@ import logging
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QThread, Qt, pyqtSignal
+from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
-    QFormLayout,
+    QFrame,
+    QGridLayout,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
     QProgressBar,
     QPushButton,
+    QScrollArea,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -28,25 +31,21 @@ from PyQt6.QtWidgets import (
 
 from pvysics.export import write_samples_csv, write_validation_csv
 from pvysics.faults import FaultKind
+from pvysics.gui.palette import STATE_COLOURS
 from pvysics.gui.process_view import PLACEHOLDER
 from pvysics.gui.ui_helpers import role_label, set_property
 from pvysics.gui.widgets import KpiTile
-from pvysics.run import POWER_FLOOR_W, RunConfig
+from pvysics.run import RunConfig, State
 from pvysics.validation import NEAR_ZERO_W, STATE_ORDER, ValidationReport, run_validation
 
 log = logging.getLogger(__name__)
 
-NIGHT_NOTE = (
-    "Night-time samples are excluded: only daylight samples count, where predicted power is at least "
-    f"{POWER_FLOOR_W:g} W. MAPE also skips daylight samples where measured power is below {NEAR_ZERO_W:g} W."
-)
+NIGHT_NOTE = f"Night-time samples are excluded. MAPE also skips samples below {NEAR_ZERO_W:g} W."
 TRUTH_LABELS = ("Normal operation", "Fault")
+TINT_ALPHA = 0.35
 STALE_NOTE = "The applied config has changed since this validation. Run validation again to score it."
 
-EMPTY_TEXT = (
-    "No results yet. Run validation scores the applied setup on a healthy run, to get the error metrics, and on "
-    "one run for each fault, to see how well the twin detects it."
-)
+EMPTY_TEXT = "No results yet. Run validation scores the setup on a healthy run and on one run per fault."
 
 
 class ValidationWorker(QObject):
@@ -85,7 +84,11 @@ class ValidationView(QWidget):
         self._report: ValidationReport | None = None
         self._thread: QThread | None = None
         self._worker: ValidationWorker | None = None
-        self.tiles = {"mae": KpiTile("MAE"), "rmse": KpiTile("RMSE"), "mape": KpiTile("MAPE")}
+        self.tiles = {
+            "mae": KpiTile("MAE", tooltip="Mean absolute error: the typical miss, in watts."),
+            "rmse": KpiTile("RMSE", tooltip="Root mean square error: like MAE, but big misses weigh more."),
+            "mape": KpiTile("MAPE", tooltip="Mean absolute percentage error, relative to the measured power."),
+        }
         self._build()
         self._show_config()
 
@@ -102,7 +105,7 @@ class ValidationView(QWidget):
         self._config = config
         self._show_config()
         if self._report is not None and self._report.config is not config:  # identity: configs hold arrays
-            self.status_label.setText(STALE_NOTE)
+            self._say(STALE_NOTE)
 
     def start_validation(self) -> None:
         """Start the batch on a worker thread for the applied config. Does nothing while one is running."""
@@ -136,10 +139,10 @@ class ValidationView(QWidget):
     def _on_succeeded(self, report: ValidationReport) -> None:
         self._report = report
         self._show_report(report)
-        self.status_label.setText("Validation finished for the applied config.")
+        self._say("")  # the results are the message
 
     def _on_failed(self, message: str) -> None:
-        self.status_label.setText(f"Validation failed: {message}")
+        self._say(f"Validation failed: {message}")
 
     def _on_thread_finished(self) -> None:
         self._thread = None
@@ -152,14 +155,14 @@ class ValidationView(QWidget):
         for button in (self.export_samples_button, self.export_metrics_button):
             button.setEnabled(not busy and self._report is not None)
         if busy:
-            self.status_label.setText("Running validation: one healthy run and five fault runs. Please wait.")
+            self._say("Running a healthy run and five fault runs...")
 
     def _show_config(self) -> None:
         config = self._config
         thresholds = config.thresholds
         self.config_label.setText(
-            f"Scored config: profile {config.profile.name or 'unnamed'}, module {config.datasheet.name}, "
-            f"seed {config.seed}, warning {thresholds.warning_pct:.2f} %, abnormal {thresholds.abnormal_pct:.2f} %"
+            f"{config.profile.name or 'unnamed'}, {config.datasheet.name}, seed {config.seed}, "
+            f"warning {thresholds.warning_pct:.2f} %, abnormal {thresholds.abnormal_pct:.2f} %"
         )
 
     def _show_report(self, report: ValidationReport) -> None:
@@ -169,34 +172,49 @@ class ValidationView(QWidget):
         self.tiles["mae"].set_value(f"{metrics.mae_w:.2f} W")
         self.tiles["rmse"].set_value(f"{metrics.rmse_w:.2f} W")
         self.tiles["mape"].set_value(f"{metrics.mape_pct:.2f} %")
-        self.sample_label.setText(
-            f"MAE and RMSE use {metrics.sample_count} daylight samples. "
-            f"MAPE uses {metrics.mape_sample_count} of them, those with measured power at or above "
-            f"{NEAR_ZERO_W:g} W."
-        )
-        for row, truth in enumerate(TRUTH_LABELS):
+        counted = f"{metrics.sample_count} daylight samples"
+        if metrics.mape_sample_count != metrics.sample_count:
+            counted += f", {metrics.mape_sample_count} for MAPE"
+        self.sample_label.setText(counted + ".")
+        for row in range(len(TRUTH_LABELS)):
             for column, state in enumerate(STATE_ORDER):
                 count = report.confusion.count(row == 1, state)
-                self.confusion_table.setItem(row, column, _read_only_item(str(count)))
+                item = _read_only_item(str(count))
+                tint = _confusion_tint(is_fault=row == 1, state=state, count=count)
+                if tint is not None:
+                    item.setBackground(QBrush(tint))
+                self.confusion_table.setItem(row, column, item)
         for row, score in enumerate(report.faults):
+            detected = score.delay_s is not None
             delay = PLACEHOLDER if score.delay_s is None else f"{score.delay_s:.0f} s"
             rate = PLACEHOLDER if score.detection_rate is None else f"{score.detection_rate * 100:.1f} %"
+            result = _read_only_item("Detected" if detected else "Missed")
+            result.setBackground(QBrush(_tinted(STATE_COLOURS[State.NORMAL if detected else State.ABNORMAL])))
             self.fault_table.setItem(row, 0, _read_only_item(score.kind.value))
-            self.fault_table.setItem(row, 1, _read_only_item(delay))
-            self.fault_table.setItem(row, 2, _read_only_item(rate))
+            self.fault_table.setItem(row, 1, result)
+            self.fault_table.setItem(row, 2, _read_only_item(delay))
+            self.fault_table.setItem(row, 3, _read_only_item(rate))
         mean = PLACEHOLDER if report.mean_delay_s is None else f"{report.mean_delay_s:.0f} s"
-        self.mean_delay_label.setText(mean)
-        self.detection_rate_label.setText(_percent(report.detection_rate))
+        self.mean_delay_label.set_value(mean)
+        self.detection_rate_label.set_value(_percent(report.detection_rate))
         derived = report.derived_thresholds
         thresholds = report.config.thresholds
-        self.false_alarm_config_label.setText(
-            f"{report.false_alarm_rate * 100:.1f} % at warning {thresholds.warning_pct:.2f} %, "
-            f"abnormal {thresholds.abnormal_pct:.2f} %"
+        self.false_alarm_config_label.set_value(f"{report.false_alarm_rate * 100:.1f} %")
+        self.false_alarm_config_label.setToolTip(
+            f"Healthy-run samples flagged at warning {thresholds.warning_pct:.2f} %, "
+            f"abnormal {thresholds.abnormal_pct:.2f} %."
         )
-        self.false_alarm_derived_label.setText(
-            f"{report.false_alarm_rate_derived * 100:.1f} % at warning {derived.warning_pct:.2f} %, "
-            f"abnormal {derived.abnormal_pct:.2f} %"
+        self.false_alarm_derived_label.set_value(f"{report.false_alarm_rate_derived * 100:.1f} %")
+        self.false_alarm_derived_label.setToolTip(
+            f"At the limits derived from the healthy run (mean + 2 and 3 sigma): "
+            f"warning {derived.warning_pct:.2f} %, abnormal {derived.abnormal_pct:.2f} %."
         )
+        text, good = verdict(report)
+        self.verdict_label.setText(text)
+        note = derived_note(report)
+        self.verdict_note.setText(note)
+        self.verdict_note.setVisible(bool(note))
+        set_property(self.verdict, "tone", "good" if good else "attention")
         self.status_label.setText("Validation finished for the applied config.")
 
     def _export_samples(self) -> None:
@@ -215,7 +233,7 @@ class ValidationView(QWidget):
             self._export_failed(path, error)
             return
         log.info("Samples exported to %s", path)
-        self.status_label.setText(f"Samples written to {path}.")
+        self._say(f"Samples written to {path}.")
 
     def _export_metrics(self) -> None:
         report = self._report
@@ -230,11 +248,15 @@ class ValidationView(QWidget):
             self._export_failed(path, error)
             return
         log.info("Metrics exported to %s", path)
-        self.status_label.setText(f"Metrics written to {path}.")
+        self._say(f"Metrics written to {path}.")
 
     def _export_failed(self, path: Path, error: OSError) -> None:
         log.error("Export failed: could not write %s: %s", path.name, error)
-        self.status_label.setText(f"Could not write {path.name}: {error}")
+        self._say(f"Could not write {path.name}: {error}")
+
+    def _say(self, text: str) -> None:
+        self.status_label.setText(text)
+        self.status_label.setVisible(bool(text))
 
     def _on_run_clicked(self, *_args) -> None:
         self.start_validation()
@@ -250,87 +272,169 @@ class ValidationView(QWidget):
         set_property(self.run_button, "variant", "primary")
         self.run_button.setToolTip("Score the applied setup on a healthy run and on one run for each fault.")
         self.run_button.clicked.connect(self._on_run_clicked)
-        self.progress = QProgressBar()
-        self.progress.setRange(0, 0)  # busy indicator: no known length
-        self.progress.setVisible(False)
-        self.status_label = QLabel("Press Run validation to score the applied config.")
-        self.status_label.setWordWrap(True)
-        self.config_label = role_label("", "muted")
-        self.config_label.setWordWrap(True)
-        self.note_label = role_label(NIGHT_NOTE, "muted")
-        self.note_label.setWordWrap(True)
-        self.empty_label = role_label(EMPTY_TEXT, "muted", Qt.AlignmentFlag.AlignCenter)
-        self.empty_label.setWordWrap(True)
-        self.sample_label = QLabel()
-        self.sample_label.setWordWrap(True)
-
-        self.confusion_table = _table(
-            len(TRUTH_LABELS), [state.value for state in STATE_ORDER], TRUTH_LABELS
-        )
-        self.fault_table = _table(
-            len(FaultKind), ["Fault", "Detection delay", "Detection rate"]
-        )
-
-        self.mean_delay_label = QLabel(PLACEHOLDER)
-        self.detection_rate_label = QLabel(PLACEHOLDER)
-        self.false_alarm_config_label = QLabel(PLACEHOLDER)
-        self.false_alarm_derived_label = QLabel(PLACEHOLDER)
         self.export_samples_button = QPushButton("Export samples CSV...")
         self.export_samples_button.clicked.connect(self._on_export_samples_clicked)
         self.export_metrics_button = QPushButton("Export metrics CSV...")
         self.export_metrics_button.clicked.connect(self._on_export_metrics_clicked)
         for button in (self.export_samples_button, self.export_metrics_button):
             button.setEnabled(False)
+        self.progress = QProgressBar()
+        self.progress.setRange(0, 0)  # busy indicator: no known length
+        self.progress.setVisible(False)
+        self.status_label = role_label("", "muted")  # only shown when there is something to say
+        self.status_label.setWordWrap(True)
+        self.status_label.setVisible(False)
+        self.config_label = role_label("", "muted")
+        self.config_label.setWordWrap(True)
+        self.note_label = role_label(NIGHT_NOTE, "caption")
+        self.note_label.setWordWrap(True)
+        self.sample_label = role_label("", "caption")
+        self.empty_label = role_label(EMPTY_TEXT, "muted", Qt.AlignmentFlag.AlignCenter)
+        self.empty_label.setWordWrap(True)
 
-        run_row = QHBoxLayout()
-        run_row.addWidget(self.run_button)
-        run_row.addWidget(self.progress, 1)
+        # The headline answer, in words, before any number.
+        self.verdict = QFrame()
+        self.verdict.setProperty("card", "true")
+        self.verdict_label = role_label("", "strong")
+        self.verdict_label.setWordWrap(True)
+        self.verdict_note = role_label("", "muted")
+        self.verdict_note.setWordWrap(True)
+        verdict_layout = QVBoxLayout(self.verdict)
+        verdict_layout.addWidget(self.verdict_label)
+        verdict_layout.addWidget(self.verdict_note)
 
+        self.mean_delay_label = KpiTile(
+            "Mean delay", tooltip="Time from a fault starting to the first sample that is not Normal."
+        )
+        self.detection_rate_label = KpiTile(
+            "Detection rate", tooltip="The share of fault-active daylight samples the twin flagged."
+        )
+        self.false_alarm_config_label = KpiTile("False alarms")
+        self.false_alarm_derived_label = KpiTile("False alarms, derived limits")
+
+        self.confusion_table = _table(
+            len(TRUTH_LABELS), [state.value for state in STATE_ORDER], TRUTH_LABELS
+        )
+        self.fault_table = _table(len(FaultKind), ["Fault", "Result", "Detection delay", "Detection rate"])
+
+        accuracy = QGroupBox("Accuracy on healthy data")
+        accuracy_layout = QVBoxLayout(accuracy)
         tiles = QHBoxLayout()
         for tile in self.tiles.values():
             tiles.addWidget(tile)
+        accuracy_layout.addLayout(tiles)
+        notes = QHBoxLayout()
+        notes.addWidget(self.sample_label)
+        notes.addStretch(1)
+        accuracy_layout.addLayout(notes)
+        accuracy_layout.addWidget(self.note_label)
 
-        confusion_box = QGroupBox("Fault detection: confusion matrix, daylight samples (rows: truth, columns: estimated state)")
-        confusion = QVBoxLayout(confusion_box)
-        confusion.addWidget(self.confusion_table)
-        confusion.addStretch(1)
+        detection = QGroupBox("Fault detection")
+        detection_layout = QGridLayout(detection)
+        for index, tile in enumerate(
+            (self.detection_rate_label, self.mean_delay_label, self.false_alarm_config_label, self.false_alarm_derived_label)
+        ):
+            detection_layout.addWidget(tile, index // 2, index % 2)
 
-        performance_box = QGroupBox("Detection performance")
-        performance = QVBoxLayout(performance_box)
-        performance.addWidget(self.fault_table)
-        summary = QFormLayout()
-        summary.addRow("Mean detection delay", self.mean_delay_label)
-        summary.addRow("Detection rate", self.detection_rate_label)
-        summary.addRow("False-alarm rate, config thresholds", self.false_alarm_config_label)
-        summary.addRow("False-alarm rate, derived thresholds", self.false_alarm_derived_label)
-        performance.addLayout(summary)
+        faults = QGroupBox("Each fault")
+        QVBoxLayout(faults).addWidget(self.fault_table)
 
-        exports = QHBoxLayout()
-        exports.addStretch(1)
-        exports.addWidget(self.export_samples_button)
-        exports.addWidget(self.export_metrics_button)
+        confusion = QGroupBox("Twin against truth")
+        confusion_layout = QVBoxLayout(confusion)
+        confusion_layout.addWidget(role_label("Rows: what was true. Columns: what the twin said.", "caption"))
+        confusion_layout.addWidget(self.confusion_table)
 
-        charts = QHBoxLayout()
-        charts.addWidget(confusion_box, 1)
-        charts.addWidget(performance_box, 1)
+        # Two columns that size themselves: the numbers on the left, the detail behind them on the right.
+        left = QVBoxLayout()
+        left.addWidget(accuracy)
+        left.addWidget(detection)
+        left.addStretch(1)
+        right = QVBoxLayout()
+        right.addWidget(faults)
+        right.addWidget(confusion)
+        right.addStretch(1)
+        grid = QHBoxLayout()
+        grid.addLayout(left, 1)
+        grid.addLayout(right, 1)
+
         # The results appear with the first report; until then the empty state says what the button does.
         self.results = QWidget()
         results_layout = QVBoxLayout(self.results)
         results_layout.setContentsMargins(0, 0, 0, 0)
-        results_layout.addLayout(tiles)
-        results_layout.addWidget(self.sample_label)
-        results_layout.addLayout(charts, 1)
+        results_layout.addWidget(self.verdict)
+        results_layout.addLayout(grid)
+        results_layout.addStretch(1)
         self.results.setVisible(False)
 
+        body = QWidget()
+        body_layout = QVBoxLayout(body)
+        body_layout.setContentsMargins(0, 0, 0, 0)
+        body_layout.addWidget(self.empty_label, 1)
+        body_layout.addWidget(self.results)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(body)
+
+        # The header stays put while the results scroll: the title, the scored config and the actions.
+        title_row = QHBoxLayout()
+        title_row.addWidget(role_label("Validation", "title"))
+        title_row.addStretch(1)
+        title_row.addWidget(self.export_samples_button)
+        title_row.addWidget(self.export_metrics_button)
+        title_row.addWidget(self.run_button)
+        status_row = QHBoxLayout()
+        status_row.addWidget(self.status_label, 1)
+        status_row.addWidget(self.progress, 1)
+
         root = QVBoxLayout(self)
-        root.addWidget(role_label("Validation", "title"))
+        root.addLayout(title_row)
         root.addWidget(self.config_label)
-        root.addWidget(self.note_label)
-        root.addLayout(run_row)
-        root.addWidget(self.status_label)
-        root.addWidget(self.empty_label, 1)
-        root.addWidget(self.results, 1)
-        root.addLayout(exports)
+        root.addLayout(status_row)
+        root.addWidget(scroll, 1)
+
+
+def verdict(report: ValidationReport) -> tuple[str, bool]:
+    """The result in a sentence, and whether it is all good (every fault found, no false alarms)."""
+    total = len(report.faults)
+    detected = sum(1 for score in report.faults if score.delay_s is not None)
+    if detected == total:
+        found = f"All {total} faults were detected"
+        mean = report.mean_delay_s
+        if mean is not None:
+            found += " straight away" if mean <= 0 else f", on average {mean:.0f} s after they began"
+    else:
+        found = f"{detected} of {total} faults were detected and {total - detected} missed"
+    false_alarms = report.false_alarm_rate
+    quiet = (
+        "no false alarms on healthy data"
+        if false_alarms == 0
+        else f"{false_alarms * 100:.1f} % false alarms on healthy data"
+    )
+    return f"{found}, with {quiet} at the configured limits.", detected == total and false_alarms == 0
+
+
+def derived_note(report: ValidationReport) -> str:
+    """A caution when limits derived from the healthy run would raise false alarms. Empty when they would not."""
+    if report.false_alarm_rate_derived <= 0:
+        return ""
+    return (
+        f"Limits derived from the healthy run (mean + 2 and 3 sigma) would raise "
+        f"{report.false_alarm_rate_derived * 100:.1f} % false alarms."
+    )
+
+
+def _tinted(colour: str) -> QColor:
+    tint = QColor(colour)
+    tint.setAlphaF(TINT_ALPHA)
+    return tint
+
+
+def _confusion_tint(is_fault: bool, state: State, count: int) -> QColor | None:
+    """Green where the twin was right, red where it was wrong, nothing where the count is zero."""
+    if count == 0:
+        return None
+    right = state is not State.NORMAL if is_fault else state is State.NORMAL
+    return _tinted(STATE_COLOURS[State.NORMAL if right else State.ABNORMAL])
 
 
 def _percent(fraction: float | None) -> str:
