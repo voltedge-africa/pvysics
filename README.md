@@ -4,6 +4,8 @@ A physics-informed digital twin for PV state estimation, as a runnable desktop p
 
 A Single Diode Model (SDM) of a PV module runs as the **twin**. It predicts power from measured irradiance and temperature. A **simulated plant**, the same module with perturbed parameters, optional faults and sensor noise, stands in for the physical test bench, which does not exist yet. The state estimator compares measured with predicted power (the power deviation) against warning and abnormal limits and reports Normal, Warning or Abnormal.
 
+New to the app? Read the [user manual](docs/user-manual.md).
+
 The prototype is a PyQt6 application with two windows that read the same run:
 
 - **HMI** (PV Digital Twin): Process, Model and Setup tabs (Setup is a list of sections: Profile, Site, Module, Plant and sensors, Limits and Review). Live plant and twin readings, the deviation gauge, state banner, fault injection, alarms, the SDM circuit and curves, and the run setup.
