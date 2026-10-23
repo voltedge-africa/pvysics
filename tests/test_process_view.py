@@ -3,12 +3,12 @@ from dataclasses import replace
 import numpy as np
 
 from pvysics.faults import Fault, FaultKind
-from pvysics.gui.data_bus import DataBus
 from pvysics.gui.main_window import MainWindow
 from pvysics.gui.playback import SPEEDS
 from pvysics.gui.process_view import PLACEHOLDER, STATE_COLOURS, format_number
 from pvysics.profile import Profile
 from pvysics.run import RunConfig, State, bundled_run_config
+from pvysics.gui.session import Session
 
 FASTEST = SPEEDS[-1]
 GREEN = STATE_COLOURS[State.NORMAL]
@@ -28,8 +28,8 @@ def midday_config() -> RunConfig:
     return replace(config, profile=cut)
 
 
-def window_with(qtbot, config: RunConfig | None = None, bus: DataBus | None = None) -> MainWindow:
-    window = MainWindow(bus=bus, config=config)
+def window_with(qtbot, config: RunConfig | None = None) -> MainWindow:
+    window = Session(config=config).open_hmi()
     qtbot.addWidget(window)
     window.playback.set_speed(FASTEST)
     return window
@@ -204,22 +204,23 @@ def test_reset_clears_the_alarm_list(qtbot):
     assert view.alarm_panel.list_widget.count() == 0
 
 
-def test_the_window_shows_the_bus_it_was_given(qtbot):
-    bus = DataBus()
+def test_the_window_shows_the_bus_of_its_session(qtbot):
+    session = Session()
     other_subscriber = []
-    bus.sample.connect(other_subscriber.append)
-    window = window_with(qtbot, bus=bus)
+    session.bus.sample.connect(other_subscriber.append)
+    window = session.open_hmi()
+    qtbot.addWidget(window)
 
     window.process_view.start_button.click()
     window.playback.tick()
 
-    assert window.bus is bus
+    assert window.bus is session.bus
     assert other_subscriber
     assert window.process_view.time_label.text() != PLACEHOLDER
 
 
 def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
-    window = MainWindow()
+    window = Session().open_hmi()
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)

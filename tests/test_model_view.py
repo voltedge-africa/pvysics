@@ -9,13 +9,13 @@ from PyQt6.QtWidgets import QApplication
 
 from pvysics.gui import model_view
 from pvysics.gui.data_bus import DataBus
-from pvysics.gui.main_window import MainWindow
 from pvysics.gui.model_view import CircuitWidget, EquationsWidget, ModelView
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.gui.process_view import PLACEHOLDER, format_number
 from pvysics.profile import Profile
 from pvysics.run import RunConfig, SensorModel, bundled_run_config
 from pvysics.single_diode import fit_parameters, solve_curve
+from pvysics.gui.session import Session
 
 FASTEST = SPEEDS[-1]
 NOISE_FREE = SensorModel(
@@ -230,7 +230,7 @@ def test_the_view_paints_at_a_high_dpi_scale(make_harness):
 
 
 def test_main_window_has_process_and_model_tabs_and_the_model_tab_follows_the_run(qtbot):
-    window = MainWindow(config=midday_config())
+    window = Session(config=midday_config()).open_hmi()
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)

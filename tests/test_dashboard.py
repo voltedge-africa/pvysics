@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import QAbstractButton, QAbstractSpinBox, QComboBox, QLineE
 from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.dashboard import Dashboard
 from pvysics.gui.main_window import MainWindow
+from pvysics.gui.session import Session
 from pvysics.gui.playback import SPEEDS
 from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER, STATE_COLOURS, format_readings
 from pvysics.profile import Profile
@@ -31,7 +32,7 @@ def midday_config(thresholds: Thresholds | None = None) -> RunConfig:
 
 
 def window_with(qtbot, config: RunConfig | None = None) -> MainWindow:
-    window = MainWindow(config=config)
+    window = Session(config=config).open_hmi()
     qtbot.addWidget(window)
     window.playback.set_speed(FASTEST)
     return window
@@ -230,7 +231,7 @@ def test_reset_clears_the_dashboard(qtbot):
 
 
 def test_offscreen_smoke_opens_the_dashboard_and_logs_events_for_a_run_with_a_fault(qtbot):
-    window = MainWindow()
+    window = Session().open_hmi()
     qtbot.addWidget(window)
     window.show()
     qtbot.waitExposed(window)
@@ -256,3 +257,53 @@ def test_offscreen_smoke_opens_the_dashboard_and_logs_events_for_a_run_with_a_fa
     dashboard.close()
     window.close()
     assert not window.isVisible()
+
+
+IDLE_MESSAGE = "No run in progress. Start a run from the HMI."
+
+
+def test_dashboard_opened_alone_without_a_run_says_how_to_start_one(qtbot):
+    session = Session(config=midday_config())
+    dashboard = session.open_dashboard()
+    qtbot.addWidget(dashboard)
+
+    assert dashboard.idle_message.text() == IDLE_MESSAGE
+    assert dashboard.idle_message.isVisible()
+    assert not dashboard.overview.isVisible()
+
+
+def test_idle_open_hmi_button_opens_the_hmi(qtbot):
+    session = Session(config=midday_config())
+    dashboard = session.open_dashboard()
+    qtbot.addWidget(dashboard)
+
+    dashboard.open_hmi_button.click()
+
+    assert session.hmi_open
+    qtbot.addWidget(session.hmi)
+
+
+def test_idle_message_gives_way_to_the_overview_once_samples_arrive(qtbot):
+    session = Session(config=midday_config())
+    session.playback.set_speed(FASTEST)
+    dashboard = session.open_dashboard()
+    qtbot.addWidget(dashboard)
+
+    session.playback.start()
+    session.playback.tick()
+    dashboard.refresh()
+
+    assert dashboard.overview.isVisible()
+    assert not dashboard.idle_message.isVisible()
+
+
+def test_dashboard_with_the_hmi_open_shows_the_overview_before_a_run(qtbot):
+    session = Session(config=midday_config())
+    hmi = session.open_hmi()
+    qtbot.addWidget(hmi)
+    dashboard = session.open_dashboard()
+    qtbot.addWidget(dashboard)
+
+    dashboard.refresh()
+
+    assert dashboard.overview.isVisible()

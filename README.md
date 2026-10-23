@@ -55,7 +55,18 @@ macOS: the same commands, in Terminal.
 
 Windows: the same commands, in PowerShell.
 
-`uv run pvysics` opens the HMI and the Dashboard together.
+`uv run pvysics` opens a small launcher with **Open HMI**, **Open Dashboard** and **Open both**. Command-line switches start the app without the launcher:
+
+| Command | Opens |
+| --- | --- |
+| `uv run pvysics` | the launcher |
+| `uv run pvysics --hmi` | the HMI only |
+| `uv run pvysics --dashboard` | the Dashboard only |
+| `uv run pvysics --both` | the HMI and the Dashboard, without the launcher |
+
+The switches exclude each other. An unknown switch prints the usage and exits with status 2.
+
+The HMI and the Dashboard share one run. Closing a window does not stop the run or the other window, and a closed window opens again from the launcher or from the Window menu. The app quits when the last open window closes. A Dashboard opened without the HMI, with no run started, says how to start one.
 
 ### Linux Qt library note
 
@@ -84,12 +95,16 @@ The tests set `QT_QPA_PLATFORM=offscreen` themselves (`tests/conftest.py`), so t
 ## Architecture
 
 - **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV). Tests and scripts call these directly.
-- **Qt GUI layer** (`src/pvysics/gui/`): `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive.
-- **Data bus** (`gui/data_bus.py`): an in-process `DataBus` of Qt signals (`sample`, `event`, `run_reset`). Both windows subscribe to it. It stands in for the WebSocket and CSV bus in the design. The `Sample` record is the one an ESP32 would publish later.
+- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `launcher.py` (the launcher), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive.
+- **Data bus** (`gui/data_bus.py`): an in-process `DataBus` of Qt signals (`sample`, `event`, `run_reset`). Both windows subscribe to it through the session, which owns it along with the run. It stands in for the WebSocket and CSV bus in the design. The `Sample` record is the one an ESP32 would publish later.
 
 ## Demo script
 
 Use this checklist against the running app. Each step describes what the code does.
+
+**Start**
+
+- [ ] Run `uv run pvysics`. The launcher opens. Press **Open both**: the HMI and the Dashboard open on the same run. (Or run `uv run pvysics --hmi`, `--dashboard` or `--both` to skip the launcher. A Dashboard opened alone, before a run, says "No run in progress" and offers **Open HMI**.)
 
 **Setup**
 

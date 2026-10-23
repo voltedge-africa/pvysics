@@ -9,6 +9,7 @@ from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER
 from pvysics.run import RunConfig, Site, bundled_run_config
 from pvysics.run_setup import derive_thresholds
 from pvysics.single_diode import fit_parameters
+from pvysics.gui.session import Session
 
 FASTEST = SPEEDS[-1]
 HOURLY_CSV = (
@@ -23,7 +24,7 @@ JSON_MODULE = (
 
 
 def window_with(qtbot, config: RunConfig | None = None) -> MainWindow:
-    window = MainWindow(config=config)
+    window = Session(config=config).open_hmi()
     qtbot.addWidget(window)
     window.playback.set_speed(FASTEST)
     return window

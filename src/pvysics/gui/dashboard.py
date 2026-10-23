@@ -1,4 +1,4 @@
-"""The Dashboard window: read-only analytics on the same run as the HMI.
+"""The Dashboard window: read-only analytics on the session's run, shared with the HMI.
 
 Layout follows the dashboard wireframe: KPI tiles on top, measured vs predicted power and
 the deviation chart in the middle, irradiance and temperature with the event log below. Charts take
@@ -7,33 +7,41 @@ The Dashboard has no controls that change the run; it subscribes to the DataBus 
 and reads the run's history on each UI tick. Plots are updated once per tick, with only the
 Samples that arrived since the last tick appended, so a full day stays responsive.
 The Overview tab holds the live view. The Validation tab runs its own headless batch on the
-applied config and never changes or restarts the run.
+applied config and never changes or restarts the run. With no HMI open and no Sample yet, the
+Overview tab shows an idle message and a button that opens the HMI.
 """
+
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pyqtgraph as pg
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QColor
+from PyQt6.QtGui import QAction, QColor
 from PyQt6.QtWidgets import (
     QGridLayout,
     QGroupBox,
+    QLabel,
     QListWidget,
     QMainWindow,
+    QPushButton,
+    QStackedWidget,
     QTabWidget,
     QVBoxLayout,
     QWidget,
 )
 
-from pvysics.gui.data_bus import DataBus
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER, format_readings
-from pvysics.gui.theme import ThemeManager, ThemeMenu, style_plot
+from pvysics.gui.theme import ThemeMenu, style_plot
 from pvysics.gui.validation_view import ValidationView
 from pvysics.gui.widgets import KpiTile
-from pvysics.history import RunHistory
 from pvysics.run import Event, RunConfig, Sample, State, Thresholds
 
+if TYPE_CHECKING:
+    from pvysics.gui.session import Session
+
 UI_INTERVAL_MS = 100  # the Dashboard refreshes at most this often
+IDLE_MESSAGE = "No run in progress. Start a run from the HMI."
 BAND_ALPHA = 0.35
 TIME_LABEL = "Time since start (h)"
 COLUMNS = ("hours", "power_measured", "power_predicted", "deviation", "irradiance", "temperature")
@@ -88,22 +96,16 @@ def _row(sample: Sample, origin: np.datetime64) -> list[float]:
 
 
 class Dashboard(QMainWindow):
-    """The read-only Dashboard. Built from the run's history, then kept current from the DataBus."""
+    """The read-only Dashboard. Built from the session's history, then kept current from its DataBus."""
 
-    def __init__(
-        self,
-        history: RunHistory,
-        bus: DataBus,
-        config: RunConfig,
-        parent: QWidget | None = None,
-        theme: ThemeManager | None = None,
-    ) -> None:
-        super().__init__(parent)
+    def __init__(self, session: "Session") -> None:
+        super().__init__()
         self.setWindowTitle("PV Digital Twin Dashboard")
-        self._history = history
-        self._thresholds = config.thresholds
-        self._theme = ThemeManager(parent=self) if theme is None else theme
-        self.validation = ValidationView(config)
+        self._session = session
+        self._history = session.history
+        self._theme = session.theme
+        self._thresholds = session.config.thresholds
+        self.validation = ValidationView(session.config)
         self._band_items: list[pg.LinearRegionItem] = []
         self._columns = SampleColumns()
         self._samples_shown = 0
@@ -122,13 +124,23 @@ class Dashboard(QMainWindow):
         self._build_charts()
         self._build_layout()
         self._show_kpis(None, 0.0)
+        self._update_pages()
+        window_menu = self.menuBar().addMenu("&Window")
+        self.open_hmi_action = QAction("Open HMI", self)
+        self.open_hmi_action.triggered.connect(self._on_open_hmi)
+        window_menu.addAction(self.open_hmi_action)
+        self.open_launcher_action = QAction("Open Launcher", self)
+        self.open_launcher_action.triggered.connect(self._on_open_launcher)
+        window_menu.addAction(self.open_launcher_action)
         ThemeMenu(self, self._theme)
         self._theme.changed.connect(self._apply_palette)
         self._apply_palette(self._theme.palette)
 
+        bus = session.bus
         bus.sample.connect(self._mark_dirty)
         bus.event.connect(self._mark_dirty)
         bus.run_reset.connect(self._on_reset)
+        session.config_changed.connect(self.set_config)
         self._timer = QTimer(self)
         self._timer.setInterval(UI_INTERVAL_MS)
         self._timer.timeout.connect(self.refresh)
@@ -159,7 +171,10 @@ class Dashboard(QMainWindow):
 
         Does nothing while the window is hidden or when nothing is new.
         """
-        if not self._dirty or not self.isVisible():
+        if not self.isVisible():
+            return
+        self._update_pages()
+        if not self._dirty:
             return
         self._dirty = False
         new_samples = self._history.samples_from(self._samples_shown)
@@ -179,6 +194,17 @@ class Dashboard(QMainWindow):
 
     def _mark_dirty(self, *_args) -> None:
         self._dirty = True
+
+    def _update_pages(self) -> None:
+        """The idle message while no HMI is open and no Sample has arrived; the Overview otherwise."""
+        idle = not self._session.hmi_open and self._history.sample_count == 0
+        self._pages.setCurrentWidget(self._idle_page if idle else self.overview)
+
+    def _on_open_hmi(self, *_args) -> None:
+        self._session.open_hmi()
+
+    def _on_open_launcher(self, *_args) -> None:
+        self._session.open_launcher()
 
     def _on_reset(self) -> None:
         self._columns.clear()
@@ -291,10 +317,28 @@ class Dashboard(QMainWindow):
         layout = QVBoxLayout(self.overview)
         layout.addLayout(tiles)
         layout.addLayout(charts, 1)
+        self._idle_page = self._build_idle_page()
+        self._pages = QStackedWidget()
+        self._pages.addWidget(self._idle_page)
+        self._pages.addWidget(self.overview)
         tabs = QTabWidget()
-        tabs.addTab(self.overview, "Overview")
+        tabs.addTab(self._pages, "Overview")
         tabs.addTab(self.validation, "Validation")
         self.setCentralWidget(tabs)
+
+    def _build_idle_page(self) -> QWidget:
+        self.idle_message = QLabel(IDLE_MESSAGE)
+        self.idle_message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.idle_message.setWordWrap(True)
+        self.open_hmi_button = QPushButton("Open HMI")
+        self.open_hmi_button.clicked.connect(self._on_open_hmi)
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.addStretch(1)
+        layout.addWidget(self.idle_message)
+        layout.addWidget(self.open_hmi_button, 0, Qt.AlignmentFlag.AlignCenter)
+        layout.addStretch(1)
+        return page
 
 
 def _chart(left_label: str) -> pg.PlotWidget:

@@ -14,6 +14,7 @@ from pvysics.gui.process_view import PLACEHOLDER
 from pvysics.profile import Profile
 from pvysics.run import RunConfig, State, Thresholds, bundled_run_config
 from pvysics.validation import run_validation
+from pvysics.gui.session import Session
 
 FASTEST = SPEEDS[-1]
 WAIT_MS = 120_000
@@ -48,7 +49,7 @@ def read_rows(path) -> list[list[str]]:
 
 @pytest.fixture
 def window(qtbot):
-    window = MainWindow(config=coarse_config())
+    window = Session(config=coarse_config()).open_hmi()
     qtbot.addWidget(window)
     window.playback.set_speed(FASTEST)
     return window
@@ -226,7 +227,7 @@ def test_closing_the_dashboard_during_a_validation_waits_for_it(qtbot, window):
 
 
 def test_the_bundled_day_validation_shows_the_numbers_on_the_tab(qtbot):
-    window = MainWindow(config=bundled_run_config(seed=0))
+    window = Session(config=bundled_run_config(seed=0)).open_hmi()
     qtbot.addWidget(window)
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)

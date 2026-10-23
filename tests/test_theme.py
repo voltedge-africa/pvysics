@@ -6,7 +6,6 @@ from PyQt6.QtGui import QColor, QGuiApplication, QImage, QPalette
 from PyQt6.QtWidgets import QApplication
 
 from pvysics.gui import model_view
-from pvysics.gui.main_window import MainWindow
 from pvysics.gui.model_view import ModelView, recoloured_image, recoloured_svg
 from pvysics.gui.palette import (
     CHOICE_DARK,
@@ -22,6 +21,7 @@ from pvysics.gui.palette import (
 )
 from pvysics.gui.theme import SETTINGS_KEY, ThemeManager, ThemeMenu, default_settings
 from pvysics.run import State
+from pvysics.gui.session import Session
 
 PALETTES = [LIGHT, DARK]
 WCAG_TEXT_RATIO = 4.5
@@ -144,7 +144,7 @@ def test_manual_choice_ignores_the_os_when_it_changes(qtbot, tmp_path):
 
 
 def test_choosing_a_theme_applies_the_palette_to_the_app(qtbot):
-    window = MainWindow()
+    window = Session().open_hmi()
     qtbot.addWidget(window)
     app = QApplication.instance()
 
@@ -157,7 +157,7 @@ def test_choosing_a_theme_applies_the_palette_to_the_app(qtbot):
 
 
 def test_view_menus_of_both_windows_stay_in_step(qtbot, tmp_path):
-    window = MainWindow(theme=ThemeManager(QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat)))
+    window = Session(theme=ThemeManager(QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat))).open_hmi()
     qtbot.addWidget(window)
     dashboard = window.open_dashboard()
     hmi_menu, dashboard_menu = window.findChildren(ThemeMenu)[0], dashboard.findChildren(ThemeMenu)[0]
@@ -171,7 +171,7 @@ def test_view_menus_of_both_windows_stay_in_step(qtbot, tmp_path):
 
 
 def test_smoke_switching_theme_with_hmi_and_dashboard_open_recolours_charts(qtbot, tmp_path):
-    window = MainWindow(theme=ThemeManager(QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat)))
+    window = Session(theme=ThemeManager(QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat))).open_hmi()
     qtbot.addWidget(window)
     dashboard = window.open_dashboard()
     window.show()
@@ -197,7 +197,7 @@ def test_smoke_switching_theme_with_hmi_and_dashboard_open_recolours_charts(qtbo
 
 
 def test_a_chart_created_after_a_theme_change_starts_in_that_theme(qtbot, tmp_path):
-    window = MainWindow(theme=ThemeManager(QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat)))
+    window = Session(theme=ThemeManager(QSettings(str(tmp_path / "t.ini"), QSettings.Format.IniFormat))).open_hmi()
     qtbot.addWidget(window)
     window.theme.set_choice(CHOICE_DARK)
 
