@@ -2,11 +2,13 @@ import sys
 
 from PyQt6.QtWidgets import QApplication
 
+from pvysics.gui.data_bus import DataBus
 from pvysics.gui.main_window import MainWindow
 
 
 def main() -> int:
     app = QApplication.instance() or QApplication(sys.argv)
-    window = MainWindow()
+    bus = DataBus()  # the single data bus for the app; every window subscribes to it
+    window = MainWindow(bus=bus)
     window.show()
     return app.exec()
