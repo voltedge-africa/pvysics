@@ -1,0 +1,10 @@
+# Generic module datasheet: 60-cell, 250 W crystalline silicon module.
+name = "Generic 60-cell 250 W"
+ns = 60
+pmpp_w = 250.0
+isc_a = 8.9
+voc_v = 37.8
+impp_a = 8.3
+vmpp_v = 30.1
+ki_pct_per_c = 0.05
+kv_pct_per_c = -0.32
