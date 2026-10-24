@@ -1,3 +1,4 @@
+import pytest
 from dataclasses import replace
 
 import numpy as np
@@ -51,7 +52,7 @@ def test_start_plays_pause_freezes_and_reset_returns_to_the_start(qtbot):
 
     assert view.time_label.text() == PLACEHOLDER
     assert view.strip.state_text == ""
-    assert view.strip.value("G") == PLACEHOLDER
+    assert view.strip.value("deviation") == PLACEHOLDER
     view.start_button.click()
     window.playback.tick()
     assert view.time_label.text() == shown_after_one_tick
@@ -89,7 +90,7 @@ def test_speed_control_changes_the_rate_without_restarting_the_run(qtbot):
     assert view.time_label.text() > stamp_before
 
 
-def test_plant_and_twin_readings_update_on_every_sample(qtbot):
+def test_the_twin_prediction_and_deviation_update_on_every_sample(qtbot):
     window = window_with(qtbot)
     view = window.process_view
     seen = []
@@ -101,13 +102,9 @@ def test_plant_and_twin_readings_update_on_every_sample(qtbot):
         window.playback.tick()
         if seen:
             latest = seen[-1]
-            assert view.strip.value("G") == f"{format_number(latest.measured_irradiance, 0)} W/m²"
-            assert view.strip.value("T") == f"{format_number(latest.measured_temperature, 1)} °C"
-            assert view.strip.value("V") == f"{format_number(latest.measured_voltage, 1)} V"
-            assert view.strip.value("I") == f"{format_number(latest.measured_current, 1)} A"
-            assert view.strip.value("P") == f"{format_number(latest.power_measured, 1)} W"
             assert view.strip.value("P_pred") == f"{format_number(latest.power_predicted, 1)} W"
-            shown_values.append(view.strip.value("P"))
+            assert view.strip.value("deviation") == f"{format_number(latest.deviation_pct, 1, signed=True)} %"
+            shown_values.append(view.strip.value("P_pred"))
     assert len(set(shown_values)) > 1
 
 
@@ -237,7 +234,7 @@ def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
     window.grab()
 
     assert view.strip.state_text in {"Normal", "Warning", "Abnormal"}
-    assert view.strip.value("G") != PLACEHOLDER
+    assert view.strip.value("deviation") != PLACEHOLDER
     assert view.strip.value("P_pred") != PLACEHOLDER
     assert view.time_label.text() != PLACEHOLDER
     window.close()
@@ -256,3 +253,11 @@ def test_an_empty_trend_shows_a_day_and_follows_the_data_from_the_first_sample(q
     window.playback.tick()
     trend.flush()
     assert trend.plot.plotItem.vb.state["autoRange"][0] is not False
+
+
+def test_the_hmi_does_not_show_the_plants_measured_readings(qtbot):
+    view = window_with(qtbot).process_view
+
+    for key in ("P", "G", "T", "V", "I"):
+        with pytest.raises(KeyError):
+            view.strip.value(key)  # measured readings are on the Dashboard

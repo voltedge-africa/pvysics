@@ -21,7 +21,7 @@ from pvysics.run import POWER_FLOOR_W, RunConfig, SensorModel, State, bundled_ru
 from pvysics.single_diode import fit_parameters, solve_curve
 
 FASTEST = SPEEDS[-1]
-LIVE_CURVES_PER_TICK = 5  # voltage, current, energy, I-V and P-V (the operating points are scatter items)
+LIVE_CURVES_PER_TICK = 3  # energy, I-V and P-V (the operating points are scatter items)
 NOISE_FREE = SensorModel(
     irradiance_noise_pct=0.0,
     temperature_noise_c=0.0,
@@ -99,7 +99,7 @@ def test_the_dashboard_has_an_overview_that_holds_the_live_charts_and_a_validati
     tabs = dashboard.centralWidget()
 
     assert [tabs.tabText(index) for index in range(tabs.count())] == ["Overview", "Validation"]
-    for box in (dashboard.live.voltage_current_box, dashboard.live.curves_box, dashboard.live.energy_box,
+    for box in (dashboard.live.curves_box, dashboard.live.energy_box,
                 dashboard.live.histogram_box, dashboard.live.states_box):
         assert dashboard.charts.isAncestorOf(box)  # the live charts are docks in the Overview, not a tab of their own
 
@@ -115,15 +115,11 @@ def test_each_live_chart_has_data_after_a_short_run(qtbot):
     live, history = dashboard.live, window.history
     count = history.sample_count
 
-    _x, voltage_y = live._voltage.getData()
-    _x, current_y = live._current.getData()
     _x, energy_y = live._energy.getData()
     _x, iv_y = live._iv_curve.getData()
     _x, pv_y = live._pv_curve.getData()
     latest = history.latest
-    assert len(voltage_y) == count and len(current_y) == count and len(energy_y) == count
-    assert voltage_y[-1] == pytest.approx(latest.measured_voltage)
-    assert current_y[-1] == pytest.approx(latest.measured_current)
+    assert len(energy_y) == count
     assert energy_y[-1] == pytest.approx(history.energy_wh)
     assert len(iv_y) == len(pv_y) == 500 and live.curve is not None
     point_x, point_y = live._iv_point.getData()
@@ -255,8 +251,6 @@ def test_a_full_day_plots_each_live_curve_once_per_ui_tick(qtbot, plot_calls):
     plot_calls.clear()
     dashboard.refresh()
     live_curves = (
-        dashboard.live._voltage,
-        dashboard.live._current,
         dashboard.live._energy,
         dashboard.live._iv_curve,
         dashboard.live._pv_curve,
@@ -282,7 +276,7 @@ def test_reset_clears_every_live_chart(qtbot):
     dashboard.refresh()
 
     live = dashboard.live
-    for curve in (live._voltage, live._current, live._energy, live._iv_curve, live._pv_curve):
+    for curve in (live._energy, live._iv_curve, live._pv_curve):
         assert plotted_values(curve).size == 0
     assert live._iv_point.data["x"].size == 0
     assert live.curve is None
@@ -304,8 +298,8 @@ def test_reopening_the_dashboard_mid_run_shows_the_history_in_the_live_charts(qt
     reopened = window.open_dashboard()
 
     assert reopened.isVisible()
-    _x, voltage = reopened.live._voltage.getData()
-    assert len(voltage) == window.history.sample_count
+    _x, energy = reopened.live._energy.getData()
+    assert len(energy) == window.history.sample_count
     assert reopened.live.histogram.total == daylight_count(window.history.samples_from(0))
     assert reopened.live.state_times.total_seconds == pytest.approx(
         (window.history.latest.timestamp - window.history.origin) / np.timedelta64(1, "s")
@@ -320,16 +314,16 @@ def test_live_charts_follow_the_theme_and_a_new_chart_starts_in_the_current_them
     qtbot.addWidget(dashboard)
     live = dashboard.live
 
-    for plot in (live.voltage_plot, live.current_plot, live.iv_plot, live.pv_plot, live.energy_plot,
+    for plot in (live.iv_plot, live.pv_plot, live.energy_plot,
                  live.histogram_plot, live.state_plot):
         assert plot.backgroundBrush().color() == QColor(DARK.chart_background)
         assert plot.getAxis("left").pen().color() == QColor(DARK.muted_text)
-    assert live._voltage.opts["pen"].color() == QColor(DARK.voltage)
+    assert live._energy.opts["pen"].color() == QColor(DARK.measured)
 
     theme.set_choice("light")
 
-    assert live.voltage_plot.backgroundBrush().color() == QColor(LIGHT.chart_background)
-    assert live._voltage.opts["pen"].color() == QColor(LIGHT.voltage)
+    assert live.iv_plot.backgroundBrush().color() == QColor(LIGHT.chart_background)
+    assert live._energy.opts["pen"].color() == QColor(LIGHT.measured)
     assert live._iv_point.opts["brush"].color() == QColor(LIGHT.operating_point)
 
 
@@ -366,7 +360,7 @@ def test_the_overview_docks_every_chart_at_1280_by_800_and_plots_keep_their_heig
     QApplication.processEvents()
 
     live = dashboard.live
-    for plot in (live.voltage_plot, live.current_plot, live.iv_plot, live.pv_plot, live.energy_plot,
+    for plot in (live.iv_plot, live.pv_plot, live.energy_plot,
                  live.histogram_plot, live.state_plot):
         assert plot.height() >= plot.minimumHeight()
 
@@ -397,7 +391,7 @@ def test_offscreen_smoke_runs_a_short_run_with_a_fault_and_the_live_charts_have_
     assert live.histogram.below_range + live.histogram.above_range + live.histogram.total == daylight_count(
         window.history.samples_from(0)
     )
-    assert len(live._voltage.getData()[1]) == window.history.sample_count
+    assert len(live._energy.getData()[1]) == window.history.sample_count
     assert live.curve is not None
     assert "Abnormal" in live.state_caption.text()
     dashboard.close()

@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QTo
 
 PLOT_HINT = QSize(320, 220)
 EXPORT_MARGIN_PX = 6
+PANE_PADDING_PX = 10  # space between a pane's border and its content
 
 
 def set_property(widget: QWidget, name: str, value: str) -> None:
@@ -32,11 +33,11 @@ def role_label(text: str, role: str, alignment=None) -> QLabel:
 
 
 def pane(widget: QWidget) -> QFrame:
-    """Wrap a dock's content in a hairline border, so neighbouring panes read as separate."""
+    """Wrap content in a hairline border with padding, so neighbouring panes read as separate."""
     frame = QFrame()
     frame.setProperty("pane", "true")
     layout = QHBoxLayout(frame)
-    layout.setContentsMargins(1, 1, 1, 1)
+    layout.setContentsMargins(PANE_PADDING_PX, PANE_PADDING_PX, PANE_PADDING_PX, PANE_PADDING_PX)
     layout.addWidget(widget)
     return frame
 

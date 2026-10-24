@@ -11,6 +11,7 @@ import html
 import io
 import itertools
 import logging
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -63,7 +64,7 @@ from pvysics.profile import (
 from pvysics.gui.fetch_panel import FetchPanel
 from pvysics.gui.theme import ERROR_ROLE, ThemeManager
 from pvysics.gui.ui_helpers import role_label, set_property, unit_row
-from pvysics.run import Mismatch, RunConfig, SensorModel, Site, Thresholds, bundled_run_config
+from pvysics.run import RunConfig, Site, Thresholds, bundled_run_config
 from pvysics.run_setup import datasheet_problems, derive_thresholds, summary_rows, validate_config
 
 log = logging.getLogger(__name__)
@@ -255,11 +256,22 @@ class SetupView(QWidget):
         self._datasheet = config.datasheet  # the module the module fields were last set from
         self._shown_module: dict[str, float | int] = {}  # the module values the fields showed then
         self.csv_dialog: ProfileDialog | None = None
-        self._applied_rows: list[tuple[str, str]] | None = None  # what the running run uses; None while building
+        self._plant = (config.mismatch, config.sensors, config.seed)  # set in the Sensors window, carried along here
+        self._applied_config: RunConfig | None = None  # what the running run uses; None while building
         self._build()
         self._fill(config)
         self._show_summary(config)
-        self._applied_rows = summary_rows(config)
+        self._applied_config = config
+        self._update_dirty()
+
+    def follow_config(self, config: RunConfig) -> None:
+        """A new run was applied somewhere (the Sensors window changes the plant): carry its plant settings along."""
+        self._plant = (config.mismatch, config.sensors, config.seed)
+        if self._applied_config is not None:
+            self._applied_config = replace(
+                self._applied_config, mismatch=config.mismatch, sensors=config.sensors, seed=config.seed
+            )
+        self._show_summary(self._applied_config or config)
         self._update_dirty()
 
     @property
@@ -277,27 +289,17 @@ class SetupView(QWidget):
 
     def read_config(self) -> RunConfig:
         """The RunConfig the controls describe. Faults are none: a new run starts without them."""
+        mismatch, sensors, seed = self._plant
         return RunConfig(
             profile=self._profile,
             datasheet=self._current_datasheet(),
-            mismatch=Mismatch(
-                series_resistance_pct=self.rs_spin.value(),
-                shunt_resistance_pct=self.rsh_spin.value(),
-                temperature_coefficient_pct=self.temperature_coefficient_spin.value(),
-            ),
-            sensors=SensorModel(
-                irradiance_noise_pct=self.irradiance_noise_spin.value(),
-                temperature_noise_c=self.temperature_noise_spin.value(),
-                voltage_noise_v=self.voltage_noise_spin.value(),
-                current_noise_a=self.current_noise_spin.value(),
-                voltage_step_v=self.voltage_step_spin.value(),
-                current_step_a=self.current_step_spin.value(),
-            ),
+            mismatch=mismatch,
+            sensors=sensors,
             thresholds=Thresholds(
                 warning_pct=self.warning_spin.value(),
                 abnormal_pct=self.abnormal_spin.value(),
             ),
-            seed=self.seed_spin.value(),
+            seed=seed,
             site=Site(
                 latitude_deg=self.latitude_spin.value(),
                 longitude_deg=self.longitude_spin.value(),
@@ -324,7 +326,7 @@ class SetupView(QWidget):
             self._warn("Not applied. " + " ".join(problems))
             return
         self._show_summary(config)
-        self._applied_rows = summary_rows(config)
+        self._applied_config = config
         self._update_dirty()
         self._say("Applied. New run started.")
         log.info("Setup applied: %s", _summary(config))
@@ -487,18 +489,7 @@ class SetupView(QWidget):
         """Show every control with the values of config. Applies nothing."""
         self._set_profile(config.profile)
         self._set_datasheet(config.datasheet)
-        mismatch, sensors = config.mismatch, config.sensors
         thresholds, site = config.thresholds, config.site
-        self.rs_spin.setValue(mismatch.series_resistance_pct)
-        self.rsh_spin.setValue(mismatch.shunt_resistance_pct)
-        self.temperature_coefficient_spin.setValue(mismatch.temperature_coefficient_pct)
-        self.irradiance_noise_spin.setValue(sensors.irradiance_noise_pct)
-        self.temperature_noise_spin.setValue(sensors.temperature_noise_c)
-        self.voltage_noise_spin.setValue(sensors.voltage_noise_v)
-        self.current_noise_spin.setValue(sensors.current_noise_a)
-        self.voltage_step_spin.setValue(sensors.voltage_step_v)
-        self.current_step_spin.setValue(sensors.current_step_a)
-        self.seed_spin.setValue(config.seed)
         self.warning_spin.setValue(thresholds.warning_pct)
         self.abnormal_spin.setValue(thresholds.abnormal_pct)
         self.latitude_spin.setValue(site.latitude_deg)
@@ -509,11 +500,11 @@ class SetupView(QWidget):
     @property
     def has_unapplied_changes(self) -> bool:
         """True when the controls describe a run different from the one that is running."""
-        return self._applied_rows is not None and summary_rows(self.read_config()) != self._applied_rows
+        return self._applied_config is not None and summary_rows(self.read_config()) != summary_rows(self._applied_config)
 
     def _update_dirty(self, *_args) -> None:
         """Show whether Apply and start would change anything, and call attention to Apply when it would."""
-        if self._applied_rows is None:
+        if self._applied_config is None:
             return
         dirty = self.has_unapplied_changes
         self.dirty_label.setText("Changes not applied yet" if dirty else "Matches the current run")
@@ -569,18 +560,6 @@ class SetupView(QWidget):
         self.reset_module_button = QPushButton("Reset to generic module")
         self.reset_module_button.clicked.connect(self._reset_module)
 
-        self.rs_spin = _spin(-90.0, 500.0, 1)
-        self.rsh_spin = _spin(-90.0, 500.0, 1)
-        self.temperature_coefficient_spin = _spin(-90.0, 500.0, 1)
-        self.irradiance_noise_spin = _spin(0.0, 20.0, 2)
-        self.temperature_noise_spin = _spin(0.0, 10.0, 2)
-        self.voltage_noise_spin = _spin(0.0, 1.0, 4)
-        self.current_noise_spin = _spin(0.0, 5.0, 4)
-        self.voltage_step_spin = _spin(0.0, 1.0, 4)
-        self.current_step_spin = _spin(0.0, 1.0, 4)
-        self.seed_spin = QSpinBox()
-        _fit(self.seed_spin)
-        self.seed_spin.setRange(0, MAX_SEED)
         self.warning_spin = _spin(0.01, 200.0, 2)
         self.abnormal_spin = _spin(0.01, 200.0, 2)
         self.derive_button = QPushButton("Derive from healthy run")
@@ -610,9 +589,7 @@ class SetupView(QWidget):
         self.validate_button.setToolTip("Check every value without starting anything.")
         self.reset_button.setToolTip("Put every control back to its default. Nothing is applied.")
         for spin in (
-            self.rs_spin, self.rsh_spin, self.temperature_coefficient_spin, self.irradiance_noise_spin,
-            self.temperature_noise_spin, self.voltage_noise_spin, self.current_noise_spin, self.voltage_step_spin,
-            self.current_step_spin, self.seed_spin, self.warning_spin, self.abnormal_spin, self.latitude_spin,
+            self.warning_spin, self.abnormal_spin, self.latitude_spin,
             self.longitude_spin, self.tilt_spin, self.azimuth_spin, *self._module_spins.values(),
         ):
             spin.valueChanged.connect(self._update_dirty)
@@ -657,24 +634,6 @@ class SetupView(QWidget):
         form.addRow("Tilt", unit_row(self.tilt_spin, "°"))
         form.addRow("Azimuth", unit_row(self.azimuth_spin, "° (0 is north)"))
 
-        mismatch_group = QGroupBox("Plant vs twin mismatch")
-        form = mismatch_form = QFormLayout(mismatch_group)
-        _roomy(form)
-        form.addRow("Rs offset", unit_row(self.rs_spin, "%"))
-        form.addRow("Rsh offset", unit_row(self.rsh_spin, "%"))
-        form.addRow("Temperature-coefficient offset", unit_row(self.temperature_coefficient_spin, "%"))
-
-        sensor_group = QGroupBox("Sensor model")
-        form = sensor_form = QFormLayout(sensor_group)
-        _roomy(form)
-        form.addRow("Irradiance noise", unit_row(self.irradiance_noise_spin, "%"))
-        form.addRow("Temperature noise", unit_row(self.temperature_noise_spin, "°C"))
-        form.addRow("Voltage noise", unit_row(self.voltage_noise_spin, "V"))
-        form.addRow("Current noise", unit_row(self.current_noise_spin, "A"))
-        form.addRow("Voltage quantisation", unit_row(self.voltage_step_spin, "V"))
-        form.addRow("Current quantisation", unit_row(self.current_step_spin, "A"))
-        form.addRow("Seed", self.seed_spin)
-
         threshold_group = QGroupBox("State thresholds")
         form = threshold_form = QFormLayout(threshold_group)
         _roomy(form)
@@ -682,7 +641,7 @@ class SetupView(QWidget):
         form.addRow("Abnormal limit", unit_row(self.abnormal_spin, "%"))
         form.addRow(self.derive_button)
 
-        _align_labels(site_form, mismatch_form, sensor_form, threshold_form)
+        _align_labels(site_form, threshold_form)
 
         summary_group = QGroupBox("Run summary")
         QVBoxLayout(summary_group).addWidget(self.summary_label)
@@ -693,7 +652,6 @@ class SetupView(QWidget):
             ("Profile", (profile_group, self.fetch_panel)),
             ("Site", (site_group,)),
             ("Module", (module_group,)),
-            ("Plant and sensors", (mismatch_group, sensor_group)),
             ("Limits", (threshold_group,)),
             ("Review", (summary_group,)),
         )

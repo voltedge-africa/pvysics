@@ -35,6 +35,7 @@ from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, Group, MetricStrip, Til
 from pvysics.gui.process_view import format_readings
 from pvysics.gui.ui_helpers import CompactPlot, pane
 from pvysics.gui.theme import ThemeMenu, style_plot
+from pvysics.gui.sample_columns import SampleColumns
 from pvysics.gui.validation_view import ValidationView
 from pvysics.run import Event, RunConfig, Sample, State, Thresholds
 
@@ -47,68 +48,10 @@ UI_INTERVAL_MS = 100  # the Dashboard refreshes at most this often
 IDLE_MESSAGE = "No run in progress."
 BAND_ALPHA = 0.35
 TIME_LABEL = "Time since start (h)"
-COLUMNS = (
-    "hours",
-    "power_measured",
-    "power_predicted",
-    "deviation",
-    "irradiance",
-    "temperature",
-    "voltage",
-    "current",
-    "energy_wh",
-)
-COLUMN_INDEX = {name: index for index, name in enumerate(COLUMNS)}
-INITIAL_CAPACITY = 1024
-
-
 def format_event(event: Event) -> str:
     stamp = np.datetime_as_string(event.timestamp, unit="m").split("T")[1]
     label = "State" if event.kind == "state" else "Fault"
     return f"{stamp}  {label}: {event.detail}"
-
-
-class SampleColumns:
-    """The plotted values of the run so far, one column per name in COLUMNS.
-
-    Rows are appended in place into arrays that grow by doubling, so an append costs only
-    the new Samples and a read is a view.
-    """
-
-    def __init__(self) -> None:
-        self._data = np.empty((len(COLUMNS), INITIAL_CAPACITY))
-        self._count = 0
-
-    def clear(self) -> None:
-        self._count = 0
-
-    def append(self, samples: list[Sample], origin: np.datetime64, energies: list[float]) -> None:
-        rows = np.array([_row(sample, origin, energy) for sample, energy in zip(samples, energies)], dtype=float).T
-        needed = self._count + rows.shape[1]
-        if needed > self._data.shape[1]:
-            grown = np.empty((len(COLUMNS), max(needed, 2 * self._data.shape[1])))
-            grown[:, : self._count] = self._data[:, : self._count]
-            self._data = grown
-        self._data[:, self._count : needed] = rows
-        self._count = needed
-
-    def column(self, name: str) -> np.ndarray:
-        return self._data[COLUMN_INDEX[name], : self._count]
-
-
-def _row(sample: Sample, origin: np.datetime64, energy_wh: float) -> list[float]:
-    hours = (sample.timestamp - origin) / np.timedelta64(1, "h")
-    return [
-        hours,
-        sample.power_measured,
-        sample.power_predicted,
-        sample.deviation_pct,
-        sample.measured_irradiance,
-        sample.measured_temperature,
-        sample.measured_voltage,
-        sample.measured_current,
-        energy_wh,
-    ]
 
 
 class Dashboard(QMainWindow):
@@ -131,9 +74,8 @@ class Dashboard(QMainWindow):
         self.strip = MetricStrip(
             [
                 Group(
-                    "Now",
+                    "Twin against plant",
                     [
-                        Tile("p_measured", "Measured power"),
                         Tile("p_predicted", "Predicted power"),
                         Tile("deviation", "Deviation"),
                         Tile("state", "State"),
@@ -154,6 +96,9 @@ class Dashboard(QMainWindow):
         self.open_hmi_action = QAction("Open HMI", self)
         self.open_hmi_action.triggered.connect(self._on_open_hmi)
         window_menu.addAction(self.open_hmi_action)
+        self.open_sensors_action = QAction("Open Sensors", self)
+        self.open_sensors_action.triggered.connect(self._on_open_sensors)
+        window_menu.addAction(self.open_sensors_action)
         self.theme_menu = ThemeMenu(self, self._theme)
         self.theme_menu.add_action(self.log_pane.view_action)
         self.theme_menu.add_actions([dock.toggleViewAction() for dock in self.docks.values()], "Panels")
@@ -231,6 +176,9 @@ class Dashboard(QMainWindow):
     def _on_open_hmi(self, *_args) -> None:
         self._session.open_hmi()
 
+    def _on_open_sensors(self, *_args) -> None:
+        self._session.open_sensors()
+
 
     def _on_reset(self) -> None:
         self._columns.clear()
@@ -244,7 +192,7 @@ class Dashboard(QMainWindow):
 
     def _apply_palette(self, palette: Palette) -> None:
         """Restyle the charts and their curves for a palette. Runs at start and on each theme change."""
-        for plot in (self.power_plot, self.deviation_plot, self.irradiance_plot, self.temperature_plot):
+        for plot in (self.power_plot, self.deviation_plot):
             style_plot(plot, palette)
         self.live.apply_palette(palette)
         self.strip.set_palette(palette)
@@ -252,8 +200,6 @@ class Dashboard(QMainWindow):
         self._power_measured.setPen(pg.mkPen(palette.measured, width=2))
         self._power_predicted.setPen(pg.mkPen(palette.predicted, width=2, style=Qt.PenStyle.DashLine))
         self._deviation.setPen(pg.mkPen(palette.deviation, width=2))
-        self._irradiance.setPen(pg.mkPen(palette.irradiance, width=2))
-        self._temperature.setPen(pg.mkPen(palette.temperature, width=2))
 
     def _show_kpis(self, latest: Sample | None, energy_wh: float) -> None:
         if latest is None:
@@ -262,7 +208,6 @@ class Dashboard(QMainWindow):
         readings = format_readings(latest)
         self.strip.set_values(
             {
-                "p_measured": readings["P"],
                 "p_predicted": readings["P_pred"],
                 "deviation": f"{latest.deviation_pct:+.1f} %",
                 "energy": f"{energy_wh:.1f} Wh",
@@ -276,8 +221,6 @@ class Dashboard(QMainWindow):
         self._power_measured.setData(hours, self._columns.column("power_measured"))
         self._power_predicted.setData(hours, self._columns.column("power_predicted"))
         self._deviation.setData(hours, self._columns.column("deviation"))
-        self._irradiance.setData(hours, self._columns.column("irradiance"))
-        self._temperature.setData(hours, self._columns.column("temperature"))
 
     def _build_charts(self) -> None:
         self.power_plot = _chart("Power (W)")
@@ -288,11 +231,6 @@ class Dashboard(QMainWindow):
         self._deviation = self.deviation_plot.plot(name="Deviation")
         self._add_bands(self.deviation_plot)
 
-        self.irradiance_plot = _chart("G (W/m²)")
-        self._irradiance = self.irradiance_plot.plot(name="G")
-        self.temperature_plot = _chart("T (°C)")
-        self.temperature_plot.setXLink(self.irradiance_plot)
-        self._temperature = self.temperature_plot.plot(name="T")
 
         self.live = LiveCharts(self._session.config.datasheet, self._theme.palette, own_layout=False)
 
@@ -322,14 +260,9 @@ class Dashboard(QMainWindow):
             self._band_items.append(region)
 
     def _build_layout(self) -> None:
-        conditions = QWidget()
-        conditions_layout = QVBoxLayout(conditions)
-        conditions_layout.setContentsMargins(0, 0, 0, 0)
-        conditions_layout.addWidget(self.irradiance_plot)
-        conditions_layout.addWidget(self.temperature_plot)
-
-        # Every chart is a dock. The first row is power against the twin, the deviation and the conditions behind
-        # them; the second is the electrical detail and, tabbed together, the distributions and the event list.
+        # Every chart is a dock. Power against the twin and the deviation lead; below are the curves and, tabbed
+        # together, the energy, the distribution, the time in each state and the events. The plant's own sensor
+        # channels (irradiance, temperature, voltage, current) are in the Sensors window.
         live = self.live
         self.charts = QMainWindow()
         self.charts.setDockNestingEnabled(True)
@@ -338,8 +271,6 @@ class Dashboard(QMainWindow):
         self.docks = {
             "power": _dock("Power", self.power_plot),
             "deviation": _dock("Deviation", self.deviation_plot),
-            "conditions": _dock("Irradiance and temperature", conditions),
-            "electrical": _dock("Voltage and current", live.voltage_current_box),
             "curves": _dock("I-V and P-V", live.curves_box),
             "energy": _dock("Energy", live.energy_box),
             "histogram": _dock("Spread", live.histogram_box),
@@ -349,15 +280,13 @@ class Dashboard(QMainWindow):
         docks = self.docks
         self.charts.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, docks["power"])
         self.charts.splitDockWidget(docks["power"], docks["deviation"], Qt.Orientation.Horizontal)
-        self.charts.splitDockWidget(docks["deviation"], docks["conditions"], Qt.Orientation.Horizontal)
-        self.charts.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, docks["electrical"])
-        self.charts.splitDockWidget(docks["electrical"], docks["curves"], Qt.Orientation.Horizontal)
+        self.charts.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, docks["curves"])
         self.charts.splitDockWidget(docks["curves"], docks["energy"], Qt.Orientation.Horizontal)
         for key in ("histogram", "states", "events"):
             self.charts.tabifyDockWidget(docks["energy"], docks[key])
         docks["energy"].raise_()
-        self.charts.resizeDocks([docks["power"], docks["deviation"], docks["conditions"]], [5, 3, 3], Qt.Orientation.Horizontal)
-        self.charts.resizeDocks([docks["electrical"], docks["curves"], docks["energy"]], [3, 4, 3], Qt.Orientation.Horizontal)
+        self.charts.resizeDocks([docks["power"], docks["deviation"]], [3, 2], Qt.Orientation.Horizontal)
+        self.charts.resizeDocks([docks["curves"], docks["energy"]], [3, 2], Qt.Orientation.Horizontal)
 
         self.overview = QWidget()
         layout = QVBoxLayout(self.overview)

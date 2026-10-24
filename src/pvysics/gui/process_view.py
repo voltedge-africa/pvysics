@@ -40,20 +40,10 @@ PLACEHOLDER = "-"
 NIGHT_SENTENCE = "Too little light to compare."
 NIGHT_DETAIL = "The twin and the plant both read close to zero, so the state stays Normal."
 DEVIATION_KEY = "deviation"
+# The HMI shows the deviation and what the twin predicts. The plant's measured readings belong to the Dashboard.
 STRIP_GROUPS = [
-    Group("Deviation", [Tile(DEVIATION_KEY, "", "hero")], columns=1, weight=5),
-    Group("Power", [Tile("P", "Measured", "large"), Tile("P_pred", "Predicted", "large")], columns=1, weight=2),
-    Group(
-        "Conditions",
-        [
-            Tile("G", "Irradiance", "medium"),
-            Tile("T", "Module temperature", "medium"),
-            Tile("V", "Voltage", "medium"),
-            Tile("I", "Current", "medium"),
-        ],
-        columns=2,
-        weight=4,
-    ),
+    Group("Deviation", [Tile(DEVIATION_KEY, "", "hero")], columns=1, weight=4),
+    Group("Twin", [Tile("P_pred", "Predicted power", "large")], columns=1, weight=1),
 ]
 FAULT_BUTTON_LABELS = {
     FaultKind.PARTIAL_SHADING: "Partial shading",

@@ -8,11 +8,12 @@ This manual shows how to run the simulated PV plant and its digital twin, set up
 2. [Starting the app](#2-starting-the-app)
 3. [The HMI](#3-the-hmi)
 4. [The Dashboard](#4-the-dashboard)
-5. [Setting up a run](#5-setting-up-a-run)
-6. [Loading your own data](#6-loading-your-own-data)
-7. [Themes and the log](#7-themes-and-the-log)
-8. [Quick recipes](#8-quick-recipes)
-9. [Troubleshooting](#9-troubleshooting)
+5. [The Sensors window](#5-the-sensors-window)
+6. [Setting up a run](#6-setting-up-a-run)
+7. [Loading your own data](#7-loading-your-own-data)
+8. [Themes and the log](#8-themes-and-the-log)
+9. [Quick recipes](#9-quick-recipes)
+10. [Troubleshooting](#10-troubleshooting)
 
 ---
 
@@ -43,7 +44,7 @@ From the repository root:
 uv run pvysics
 ```
 
-The HMI and the Dashboard open together on the same run. To open only one, use `uv run pvysics --hmi` or `--dashboard`. A closed window comes back from the **Window** menu. The app quits when the last window closes.
+The HMI, the Dashboard and the Sensors window open together on the same run. To open fewer, use `uv run pvysics --hmi`, `--dashboard`, `--sensors` or `--both` (the HMI and the Dashboard). A closed window comes back from the **Window** menu. The app quits when the last window closes.
 
 ## 3. The HMI
 
@@ -72,8 +73,9 @@ This is where you run the simulation.
 | Group | Shows |
 |---|---|
 | Deviation | The largest figure on the screen: how far the plant is from the twin, in percent. Under it, the state in words, and a rail with the limits (zero in the middle, warning and abnormal either side) and a marker for where the deviation is now. |
-| Power | Measured power from the plant and predicted power from the twin |
-| Conditions | Irradiance, module temperature, voltage and current |
+| Twin | Predicted power from the twin |
+
+The plant's measured readings (power, irradiance, module temperature, voltage and current) are on the Dashboard. The chart below plots measured against predicted power.
 
 **The chart** plots measured power (black) against predicted power (green, dashed). A dashed vertical line marks a fault injection.
 
@@ -92,7 +94,7 @@ This tab shows what the twin is computing.
 
 ### 3.3 Setup
 
-Setup holds every setting for the next run. See [section 5](#5-setting-up-a-run).
+Setup holds the settings for the next run: the profile, the site, the module and the limits. The simulated plant is set up in the [Sensors window](#5-the-sensors-window).
 
 ## 4. The Dashboard
 
@@ -102,9 +104,9 @@ Use the Dashboard to watch a run. It changes nothing.
 
 ![The Dashboard overview](screenshots/light_09_dashboard_overview.png)
 
-- **The figures at the top** show measured power, predicted power, deviation, the state and the energy produced so far.
+- **The figures at the top** show predicted power, deviation, the state and the energy produced so far. The plant's own readings are in the [Sensors window](#5-the-sensors-window).
 - **Each chart is a dock.** Drag its title to rearrange it, press the small button at its top right to float it, or close it. **View > Panels** brings any dock back.
-- The charts are power, deviation, irradiance and temperature, voltage and current, the I-V and P-V curves, and (tabbed together) energy, the deviation spread, the time in each state and the events.
+- The charts are power (measured against predicted), deviation, the I-V and P-V curves, and (tabbed together) energy, the deviation spread, the time in each state and the events.
 
 ![A tabbed dock](screenshots/light_10_dashboard_overview_tabs.png)
 
@@ -138,7 +140,25 @@ Press **Run validation**.
 
 **Export samples CSV...** and **Export metrics CSV...** save the data behind the results.
 
-## 5. Setting up a run
+## 5. The Sensors window
+
+The Sensors window holds everything that comes from the plant's own sensors, apart from the twin. Today the source is the simulated plant. When hardware feeds are added, this is the window where they connect, and the figures and charts here do not change.
+
+**Live** shows the five sensor readings (irradiance, module temperature, voltage, current and measured power) and a chart for each channel. Irradiance and module temperature are tabs in one pane. The header says where the readings come from and whether hardware is connected.
+
+![The Sensors window](screenshots/light_14_sensors_live.png)
+
+**Setup** has two parts.
+
+![Sensors setup, simulated plant](screenshots/light_15_sensors_setup_simulated.png)
+
+- **Source.** Choose where the readings come from: the simulated plant, a serial port, an MQTT broker, or an HTTP or WebSocket address. A hardware source shows its connection settings (port and baud rate, host and topic, or an address) and the **Channels**: the field name each reading arrives under. **Connect** checks the settings and names anything missing. There is no hardware driver in this version, so Connect says so, the header shows "not available yet", and the simulated plant stays the source.
+
+![Sensors setup, serial source](screenshots/light_16_sensors_setup_serial.png)
+
+- **Simulated plant.** How far the simulated module differs from the twin's datasheet (the **Rs**, **Rsh** and temperature-coefficient offsets: a larger mismatch makes a larger healthy deviation), and the **Sensor model**: the noise on each sensor, the step size of the voltage and current readings, and the random **Seed**. The same seed gives the same run every time. **Apply and start** starts a new run with this plant.
+
+## 6. Setting up a run
 
 Open the HMI's **Setup** tab. The sections are listed on the left. Click one to see its page.
 
@@ -152,41 +172,34 @@ Nothing changes until you press **Apply and start**. The bar along the bottom sh
 
 Each number field holds only the number. Its unit is the grey label beside it.
 
-### 5.1 Profile
+### 6.1 Profile
 
 ![Setup, Profile](screenshots/light_05a_hmi_setup_profile.png)
 
 The profile is the day of irradiance and temperature that drives the run.
 
-- Choose a bundled day from the list, or press **Load CSV...** for your own file ([section 6](#6-loading-your-own-data)).
+- Choose a bundled day from the list, or press **Load CSV...** for your own file ([section 7](#7-loading-your-own-data)).
 - **Fetch profile (NASA POWER)** downloads real data for a place and dates. Tick **Use Site location** to use the latitude and longitude from the Site page, or untick it to type your own. Choose the start and end dates, the irradiance type and the time standard, then press **Fetch**. **Preview...** shows the fetched data before you use it. Fetches are cached, so a repeat fetch works offline.
 
-### 5.2 Site
+### 6.2 Site
 
 Where the plant is (latitude, longitude, tilt and azimuth). It labels the run and sets the default fetch position. It does not change the physics.
 
-### 5.3 Module
+### 6.3 Module
 
 ![Setup, Module](screenshots/light_05c_hmi_setup_module.png)
 
 The datasheet the twin predicts with: Isc, Voc, Impp, Vmpp, the temperature coefficients Ki and Kv, and the cell count Ns. Edit any value, press **Load datasheet...** to read a file, or press **Reset to generic module** to return to the generic 60-cell 250 W module.
 
-### 5.4 Plant and sensors
-
-![Setup, Plant and sensors](screenshots/light_05d_hmi_setup_plant.png)
-
-- **Plant vs twin mismatch**: how far the simulated plant's series resistance, shunt resistance and temperature coefficient are from the twin's. A larger mismatch makes a larger healthy deviation.
-- **Sensor model**: the noise on each sensor, the step size of the voltage and current readings, and the random **Seed**. The same seed gives the same run every time.
-
-### 5.5 Limits
+### 6.4 Limits
 
 The warning and abnormal limits, in percent. **Derive from healthy run** sets them from a healthy simulated day: the mean deviation plus two and three standard deviations.
 
-### 5.6 Review
+### 6.5 Review
 
 A summary of what the next run will use. Check it, then press **Apply and start**.
 
-## 6. Loading your own data
+## 7. Loading your own data
 
 Press **Load CSV...** on the Profile page and choose a file. The file needs a header row, a timestamp column, an irradiance column (W/m²) and a temperature column (°C).
 
@@ -203,7 +216,7 @@ When you fetch from NASA POWER, **Preview...** opens the fetched profile for ins
 
 ![The fetch preview](screenshots/light_08_fetch_preview.png)
 
-## 7. Themes and the log
+## 8. Themes and the log
 
 **Themes.** The app follows your system's light or dark setting. In the **View** menu, choose **System**, **Light** or **Dark** to override it. The look is flat: no boxes, only type, space and thin rules.
 
@@ -219,7 +232,7 @@ When you fetch from NASA POWER, **Preview...** opens the fetched profile for ins
 
 Both windows show the same log.
 
-## 8. Quick recipes
+## 9. Quick recipes
 
 **Watch a fault being caught**
 
@@ -244,7 +257,7 @@ Both windows show the same log.
 
 Setup > **Reset to defaults**, then **Apply and start**.
 
-## 9. Troubleshooting
+## 10. Troubleshooting
 
 | Problem | What to do |
 |---|---|

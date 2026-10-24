@@ -167,6 +167,8 @@ class MetricStrip(QQuickWidget):
 
     def set_values(self, values: dict[str, str]) -> None:
         for key, text in values.items():
+            if key not in self._texts:
+                continue  # a figure this strip does not show
             self._texts[key] = text
             self._fills[key] = ("", "")
         self._push_values()

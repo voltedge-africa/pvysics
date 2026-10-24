@@ -7,6 +7,7 @@ from pvysics.gui.session import Session
 
 HMI_TITLE = "PV Digital Twin"
 DASHBOARD_TITLE = "PV Digital Twin Dashboard"
+SENSORS_TITLE = "PV Digital Twin Sensors"
 
 
 def test_main_window_opens_with_project_title_and_closes(qtbot):
@@ -42,10 +43,14 @@ def test_console_entry_point_with_both_shows_both_windows_and_exits_cleanly():
     assert DASHBOARD_TITLE in titles
 
 
-def test_no_switch_opens_the_hmi_and_the_dashboard():
+def test_no_switch_opens_the_hmi_the_dashboard_and_the_sensors_window():
     titles = windows_visible_when_main_runs([])
 
-    assert sorted(titles) == sorted([HMI_TITLE, DASHBOARD_TITLE])
+    assert sorted(titles) == sorted([HMI_TITLE, DASHBOARD_TITLE, SENSORS_TITLE])
+
+
+def test_sensors_switch_opens_only_the_sensors_window():
+    assert windows_visible_when_main_runs(["--sensors"]) == [SENSORS_TITLE]
 
 
 def test_hmi_switch_opens_only_the_hmi():

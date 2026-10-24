@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.model_view = ModelView(self.playback, self.bus, theme=self.theme)
         self.setup_view = SetupView(session.config, self.theme)
         self.setup_view.apply_requested.connect(self._apply_setup)
+        session.config_changed.connect(self.setup_view.follow_config)  # the Sensors window can change the plant
         self._tabs = QTabWidget()
         self._tabs.addTab(self.process_view, "Process")
         self._tabs.addTab(self.model_view, "Model")
@@ -55,6 +56,9 @@ class MainWindow(QMainWindow):
         self.open_dashboard_action = QAction("Open Dashboard", self)
         self.open_dashboard_action.triggered.connect(self._on_open_dashboard_triggered)
         window_menu.addAction(self.open_dashboard_action)
+        self.open_sensors_action = QAction("Open Sensors", self)
+        self.open_sensors_action.triggered.connect(self._on_open_sensors_triggered)
+        window_menu.addAction(self.open_sensors_action)
         self.theme_menu = ThemeMenu(self, self.theme)
         self.theme_menu.add_action(self.log_pane.view_action)
 
@@ -78,6 +82,9 @@ class MainWindow(QMainWindow):
 
     def _on_open_dashboard_triggered(self, *_args) -> None:
         self.open_dashboard()
+
+    def _on_open_sensors_triggered(self, *_args) -> None:
+        self.session.open_sensors()
 
 
     def open_dashboard(self) -> Dashboard:

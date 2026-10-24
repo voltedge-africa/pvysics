@@ -15,7 +15,7 @@ from pvysics.profile import Profile
 from pvysics.run import RunConfig, State, Thresholds, bundled_run_config
 
 FASTEST = SPEEDS[-1]
-CURVE_COUNT = 5  # measured, predicted, deviation, irradiance, temperature
+CURVE_COUNT = 3  # measured, predicted, deviation
 
 
 def midday_config(thresholds: Thresholds | None = None) -> RunConfig:
@@ -72,12 +72,15 @@ def test_dashboard_and_hmi_show_the_same_run(qtbot):
 
     latest = window.history.latest
     readings = format_readings(latest)
-    assert dashboard.strip.value("p_measured") == readings["P"]
+    assert dashboard.strip.value("p_predicted") == readings["P_pred"]
     assert dashboard.strip.value("p_predicted") == readings["P_pred"]
     assert dashboard.strip.value("deviation") == f"{latest.deviation_pct:+.1f} %"
     assert dashboard.strip.value("state") == latest.state.value
     assert dashboard.strip.value("energy") == f"{window.history.energy_wh:.1f} Wh"
-    assert window.process_view.strip.value("P") == readings["P"]
+    for key in ("G", "T", "V", "I", "P"):  # the plant's measured readings are in the Sensors window
+        with pytest.raises(KeyError):
+            dashboard.strip.value(key)
+    assert window.process_view.strip.value("P_pred") == readings["P_pred"]
     assert window.history.energy_wh > 0.0
     assert len(plotted_deviation(dashboard)) == window.history.sample_count
 
@@ -151,8 +154,7 @@ def test_a_full_day_is_plotted_in_one_update_per_curve_per_ui_tick(qtbot, plot_c
     plot_calls.clear()
     dashboard.refresh()
 
-    overview_curves = (dashboard._power_measured, dashboard._power_predicted, dashboard._deviation,
-                       dashboard._irradiance, dashboard._temperature)
+    overview_curves = (dashboard._power_measured, dashboard._power_predicted, dashboard._deviation)
     overview_calls = [curve for curve in plot_calls if curve in overview_curves]
     assert len(overview_calls) == CURVE_COUNT  # the Live charts tab adds its own curves, counted in test_live_charts
     assert len(plotted_deviation(dashboard)) == 1381
@@ -195,7 +197,7 @@ def test_closing_the_dashboard_leaves_the_hmi_running_and_reopening_shows_the_hi
 
     assert reopened.isVisible()
     assert len(plotted_deviation(reopened)) == window.history.sample_count
-    assert reopened.strip.value("p_measured") == format_readings(window.history.latest)["P"]
+    assert reopened.strip.value("p_predicted") == format_readings(window.history.latest)["P_pred"]
 
 
 def test_a_dashboard_opened_mid_run_shows_the_history_so_far_including_faults(qtbot):
@@ -229,7 +231,7 @@ def test_reset_clears_the_dashboard(qtbot):
 
     assert plotted_deviation(dashboard).size == 0
     assert event_texts(dashboard) == []
-    assert dashboard.strip.value("p_measured") == PLACEHOLDER
+    assert dashboard.strip.value("p_predicted") == PLACEHOLDER
     assert dashboard.strip.fill("state") is None
 
 
@@ -324,4 +326,4 @@ def test_every_chart_is_a_dock_that_can_be_closed_floated_and_brought_back(qtbot
     assert not dock.isVisible()
     dock.toggleViewAction().trigger()
     assert dock.isVisible()
-    assert dashboard.docks.keys() >= {"power", "deviation", "conditions", "electrical", "curves", "energy", "histogram", "states", "events"}
+    assert dashboard.docks.keys() >= {"power", "deviation", "curves", "energy", "histogram", "states", "events"}

@@ -3,13 +3,15 @@ import sys
 
 import pytest
 
-from pvysics.gui.cli import BOTH, DASHBOARD, HMI, parse_opening
+from pvysics.gui.cli import ALL, BOTH, DASHBOARD, HMI, SENSORS, parse_opening
 
 
 @pytest.mark.parametrize(
     ("argv", "opening"),
     [
-        ([], BOTH),
+        ([], ALL),
+        (["--all"], ALL),
+        (["--sensors"], SENSORS),
         (["--hmi"], HMI),
         (["--dashboard"], DASHBOARD),
         (["--both"], BOTH),
@@ -19,7 +21,7 @@ def test_each_switch_chooses_the_windows_to_open(argv, opening):
     assert parse_opening(argv) == opening
 
 
-@pytest.mark.parametrize("argv", [["--hmi", "--dashboard"], ["--both", "--hmi"], ["--dashboard", "--both"]])
+@pytest.mark.parametrize("argv", [["--hmi", "--dashboard"], ["--both", "--hmi"], ["--dashboard", "--both"], ["--sensors", "--all"]])
 def test_conflicting_switches_are_a_usage_error(argv, capsys):
     with pytest.raises(SystemExit) as exit_info:
         parse_opening(argv)

@@ -1,7 +1,7 @@
-"""The Dashboard's live charts: voltage and current, the I-V and P-V curves with the measured operating
+"""The Dashboard's live charts: the I-V and P-V curves with the measured operating
 point, cumulative energy, the power deviation histogram, and the time in each State.
 
-The Dashboard Overview places the five panels (voltage_current_box, curves_box, energy_box, histogram_box,
+The Dashboard Overview places the four panels (curves_box, energy_box, histogram_box,
 states_box) in its own grid. Used on its own, LiveCharts lays the panels out in a grid of its own.
 
 Every chart is restyled from the palette, and created in the palette in effect. Each UI tick the
@@ -68,7 +68,7 @@ def _point_item(plot: pg.PlotWidget) -> pg.ScatterPlotItem:
 
 
 class LiveCharts(QWidget):
-    """Five live views of the run: voltage and current, I-V and P-V, energy, histogram, state time."""
+    """Four live views of the run: I-V and P-V, energy, histogram, state time."""
 
     def __init__(
         self,
@@ -114,8 +114,6 @@ class LiveCharts(QWidget):
     def apply_palette(self, palette: Palette) -> None:
         """Restyle the charts and their curves, bars and points for a palette."""
         for plot in (
-            self.voltage_plot,
-            self.current_plot,
             self.iv_plot,
             self.pv_plot,
             self.energy_plot,
@@ -123,8 +121,6 @@ class LiveCharts(QWidget):
             self.state_plot,
         ):
             style_plot(plot, palette)
-        self._voltage.setPen(pg.mkPen(palette.voltage, width=2))
-        self._current.setPen(pg.mkPen(palette.current, width=2))
         self._energy.setPen(pg.mkPen(palette.measured, width=2))
         self._iv_curve.setPen(pg.mkPen(palette.model_iv, width=2))
         self._pv_curve.setPen(pg.mkPen(palette.model_pv, width=2))
@@ -146,8 +142,6 @@ class LiveCharts(QWidget):
         self._states.add(new_samples)
         self._show_operating_curves(new_samples)
         hours = columns.column("hours")
-        self._voltage.setData(hours, columns.column("voltage"))
-        self._current.setData(hours, columns.column("current"))
         self._energy.setData(hours, columns.column("energy_wh"))
         self._show_histogram()
         self._show_state_times()
@@ -158,7 +152,7 @@ class LiveCharts(QWidget):
         self._states.clear()
         self._curve = None
         self._curve_key = None
-        for item in (self._voltage, self._current, self._energy, self._iv_curve, self._pv_curve):
+        for item in (self._energy, self._iv_curve, self._pv_curve):
             item.setData([], [])
         for point in (self._iv_point, self._pv_point):
             point.setData([], [])
@@ -200,13 +194,6 @@ class LiveCharts(QWidget):
         )
 
     def _build_charts(self, minimum: int) -> None:
-        self.voltage_plot = _time_plot("Voltage (V)", minimum)
-        self.voltage_plot.hideAxis("bottom")  # the current plot below shares the time axis
-        self._voltage = self.voltage_plot.plot()
-        self.current_plot = _time_plot("Current (A)", minimum)
-        self.current_plot.setXLink(self.voltage_plot)
-        self._current = self.current_plot.plot()
-
         self.iv_plot = _curve_plot("Current (A)", minimum)
         self.pv_plot = _curve_plot("Power (W)", minimum)
         self._iv_curve = self.iv_plot.plot()
@@ -246,11 +233,6 @@ class LiveCharts(QWidget):
         self.state_caption = _caption()
 
     def _build_panels(self) -> None:
-        self.voltage_current_box = _plain_box()
-        voltage_layout = self.voltage_current_box.layout()
-        voltage_layout.addWidget(self.voltage_plot, 1)
-        voltage_layout.addWidget(self.current_plot, 1)
-
         self.curves_box = _plain_box(QHBoxLayout)  # the I-V and P-V curve at the measured G and T, with the operating point
         curve_row = self.curves_box.layout()
         curve_row.addWidget(self.iv_plot, 1)
@@ -262,8 +244,7 @@ class LiveCharts(QWidget):
 
     def _build_grid(self) -> None:
         grid = QGridLayout(self)
-        grid.addWidget(self.voltage_current_box, 0, 0)
-        grid.addWidget(self.curves_box, 0, 1, 1, 2)
+        grid.addWidget(self.curves_box, 0, 0, 1, 2)
         grid.addWidget(self.energy_box, 1, 0)
         grid.addWidget(self.histogram_box, 1, 1)
         grid.addWidget(self.states_box, 1, 2)

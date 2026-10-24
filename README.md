@@ -6,10 +6,11 @@ A Single Diode Model (SDM) of a PV module runs as the **twin**. It predicts powe
 
 New to the app? Read the [user manual](docs/user-manual.md).
 
-The prototype is a PyQt6 application with two windows that read the same run:
+The prototype is a PyQt6 application with three windows that read the same run:
 
-- **HMI** (PV Digital Twin): Process, Model, Setup and Alarms tabs (Setup is a list of sections: Profile, Site, Module, Plant and sensors, Limits and Review). One toolbar for the run and fault injection, a QML strip of live plant and twin figures with the deviation gauge, the power trend, the SDM circuit and curves, and the run setup. The alarm list has a tab of its own.
-- **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is a QML strip of headline figures over a set of chart docks: measured vs predicted power, the deviation, irradiance and temperature, voltage and current, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), the time in each state, and the events. Drag a dock to rearrange it, float it, tab it with another, or close it and bring it back from View > Panels.
+- **HMI** (PV Digital Twin): Process, Model, Setup and Alarms tabs (Setup is a list of sections: Profile, Site, Module, Limits and Review). One toolbar for the run and fault injection, a QML strip of live plant and twin figures with the deviation gauge, the power trend, the SDM circuit and curves, and the run setup. The alarm list has a tab of its own.
+- **Sensors** (PV Digital Twin Sensors): the plant's own readings (irradiance, module temperature, voltage, current, measured power) with a chart each, apart from the twin. Its Setup tab configures the simulated plant that stands in for hardware (mismatch, sensor noise and quantisation, seed) and the source: the simulated plant or a serial, MQTT or HTTP/WebSocket feed. A hardware feed cannot connect yet (there is no driver); the window says so.
+- **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is a QML strip of headline figures over a set of chart docks: measured vs predicted power, the deviation, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), the time in each state, and the events. Drag a dock to rearrange it, float it, tab it with another, or close it and bring it back from View > Panels.
 
 Each window has a log, a pop-up opened from View > Logs (Ctrl+L) and hidden otherwise. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
 
@@ -63,18 +64,19 @@ macOS: the same commands, in Terminal.
 
 Windows: the same commands, in PowerShell.
 
-`uv run pvysics` opens the HMI and the Dashboard together. Command-line switches open one window instead:
+`uv run pvysics` opens the HMI, the Dashboard and the Sensors window together. Command-line switches open fewer:
 
 | Command | Opens |
 | --- | --- |
-| `uv run pvysics` | the HMI and the Dashboard |
+| `uv run pvysics` | all three windows (same as `--all`) |
 | `uv run pvysics --hmi` | the HMI only |
 | `uv run pvysics --dashboard` | the Dashboard only |
-| `uv run pvysics --both` | the HMI and the Dashboard (the default, spelled out) |
+| `uv run pvysics --sensors` | the Sensors window only |
+| `uv run pvysics --both` | the HMI and the Dashboard |
 
 The switches exclude each other. An unknown switch prints the usage and exits with status 2.
 
-The HMI and the Dashboard share one run. Closing a window does not stop the run or the other window, and a closed window opens again from the Window menu. The app quits when the last open window closes. A Dashboard opened without the HMI, with no run started, says how to start one.
+The HMI, the Dashboard and the Sensors window share one run. Closing a window does not stop the run or the other window, and a closed window opens again from the Window menu. The app quits when the last open window closes. A Dashboard opened without the HMI, with no run started, says how to start one.
 
 ### Linux Qt library note
 
@@ -122,7 +124,7 @@ Use this checklist against the running app. Each step describes what the code do
 
 **Setup**
 
-- [ ] Open the Setup tab. The profile list offers the three bundled days, 15 to 17 January 2025. The module is the generic 60-cell, 250 W datasheet, and its values (Isc, Voc, Impp, Vmpp, Ki, Kv and Ns) are editable fields; **Reset to generic module** restores them. A value that fails the checks (for example Vmpp not below Voc, or a module the diode fit cannot fit) is named in the message and logged, and the previous module stays. Edits take effect only on **Apply and start**, and an edited module is named Custom module in the run summary. Defaults: mismatch Rs +3 %, Rsh +5 %, temperature coefficient +2 %; warning limit 5 %, abnormal limit 10 %; seed 0.
+- [ ] Open the Setup tab. The profile list offers the three bundled days, 15 to 17 January 2025. The module is the generic 60-cell, 250 W datasheet, and its values (Isc, Voc, Impp, Vmpp, Ki, Kv and Ns) are editable fields; **Reset to generic module** restores them. A value that fails the checks (for example Vmpp not below Voc, or a module the diode fit cannot fit) is named in the message and logged, and the previous module stays. Edits take effect only on **Apply and start**, and an edited module is named Custom module in the run summary. Defaults: warning limit 5 %, abnormal limit 10 %. The plant defaults (mismatch Rs +3 %, Rsh +5 %, temperature coefficient +2 %; seed 0) are set in the Sensors window's Setup tab.
 - [ ] Press **Validate setup**. The message says the setup is valid, or lists what is wrong.
 - [ ] Press **Apply and start**. The run restarts from the beginning, the window switches to the Process tab, and the Dashboard follows the new setup.
 - [ ] With network access, press **Fetch** in the Fetch profile group. The preview opens with the G and T charts over the range and the statistics. Press **Discard**, then **Preview...**, then **Use profile**: the Run summary names the fetched profile, and **Apply and start** runs it. Without network access the fetch fails with a message and the bundled profile stays active.

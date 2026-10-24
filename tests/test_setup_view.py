@@ -53,7 +53,6 @@ def test_controls_start_with_the_active_run(qtbot):
 
     assert setup.profile_name == "Bundled 2025-01-15"
     assert setup.datasheet_name == bundled_run_config().datasheet.name
-    assert setup.rs_spin.value() == pytest.approx(3.0)
     assert setup.warning_spin.value() == pytest.approx(5.0)
     assert setup.abnormal_spin.value() == pytest.approx(10.0)
     assert setup.latitude_spin.value() == pytest.approx(-29.85)
@@ -156,14 +155,11 @@ def test_malformed_datasheet_is_rejected_and_a_good_one_loads(qtbot, tmp_path):
     assert setup.datasheet_name == "my_module"
 
 
-def test_changes_to_mismatch_noise_seed_and_thresholds_wait_for_apply(qtbot):
+def test_changes_to_thresholds_wait_for_apply_and_the_plant_is_carried_along(qtbot):
     window = window_with(qtbot)
     setup = window.setup_view
     before = window.playback.config
 
-    setup.rs_spin.setValue(10.0)
-    setup.irradiance_noise_spin.setValue(1.5)
-    setup.seed_spin.setValue(5)
     setup.warning_spin.setValue(2.0)
     setup.abnormal_spin.setValue(4.0)
 
@@ -172,9 +168,7 @@ def test_changes_to_mismatch_noise_seed_and_thresholds_wait_for_apply(qtbot):
     setup.apply()
 
     applied = window.playback.config
-    assert applied.mismatch.series_resistance_pct == pytest.approx(10.0)
-    assert applied.sensors.irradiance_noise_pct == pytest.approx(1.5)
-    assert applied.seed == 5
+    assert (applied.mismatch, applied.sensors, applied.seed) == (before.mismatch, before.sensors, before.seed)
     assert (applied.thresholds.warning_pct, applied.thresholds.abnormal_pct) == (2.0, 4.0)
     assert applied == setup.read_config()
 
@@ -233,16 +227,12 @@ def test_reset_to_defaults_restores_the_controls_and_applies_nothing(qtbot):
     window = window_with(qtbot)
     setup = window.setup_view
     before = window.playback.config
-    setup.rs_spin.setValue(10.0)
-    setup.seed_spin.setValue(9)
     setup.warning_spin.setValue(2.0)
     setup.profile_box.setCurrentIndex(1)  # Bundled 2025-01-16
 
     setup.reset_to_defaults()
 
     assert setup.profile_name == "Bundled 2025-01-15"
-    assert setup.rs_spin.value() == pytest.approx(3.0)
-    assert setup.seed_spin.value() == 0
     assert setup.warning_spin.value() == pytest.approx(5.0)
     assert setup.abnormal_spin.value() == pytest.approx(10.0)
     assert window.playback.config is before
@@ -254,7 +244,6 @@ def test_apply_and_start_runs_the_changed_setup(qtbot):
     window.playback.start()
     window.playback.tick()
     assert window.history.sample_count > 0
-    setup.rs_spin.setValue(6.0)
     setup.warning_spin.setValue(2.0)
     setup.abnormal_spin.setValue(4.0)
 
@@ -442,7 +431,7 @@ def test_apply_and_start_changes_the_model_tab_parameters(qtbot):
     assert window.model_view.parameter_panel.value("iph") != iph_before
 
 
-SECTIONS = ["Profile", "Site", "Module", "Plant and sensors", "Limits", "Review"]
+SECTIONS = ["Profile", "Site", "Module", "Limits", "Review"]
 
 
 def test_setup_is_a_list_of_sections_with_one_page_each_and_starts_on_the_first(qtbot):
@@ -468,7 +457,7 @@ def test_every_control_lives_on_a_page_so_nothing_is_lost_in_the_new_layout(qtbo
     setup = window_with(qtbot).setup_view
     controls = (
         setup.profile_box, setup.load_csv_button, setup.fetch_panel, setup.isc_spin, setup.ns_spin,
-        setup.rs_spin, setup.irradiance_noise_spin, setup.seed_spin, setup.warning_spin,
+        setup.warning_spin,
         setup.derive_button, setup.latitude_spin, setup.azimuth_spin, setup.summary_label,
     )
 
@@ -478,9 +467,9 @@ def test_every_control_lives_on_a_page_so_nothing_is_lost_in_the_new_layout(qtbo
 
 def test_a_number_field_is_never_stretched_across_the_page(qtbot):
     setup = window_with(qtbot).setup_view
-    digit = setup.rs_spin.fontMetrics().horizontalAdvance("0")
+    digit = setup.warning_spin.fontMetrics().horizontalAdvance("0")
 
-    assert setup.rs_spin.maximumWidth() <= digit * 22
+    assert setup.warning_spin.maximumWidth() <= digit * 22
 
 
 def test_the_review_page_lists_what_the_next_run_uses_as_a_table(qtbot):
