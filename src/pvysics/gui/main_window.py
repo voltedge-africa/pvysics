@@ -2,8 +2,7 @@ import logging
 from typing import TYPE_CHECKING
 
 from PyQt6.QtGui import QAction
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDockWidget, QMainWindow, QTabWidget, QWidget
+from PyQt6.QtWidgets import QMainWindow, QTabWidget, QWidget
 
 from pvysics.gui.dashboard import Dashboard
 from pvysics.gui.log_pane import popup_log_pane
@@ -11,13 +10,11 @@ from pvysics.gui.model_view import ModelView
 from pvysics.gui.process_view import ProcessView
 from pvysics.gui.setup_view import SetupView
 from pvysics.gui.theme import ThemeMenu
-from pvysics.gui.ui_helpers import pane
 from pvysics.run import RunConfig
 
 log = logging.getLogger(__name__)
 DEFAULT_WIDTH_PX = 1280
 DEFAULT_HEIGHT_PX = 800
-ALARMS_WIDTH_PX = 360
 
 if TYPE_CHECKING:
     from pvysics.gui.session import Session
@@ -26,8 +23,7 @@ if TYPE_CHECKING:
 class MainWindow(QMainWindow):
     """The operator HMI window: the Process, Model and Setup views as tabs on the session's run.
 
-    The alarm list is a dock on the right and the log a dock along the bottom: drag, float or close either,
-    and bring it back from View > Panels.
+    The alarm list has a tab of its own, and the log is a pop-up opened from View > Logs.
 
     The run, its history and the theme belong to the session. Apply on the Setup view starts a new
     run in the session, which resets every window. The HMI can be closed and shown again without
@@ -51,11 +47,9 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self.process_view, "Process")
         self._tabs.addTab(self.model_view, "Model")
         self._tabs.addTab(self.setup_view, "Setup")
+        self._tabs.addTab(self.process_view.alarm_panel, "Alarms")
         self.setCentralWidget(self._tabs)
         self.log_pane = popup_log_pane(self, session.log_bridge, self.theme)
-        self.docks = {"alarms": _dock("Alarms", self.process_view.alarm_panel)}
-        self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.docks["alarms"])
-        self.resizeDocks([self.docks["alarms"]], [ALARMS_WIDTH_PX], Qt.Orientation.Horizontal)
 
         window_menu = self.menuBar().addMenu("&Window")
         self.open_dashboard_action = QAction("Open Dashboard", self)
@@ -63,7 +57,6 @@ class MainWindow(QMainWindow):
         window_menu.addAction(self.open_dashboard_action)
         self.theme_menu = ThemeMenu(self, self.theme)
         self.theme_menu.add_action(self.log_pane.view_action)
-        self.theme_menu.add_actions([dock.toggleViewAction() for dock in self.docks.values()], "Panels")
 
     def closeEvent(self, event) -> None:
         log.debug("Window closed: HMI")
@@ -91,9 +84,3 @@ class MainWindow(QMainWindow):
         """Show the Dashboard, creating it on first use. Closing it leaves the HMI and the run running."""
         return self.session.open_dashboard()
 
-
-def _dock(title: str, widget: QWidget) -> QDockWidget:
-    dock = QDockWidget(title)
-    dock.setObjectName(f"dock_{title}")
-    dock.setWidget(pane(widget))
-    return dock

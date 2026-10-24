@@ -16,7 +16,7 @@ import pyqtgraph as pg
 from PyQt6.QtCore import QByteArray, QRectF, Qt, QTimer
 from PyQt6.QtGui import QBrush, QColor, QImage, QPainter, QPen
 from PyQt6.QtSvg import QSvgRenderer
-from PyQt6.QtWidgets import QFrame, QGroupBox, QHBoxLayout, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QFrame, QGridLayout, QGroupBox, QHBoxLayout, QScrollArea, QSizePolicy, QVBoxLayout, QWidget
 
 from pvysics.gui.data_bus import DataBus
 from pvysics.gui.palette import LIGHT, Palette
@@ -362,11 +362,12 @@ class ModelView(QScrollArea):
         top.addWidget(circuit_box, 1)
         top.addWidget(equations_box, 1)
 
-        readings = QHBoxLayout()
-        for panel in (self.parameter_panel, self.datasheet_panel, self.live_panel, self.output_panel):
-            readings.addWidget(panel, 1)
+        readings = QGridLayout()  # two by two, so the row never needs more width than the window has
+        for index, panel in enumerate((self.parameter_panel, self.datasheet_panel, self.live_panel, self.output_panel)):
+            readings.addWidget(panel, index // 2, index % 2)
 
-        curves_box = QGroupBox("I-V and P-V curve at the measured G and T")
+        curves_box = QGroupBox("I-V and P-V curves")
+        curves_box.setToolTip("At the measured irradiance and temperature, with the operating point")
         curves = QHBoxLayout(curves_box)
         curves.addWidget(self.iv_plot, 1)
         curves.addWidget(self.pv_plot, 1)

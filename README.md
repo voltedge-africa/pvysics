@@ -8,7 +8,7 @@ New to the app? Read the [user manual](docs/user-manual.md).
 
 The prototype is a PyQt6 application with two windows that read the same run:
 
-- **HMI** (PV Digital Twin): Process, Model and Setup tabs (Setup is a list of sections: Profile, Site, Module, Plant and sensors, Limits and Review). One toolbar for the run and fault injection, a QML strip of live plant and twin figures with the deviation gauge, the power trend, the SDM circuit and curves, and the run setup. The alarm list is a dock on the right.
+- **HMI** (PV Digital Twin): Process, Model, Setup and Alarms tabs (Setup is a list of sections: Profile, Site, Module, Plant and sensors, Limits and Review). One toolbar for the run and fault injection, a QML strip of live plant and twin figures with the deviation gauge, the power trend, the SDM circuit and curves, and the run setup. The alarm list has a tab of its own.
 - **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is a QML strip of headline figures over a set of chart docks: measured vs predicted power, the deviation, irradiance and temperature, voltage and current, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), the time in each state, and the events. Drag a dock to rearrange it, float it, tab it with another, or close it and bring it back from View > Panels.
 
 Each window has a log, a pop-up opened from View > Logs (Ctrl+L) and hidden otherwise. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.

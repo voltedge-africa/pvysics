@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QComboBox,
     QGridLayout,
         QHBoxLayout,
+    QGroupBox,
     QLabel,
     QListWidget,
     QListWidgetItem,
@@ -95,7 +96,7 @@ def _tinted(colour: str, alpha: float) -> QColor:
     return tint
 
 
-class ReadingsPanel(QWidget):
+class ReadingsPanel(QGroupBox):
     """A titled block of readings. The first reading is the headline figure, the rest are listed below it."""
 
     def __init__(
@@ -105,11 +106,9 @@ class ReadingsPanel(QWidget):
         note: str = "",
         parent: QWidget | None = None,
     ):
-        super().__init__(parent)
+        super().__init__(title, parent)
         self._values: dict[str, QLabel] = {}
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(role_label(title, "section"))
         (head_key, head_caption), rest = readings[0], readings[1:]
         head_value = role_label(PLACEHOLDER, "hero")
         self._values[head_key] = head_value

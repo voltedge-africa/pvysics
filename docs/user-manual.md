@@ -47,7 +47,7 @@ The HMI and the Dashboard open together on the same run. To open only one, use `
 
 ## 3. The HMI
 
-The HMI has three tabs: **Process**, **Model** and **Setup**.
+The HMI has four tabs: **Process**, **Model**, **Setup** and **Alarms**.
 
 ### 3.1 Process
 
@@ -77,7 +77,7 @@ This is where you run the simulation.
 
 **The chart** plots measured power (black) against predicted power (green, dashed). A dashed vertical line marks a fault injection.
 
-**Alarms** are a dock on the right: time, state, deviation and probable cause. Press **Acknowledge** to mark one as seen. Drag the dock to move it, or close it and bring it back from **View > Panels**.
+**Alarms** have a tab of their own, next to Setup: time, state, deviation and probable cause. Press **Acknowledge** to mark one as seen.
 
 ### 3.2 Model
 
@@ -253,4 +253,4 @@ Setup > **Reset to defaults**, then **Apply and start**.
 | A fetch fails. | NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads from the cache. |
 | The state stays Normal after injecting a fault. | At night there is too little light to compare, so no state is shown. Run on until the sun is up. |
 | Changes on Setup have no effect. | Press **Apply and start**. Edits apply only then. |
-| The log or the alarm list has disappeared. | **View > Logs** (Ctrl+L), or **View > Panels**. |
+| The log is not showing. | It is a pop-up: **View > Logs** (Ctrl+L). On the Dashboard, a closed chart comes back from **View > Panels**. |

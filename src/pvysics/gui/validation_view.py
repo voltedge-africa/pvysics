@@ -14,6 +14,7 @@ from PyQt6.QtGui import QBrush, QColor
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFileDialog,
+    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -344,11 +345,9 @@ class ValidationView(QWidget):
 
 
 def _section(title: str, body: QWidget) -> QWidget:
-    """A heading over a table, without a box around them."""
-    section = QWidget()
+    """A bordered group with its title on the border, holding a table."""
+    section = QGroupBox(title)
     layout = QVBoxLayout(section)
-    layout.setContentsMargins(0, 0, 0, 0)
-    layout.addWidget(role_label(title, "section"))
     layout.addWidget(body)
     layout.addStretch(1)
     return section

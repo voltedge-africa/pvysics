@@ -26,16 +26,17 @@ QToolTip {{
 
 QGroupBox {{
     background: transparent;
-    border: none;
-    margin-top: 1.4em;
-    padding: 0.4em 0 0 0;
+    border: 1px solid {p.card_border};
+    border-radius: 4px;
+    margin-top: 1.1em;
+    padding: 1.1em 10px 10px 10px;
 }}
-QGroupBox[flat="true"] {{ margin-top: 0; }}
+QGroupBox[flat="true"] {{ margin-top: 0; padding-top: 10px; }}
 QGroupBox::title {{
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    left: 0;
-    padding: 0;
+    left: 10px;
+    padding: 0 4px;
     color: {p.muted_text};
     font-weight: 600;
 }}

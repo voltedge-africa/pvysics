@@ -27,27 +27,25 @@ Item {
 
         Repeater {
             model: strip.groups
-            delegate: RowLayout {
+            delegate: Rectangle {
                 id: cell
                 required property var modelData
                 required property int index
                 Layout.fillWidth: true
                 Layout.maximumWidth: 100000  // a layout's own maximum is its content's unless this says otherwise
                 Layout.preferredWidth: modelData.weight * 1000
-                Layout.alignment: Qt.AlignTop
-                spacing: root.u * 2
-
-                Rectangle {   // a hairline between groups, not around them
-                    visible: cell.index > 0
-                    Layout.fillHeight: true
-                    width: 1
-                    color: root.c.rule
-                }
+                Layout.fillHeight: true  // the groups in a row are one height
+                color: "transparent"
+                border.color: root.c.rule   // each group is outlined: the rule is the only separator
+                border.width: 1
+                radius: 4
+                implicitWidth: inner.implicitWidth + 2 * root.u * 1.3
+                implicitHeight: inner.implicitHeight + 2 * root.u * 1.1
 
                 ColumnLayout {
-                    Layout.fillWidth: true
-                    Layout.maximumWidth: 100000
-                    Layout.alignment: Qt.AlignTop
+                    id: inner
+                    anchors.fill: parent
+                    anchors.margins: root.u * 1.2
                     spacing: root.u * 0.8
 
                     Text {
