@@ -31,7 +31,7 @@ from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, Group, MetricStrip, Til
 from pvysics.gui.palette import LIGHT, STATE_COLOURS, Palette
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.gui.trend import PowerTrend
-from pvysics.gui.ui_helpers import role_label, set_property, vertical_separator
+from pvysics.gui.ui_helpers import pane, role_label, set_property, vertical_separator
 from pvysics.history import RunHistory
 from pvysics.run import POWER_FLOOR_W, Sample, State, Thresholds
 
@@ -298,7 +298,7 @@ class ProcessView(QWidget):
         layout.setSpacing(10)
         layout.addWidget(self._build_toolbar())
         layout.addWidget(self.strip)
-        layout.addWidget(self.trend, 1)
+        layout.addWidget(pane(self.trend), 1)
         layout.addWidget(self.alarm_panel)
 
         bus.sample.connect(self._show_sample)
