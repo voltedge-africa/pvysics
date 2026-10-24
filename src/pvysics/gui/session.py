@@ -2,7 +2,7 @@
 
 The session owns the DataBus, the PlaybackController, the RunHistory, the current RunConfig (the
 playback's config), the ThemeManager and the log (one LogModel fed by one LogBridge), so the run
-belongs to the application and not to any window. The Launcher, the HMI and the Dashboard are created here on first use and kept by the
+belongs to the application and not to any window. The HMI and the Dashboard are created here on first use and kept by the
 session. Opening a window that is open raises it. Closing a window only hides it, so it can be
 shown again and the run goes on.
 """
@@ -15,7 +15,6 @@ from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from pvysics.gui.dashboard import Dashboard
 from pvysics.gui.data_bus import DataBus
-from pvysics.gui.launcher import Launcher
 from pvysics.gui.log_bridge import LogBridge
 from pvysics.gui.main_window import MainWindow
 from pvysics.gui.playback import PlaybackController
@@ -24,7 +23,6 @@ from pvysics.history import RunHistory
 from pvysics.log_model import LogModel
 from pvysics.run import RunConfig, bundled_run_config
 
-LAUNCHER_KEY = "launcher"
 HMI_KEY = "hmi"
 DASHBOARD_KEY = "dashboard"
 log = logging.getLogger(__name__)
@@ -85,9 +83,6 @@ class Session(QObject):
         self.playback.load(config)  # checks the config before anything changes
         self.config_changed.emit(config)
         self.playback.start()
-
-    def open_launcher(self) -> Launcher:
-        return self._open(LAUNCHER_KEY, Launcher)
 
     def open_hmi(self) -> MainWindow:
         return self._open(HMI_KEY, MainWindow)

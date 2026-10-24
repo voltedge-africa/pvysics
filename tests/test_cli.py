@@ -3,13 +3,13 @@ import sys
 
 import pytest
 
-from pvysics.gui.cli import BOTH, DASHBOARD, HMI, LAUNCHER, parse_opening
+from pvysics.gui.cli import BOTH, DASHBOARD, HMI, parse_opening
 
 
 @pytest.mark.parametrize(
     ("argv", "opening"),
     [
-        ([], LAUNCHER),
+        ([], BOTH),
         (["--hmi"], HMI),
         (["--dashboard"], DASHBOARD),
         (["--both"], BOTH),

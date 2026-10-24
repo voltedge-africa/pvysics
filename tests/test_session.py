@@ -114,5 +114,4 @@ def test_hmi_built_on_a_session_has_its_window_menu_entries(qtbot, session):
     hmi = track(qtbot, session.open_hmi())
 
     assert hmi.open_dashboard_action.text() == "Open Dashboard"
-    assert hmi.open_launcher_action.text() == "Open Launcher"
 

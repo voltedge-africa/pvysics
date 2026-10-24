@@ -52,9 +52,6 @@ class MainWindow(QMainWindow):
         self.open_dashboard_action = QAction("Open Dashboard", self)
         self.open_dashboard_action.triggered.connect(self._on_open_dashboard_triggered)
         window_menu.addAction(self.open_dashboard_action)
-        self.open_launcher_action = QAction("Open Launcher", self)
-        self.open_launcher_action.triggered.connect(self._on_open_launcher_triggered)
-        window_menu.addAction(self.open_launcher_action)
         self.theme_menu = ThemeMenu(self, self.theme)
         self.theme_menu.add_action(self.log_pane.view_action)
 
@@ -71,8 +68,6 @@ class MainWindow(QMainWindow):
     def _on_open_dashboard_triggered(self, *_args) -> None:
         self.open_dashboard()
 
-    def _on_open_launcher_triggered(self, *_args) -> None:
-        self.session.open_launcher()
 
     def open_dashboard(self) -> Dashboard:
         """Show the Dashboard, creating it on first use. Closing it leaves the HMI and the run running."""

@@ -5,7 +5,6 @@ from PyQt6.QtWidgets import QApplication
 from pvysics.gui.app import main
 from pvysics.gui.session import Session
 
-LAUNCHER_TITLE = "PV Digital Twin Launcher"
 HMI_TITLE = "PV Digital Twin"
 DASHBOARD_TITLE = "PV Digital Twin Dashboard"
 
@@ -41,11 +40,12 @@ def test_console_entry_point_with_both_shows_both_windows_and_exits_cleanly():
 
     assert HMI_TITLE in titles
     assert DASHBOARD_TITLE in titles
-    assert LAUNCHER_TITLE not in titles
 
 
-def test_no_switch_opens_only_the_launcher():
-    assert windows_visible_when_main_runs([]) == [LAUNCHER_TITLE]
+def test_no_switch_opens_the_hmi_and_the_dashboard():
+    titles = windows_visible_when_main_runs([])
+
+    assert sorted(titles) == sorted([HMI_TITLE, DASHBOARD_TITLE])
 
 
 def test_hmi_switch_opens_only_the_hmi():

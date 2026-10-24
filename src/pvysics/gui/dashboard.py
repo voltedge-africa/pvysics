@@ -153,9 +153,6 @@ class Dashboard(QMainWindow):
         self.open_hmi_action = QAction("Open HMI", self)
         self.open_hmi_action.triggered.connect(self._on_open_hmi)
         window_menu.addAction(self.open_hmi_action)
-        self.open_launcher_action = QAction("Open Launcher", self)
-        self.open_launcher_action.triggered.connect(self._on_open_launcher)
-        window_menu.addAction(self.open_launcher_action)
         self.theme_menu = ThemeMenu(self, self._theme)
         self.theme_menu.add_action(self.log_pane.view_action)
         self._theme.changed.connect(self._apply_palette)
@@ -232,8 +229,6 @@ class Dashboard(QMainWindow):
     def _on_open_hmi(self, *_args) -> None:
         self._session.open_hmi()
 
-    def _on_open_launcher(self, *_args) -> None:
-        self._session.open_launcher()
 
     def _on_reset(self) -> None:
         self._columns.clear()
