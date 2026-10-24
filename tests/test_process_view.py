@@ -145,10 +145,10 @@ def test_fault_button_injects_and_clear_all_returns_the_banner_to_normal(qtbot):
     assert view.strip.state_text == "Normal"
 
 
-def test_alarm_list_shows_time_severity_and_cause_and_can_be_acknowledged(qtbot):
+def test_the_dashboards_alarm_list_shows_time_severity_and_cause_and_can_be_acknowledged(qtbot):
     window = window_with(qtbot, config=midday_config())
     view = window.process_view
-    panel = view.alarm_panel
+    panel = window.open_dashboard().alarm_panel
     view.start_button.click()
     window.playback.tick()
     assert panel.list_widget.count() == 0
@@ -191,14 +191,15 @@ def test_injected_faults_and_state_changes_are_emitted_on_the_bus(qtbot):
 def test_reset_clears_the_alarm_list(qtbot):
     window = window_with(qtbot, config=midday_config())
     view = window.process_view
+    panel = window.open_dashboard().alarm_panel
     view.start_button.click()
     view.fault_buttons[FaultKind.PARTIAL_SHADING].click()
     window.playback.tick()
-    assert view.alarm_panel.list_widget.count() == 1
+    assert panel.list_widget.count() == 1
 
     view.reset_button.click()
 
-    assert view.alarm_panel.list_widget.count() == 0
+    assert panel.list_widget.count() == 0
 
 
 def test_the_window_shows_the_bus_of_its_session(qtbot):

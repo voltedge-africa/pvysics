@@ -242,3 +242,29 @@ def test_the_window_menus_reach_the_other_windows_and_the_log_pop_up(qtbot, sess
     assert session.hmi is None
     window.open_hmi_action.trigger()
     assert session.hmi is not None
+
+
+def test_measured_power_has_a_chart_beside_voltage_and_current(qtbot, session):
+    window = sensors_window(qtbot, session)
+    run_a_few_ticks(session, window)
+
+    power = window._curves_by_column["power_measured"]
+    assert len(power.getData()[1]) == session.history.sample_count
+    assert power.getData()[1][-1] == pytest.approx(session.history.latest.power_measured)
+    assert "power_measured" in window.docks
+
+
+def test_alarms_are_recorded_and_logged_without_a_dashboard_and_listed_in_the_dashboard(qtbot, session):
+    from pvysics.faults import FaultKind
+
+    hmi = session.open_hmi()
+    qtbot.addWidget(hmi)
+    hmi.process_view.start_button.click()
+    hmi.process_view.fault_buttons[FaultKind.PARTIAL_SHADING].click()
+    session.playback.tick()
+
+    assert session.alarms.log.alarms  # recorded with no Dashboard open
+    dashboard = session.open_dashboard()
+    qtbot.addWidget(dashboard)
+    assert dashboard.alarm_panel.list_widget.count() == len(session.alarms.log.alarms)
+    assert "Alarms" in [dashboard.centralWidget().tabText(i) for i in range(dashboard.centralWidget().count())]

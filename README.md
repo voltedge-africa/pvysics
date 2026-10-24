@@ -8,9 +8,9 @@ New to the app? Read the [user manual](docs/user-manual.md).
 
 The prototype is a PyQt6 application with three windows that read the same run:
 
-- **HMI** (PV Digital Twin): Process, Model, Setup and Alarms tabs (Setup is a list of sections: Profile, Site, Module, Limits and Review). One toolbar for the run and fault injection, a QML strip of live plant and twin figures with the deviation gauge, the power trend, the SDM circuit and curves, and the run setup. The alarm list has a tab of its own.
+- **HMI** (PV Digital Twin): Process, Model and Setup tabs (Setup is a list of sections: Profile, Site, Module, Limits and Review). One toolbar for the run and fault injection, a QML strip with the deviation as the hero figure, its rail and the twin's predicted power, the power trend, the SDM circuit and curves, and the run setup.
 - **Sensors** (PV Digital Twin Sensors): the plant's own readings (irradiance, module temperature, voltage, current, measured power) with a chart each, apart from the twin. Its Setup tab configures the simulated plant that stands in for hardware (mismatch, sensor noise and quantisation, seed) and the source: the simulated plant or a serial, MQTT or HTTP/WebSocket feed. A hardware feed cannot connect yet (there is no driver); the window says so.
-- **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is a QML strip of headline figures over a set of chart docks: measured vs predicted power, the deviation, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), the time in each state, and the events. Drag a dock to rearrange it, float it, tab it with another, or close it and bring it back from View > Panels.
+- **Dashboard** (PV Digital Twin Dashboard): a read-only Overview, Alarms and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is a QML strip of headline figures over a set of chart docks: measured vs predicted power, the deviation, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), the time in each state, and the events. Drag a dock to rearrange it, float it, tab it with another, or close it and bring it back from View > Panels.
 
 Each window has a log, a pop-up opened from View > Logs (Ctrl+L) and hidden otherwise. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
 
@@ -139,15 +139,15 @@ Use this checklist against the running app. Each step describes what the code do
 **Fault and alarm**
 
 - [ ] Press **Partial shading** in the toolbar's Inject group. The other four buttons (Soiling, Rs increase, Diode failure, Sensor drift) inject their faults the same way.
-- [ ] The banner goes **Abnormal** (red) on the next step. A new alarm appears in the Alarms list with its time, ABNORMAL, the deviation, and "Probable cause: partial shading". Its row is bold and tinted until it is acknowledged.
+- [ ] The state goes **Abnormal** (red) on the next step. Open the Dashboard's Alarms tab: a new alarm appears with its time, ABNORMAL, the deviation, and the cause, partial shading. Its row is bold and tinted until it is acknowledged.
 - [ ] The Dashboard event list shows the fault and the state change, as "Fault: none -> partial shading" and "State: Normal -> Abnormal".
-- [ ] Select the alarm and press **Acknowledge**. The row turns grey and is marked "(acknowledged)".
+- [ ] Select the alarm and press **Acknowledge**. The row turns grey and is marked "(seen)".
 
 I measured this with the faults injected at 10:00 on the bundled day at the default severities: each fault went to Abnormal at the first step after injection.
 
 **Recovery**
 
-- [ ] Press **Clear all**. The faults are removed, and the banner returns to Normal on the next step. The alarm stays in the list. Only **Reset** or **Apply and start** clears the list.
+- [ ] Press **Clear all**. The faults are removed, and the state returns to Normal on the next step. The alarm stays in the list. Only **Reset** or **Apply and start** clears the list.
 - [ ] Optional: press **Reset**. The run starts again from its first sample, paused, with no faults and an empty alarm list.
 
 **Log**

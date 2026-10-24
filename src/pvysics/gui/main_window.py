@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 class MainWindow(QMainWindow):
     """The operator HMI window: the Process, Model and Setup views as tabs on the session's run.
 
-    The alarm list has a tab of its own, and the log is a pop-up opened from View > Logs.
+    The log is a pop-up opened from View > Logs.
 
     The run, its history and the theme belong to the session. Apply on the Setup view starts a new
     run in the session, which resets every window. The HMI can be closed and shown again without
@@ -48,7 +48,6 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self.process_view, "Process")
         self._tabs.addTab(self.model_view, "Model")
         self._tabs.addTab(self.setup_view, "Setup")
-        self._tabs.addTab(self.process_view.alarm_panel, "Alarms")
         self.setCentralWidget(self._tabs)
         self.log_pane = popup_log_pane(self, session.log_bridge, self.theme)
 

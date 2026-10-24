@@ -28,6 +28,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from pvysics.gui.alarm_panel import AlarmPanel
 from pvysics.gui.log_pane import popup_log_pane
 from pvysics.gui.live_charts import LiveCharts
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
@@ -300,6 +301,8 @@ class Dashboard(QMainWindow):
 
         tabs = QTabWidget()
         tabs.addTab(self._pages, "Overview")
+        self.alarm_panel = AlarmPanel(self._session.alarms)
+        tabs.addTab(self.alarm_panel, "Alarms")
         tabs.addTab(self.validation, "Validation")
         self.setCentralWidget(tabs)
         self.log_pane = popup_log_pane(self, self._session.log_bridge, self._theme)

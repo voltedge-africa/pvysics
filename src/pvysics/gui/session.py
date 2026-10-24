@@ -13,6 +13,7 @@ from collections.abc import Callable
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
+from pvysics.gui.alarm_panel import AlarmMonitor
 from pvysics.gui.dashboard import Dashboard
 from pvysics.gui.data_bus import DataBus
 from pvysics.gui.log_bridge import LogBridge
@@ -52,6 +53,7 @@ class Session(QObject):
         self.bus.sample.connect(self.history.record_sample)
         self.bus.event.connect(self.history.record_event)
         self.bus.run_reset.connect(self.history.clear)
+        self.alarms = AlarmMonitor(self.bus, self)  # alarms are recorded and logged whichever windows are open
         self.log_model = LogModel()
         self.log_bridge = LogBridge(self.log_model, self)  # from now on, "pvysics" records reach the model
         config = bundled_run_config() if config is None else config

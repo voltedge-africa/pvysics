@@ -98,7 +98,7 @@ def test_the_dashboard_has_an_overview_that_holds_the_live_charts_and_a_validati
     qtbot.addWidget(dashboard)
     tabs = dashboard.centralWidget()
 
-    assert [tabs.tabText(index) for index in range(tabs.count())] == ["Overview", "Validation"]
+    assert [tabs.tabText(index) for index in range(tabs.count())] == ["Overview", "Alarms", "Validation"]
     for box in (dashboard.live.curves_box, dashboard.live.energy_box,
                 dashboard.live.histogram_box, dashboard.live.states_box):
         assert dashboard.charts.isAncestorOf(box)  # the live charts are docks in the Overview, not a tab of their own

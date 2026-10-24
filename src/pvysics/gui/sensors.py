@@ -40,7 +40,7 @@ READING_KEYS = ("G", "T", "V", "I", "P")
 
 
 class SensorsWindow(QMainWindow):
-    """The plant's sensor channels: five figures and four charts, read from the session's history."""
+    """The plant's sensor channels: five figures and five charts, read from the session's history."""
 
     def __init__(self, session: "Session") -> None:
         super().__init__()
@@ -138,7 +138,7 @@ class SensorsWindow(QMainWindow):
         for plot in self._plots:
             style_plot(plot, palette)
         self.strip.set_palette(palette)
-        for curve, colour in zip(self._curves, (palette.irradiance, palette.temperature, palette.voltage, palette.current)):
+        for curve, colour in zip(self._curves, (palette.irradiance, palette.temperature, palette.voltage, palette.current, palette.measured)):
             curve.setPen(pg.mkPen(colour, width=2))
 
     def _build_charts(self) -> None:
@@ -147,6 +147,7 @@ class SensorsWindow(QMainWindow):
             ("temperature", "Module temperature (°C)"),
             ("voltage", "Voltage (V)"),
             ("current", "Current (A)"),
+            ("power_measured", "Measured power (W)"),
         )
         self.plots: dict[str, pg.PlotWidget] = {}
         self._curves: dict[pg.PlotDataItem, str] = {}
@@ -156,6 +157,7 @@ class SensorsWindow(QMainWindow):
             self.plots[column] = plot
             self._curves[plot.plot()] = column
         self._plots = list(self.plots.values())
+        self._curves_by_column = {column: curve for curve, column in self._curves.items()}
 
     def _build_layout(self) -> None:
         self.charts = QMainWindow()
@@ -167,16 +169,18 @@ class SensorsWindow(QMainWindow):
             "temperature": "Module temperature",
             "voltage": "Voltage",
             "current": "Current",
+            "power_measured": "Measured power",
         }
         self.docks = {key: _dock(titles[key], self.plots[key]) for key in titles}
         d = self.docks
         # Irradiance and temperature are the conditions, so they share a pane as tabs; voltage and current are the
-        # electrical output, and share the row below.
+        # electrical output with the power they make, and share the row below.
         self.charts.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, d["irradiance"])
         self.charts.tabifyDockWidget(d["irradiance"], d["temperature"])
         d["irradiance"].raise_()
         self.charts.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, d["voltage"])
         self.charts.splitDockWidget(d["voltage"], d["current"], Qt.Orientation.Horizontal)
+        self.charts.splitDockWidget(d["current"], d["power_measured"], Qt.Orientation.Horizontal)
 
         header = QHBoxLayout()
         header.addWidget(self.source_label)

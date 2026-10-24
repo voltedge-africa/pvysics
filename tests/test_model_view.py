@@ -235,7 +235,7 @@ def test_main_window_has_process_model_and_setup_tabs_and_the_model_follows_the_
     window.show()
     qtbot.waitExposed(window)
     tabs = window.centralWidget()
-    assert [tabs.tabText(index) for index in range(tabs.count())] == ["Process", "Model", "Setup", "Alarms"]
+    assert [tabs.tabText(index) for index in range(tabs.count())] == ["Process", "Model", "Setup"]
 
     window.show_view(window.model_view)
     assert window.current_view() is window.model_view
