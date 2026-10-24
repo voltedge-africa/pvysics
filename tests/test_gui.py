@@ -67,3 +67,11 @@ def test_unknown_switch_exits_with_usage_before_any_window_opens(capsys):
 
     assert exit_info.value.code != 0
     assert "usage: pvysics" in capsys.readouterr().err
+
+
+def test_wayland_platform_noise_is_dropped_and_real_qt_messages_are_kept():
+    from pvysics.gui.app import is_harmless
+
+    assert is_harmless("This plugin supports grabbing the mouse only for popup windows")
+    assert is_harmless("QGraphicsView::dragLeaveEvent: drag leave received before drag enter")
+    assert not is_harmless("QObject::connect: invalid nullptr parameter")
