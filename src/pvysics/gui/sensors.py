@@ -23,7 +23,7 @@ from pvysics.gui.process_view import format_readings
 from pvysics.gui.sample_columns import SampleColumns
 from pvysics.gui.sensor_setup import SensorSetupView
 from pvysics.gui.theme import ThemeMenu, style_plot
-from pvysics.gui.ui_helpers import pane, role_label
+from pvysics.gui.ui_helpers import ChartDock, role_label
 from pvysics.run import Sample
 
 if TYPE_CHECKING:
@@ -138,6 +138,8 @@ class SensorsWindow(QMainWindow):
         for plot in self._plots:
             style_plot(plot, palette)
         self.strip.set_palette(palette)
+        for dock in self.docks.values():
+            dock.set_chart_background(palette.chart_background)  # a floating dock keeps its solid background
         for curve, colour in zip(self._curves, (palette.irradiance, palette.temperature, palette.voltage, palette.current, palette.measured)):
             curve.setPen(pg.mkPen(colour, width=2))
 
@@ -209,8 +211,5 @@ class SensorsWindow(QMainWindow):
         self._session.open_dashboard()
 
 
-def _dock(title: str, widget: QWidget) -> QDockWidget:
-    dock = QDockWidget(title)
-    dock.setObjectName(f"dock_{title}")
-    dock.setWidget(pane(widget))
-    return dock
+def _dock(title: str, widget: QWidget) -> ChartDock:
+    return ChartDock(title, widget)

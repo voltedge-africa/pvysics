@@ -27,7 +27,7 @@ from PyQt6.QtWidgets import (
 from pvysics.gui.log_bridge import LogBridge
 from pvysics.gui.palette import Palette
 from pvysics.gui.theme import ThemeManager
-from pvysics.gui.ui_helpers import pane
+from pvysics.gui.ui_helpers import FloatingDock, pane
 from pvysics.log_model import LogEntry, format_entry
 
 LEVEL_CHOICES = (
@@ -49,7 +49,7 @@ def line_colour(entry: LogEntry, palette: Palette) -> str | None:
     return None
 
 
-class LogPane(QDockWidget):
+class LogPane(FloatingDock):
     """The log pop-up. Build it with popup_log_pane."""
 
     def __init__(self, bridge: LogBridge, theme: ThemeManager, parent: QWidget | None = None) -> None:

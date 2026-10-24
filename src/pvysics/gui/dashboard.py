@@ -34,7 +34,7 @@ from pvysics.gui.live_charts import LiveCharts
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, Group, MetricStrip, Tile
 from pvysics.gui.process_view import format_readings
-from pvysics.gui.ui_helpers import CompactPlot, pane
+from pvysics.gui.ui_helpers import ChartDock, CompactPlot
 from pvysics.gui.theme import ThemeMenu, style_plot
 from pvysics.gui.sample_columns import SampleColumns
 from pvysics.gui.validation_view import ValidationView
@@ -196,6 +196,8 @@ class Dashboard(QMainWindow):
         for plot in (self.power_plot, self.deviation_plot):
             style_plot(plot, palette)
         self.live.apply_palette(palette)
+        for dock in self.docks.values():
+            dock.set_chart_background(palette.chart_background)  # a floating dock keeps its solid background
         self.strip.set_palette(palette)
         self.validation.strip.set_palette(palette)
         self._power_measured.setPen(pg.mkPen(palette.measured, width=2))
@@ -332,9 +334,6 @@ def _chart(left_label: str) -> pg.PlotWidget:
     return plot
 
 
-def _dock(title: str, widget: QWidget) -> QDockWidget:
+def _dock(title: str, widget: QWidget) -> ChartDock:
     """A chart as a dock: movable, floatable and closable, with its title in a flat title bar."""
-    dock = QDockWidget(title)
-    dock.setObjectName(f"dock_{title}")
-    dock.setWidget(pane(widget))
-    return dock
+    return ChartDock(title, widget)

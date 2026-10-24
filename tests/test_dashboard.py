@@ -327,3 +327,21 @@ def test_every_chart_is_a_dock_that_can_be_closed_floated_and_brought_back(qtbot
     dock.toggleViewAction().trigger()
     assert dock.isVisible()
     assert dashboard.docks.keys() >= {"power", "deviation", "curves", "energy", "histogram", "states", "events"}
+
+
+def test_a_floating_dock_is_solid_with_a_green_border_and_its_chart_follows(qtbot):
+    from PyQt6.QtGui import QColor
+
+    window = window_with(qtbot, config=midday_config())
+    dashboard = window.open_dashboard()
+    qtbot.addWidget(dashboard)
+    dock = dashboard.docks["power"]
+    docked = dashboard.power_plot.backgroundBrush().color()
+
+    dock.setFloating(True)
+
+    assert dashboard.power_plot.backgroundBrush().color() == dock.palette().base().color()
+    border = dock.grab().toImage()
+    assert border.pixelColor(0, border.height() // 2) == dock.palette().highlight().color()  # the green border
+    dock.setFloating(False)
+    assert dashboard.power_plot.backgroundBrush().color() == docked

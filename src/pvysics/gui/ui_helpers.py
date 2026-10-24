@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pyqtgraph as pg
 from pyqtgraph.exporters import CSVExporter, ImageExporter
-from PyQt6.QtCore import QEvent, QSize, Qt
-from PyQt6.QtGui import QAction, QPainter
-from PyQt6.QtWidgets import QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QToolButton, QWidget
+from PyQt6.QtCore import QEvent, QRectF, QSize, Qt
+from PyQt6.QtGui import QAction, QColor, QPainter, QPen
+from PyQt6.QtWidgets import QDockWidget, QFileDialog, QFrame, QHBoxLayout, QLabel, QMenu, QToolButton, QWidget
 
 PLOT_HINT = QSize(320, 220)
 EXPORT_MARGIN_PX = 6
@@ -40,6 +40,57 @@ def pane(widget: QWidget) -> QFrame:
     layout.setContentsMargins(PANE_PADDING_PX, PANE_PADDING_PX, PANE_PADDING_PX, PANE_PADDING_PX)
     layout.addWidget(widget)
     return frame
+
+
+class FloatingDock(QDockWidget):
+    """A dock that, while it floats as a window of its own, has a solid background (white in the light theme: the
+    palette's base colour) and a green border. Docked, it is transparent and borderless."""
+
+    BORDER_PX = 2
+
+    def __init__(self, title: str, parent: QWidget | None = None) -> None:
+        super().__init__(title, parent)
+        self.topLevelChanged.connect(self._on_floating_changed)
+
+    def paintEvent(self, event) -> None:
+        if self.isFloating():
+            painter = QPainter(self)
+            painter.fillRect(self.rect(), self.palette().base())  # solid: the theme's base colour
+            painter.end()
+        super().paintEvent(event)
+        if self.isFloating():
+            painter = QPainter(self)
+            half = self.BORDER_PX / 2
+            painter.setPen(QPen(self.palette().highlight().color(), self.BORDER_PX))
+            painter.drawRect(QRectF(self.rect()).adjusted(half, half, -half, -half))
+            painter.end()
+
+    def _on_floating_changed(self, floating: bool) -> None:
+        self._restyle()
+
+    def _restyle(self) -> None:
+        self.update()
+
+
+class ChartDock(FloatingDock):
+    """A dock for a chart or two. While it floats its charts take the same solid colour as the dock."""
+
+    def __init__(self, title: str, widget: QWidget, parent: QWidget | None = None) -> None:
+        super().__init__(title, parent)
+        self.setObjectName(f"dock_{title}")
+        self.setWidget(pane(widget))
+        self._chart_background = "#ffffff"
+
+    def set_chart_background(self, chart_background: str) -> None:
+        """The colour the charts have while docked; call it whenever the theme changes."""
+        self._chart_background = chart_background
+        self._restyle()
+
+    def _restyle(self) -> None:
+        super()._restyle()
+        colour = self.palette().base().color() if self.isFloating() else QColor(self._chart_background)
+        for plot in self.findChildren(pg.PlotWidget):
+            plot.setBackground(colour)
 
 
 def unit_row(field: QWidget, unit: str) -> QWidget:
