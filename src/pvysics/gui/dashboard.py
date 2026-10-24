@@ -28,7 +28,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from pvysics.gui.log_pane import bottom_log_pane
+from pvysics.gui.log_pane import popup_log_pane
 from pvysics.gui.live_charts import LiveCharts
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, Group, MetricStrip, Tile
@@ -373,7 +373,7 @@ class Dashboard(QMainWindow):
         tabs.addTab(self._pages, "Overview")
         tabs.addTab(self.validation, "Validation")
         self.setCentralWidget(tabs)
-        self.log_pane = bottom_log_pane(self, self._session.log_bridge, self._theme)
+        self.log_pane = popup_log_pane(self, self._session.log_bridge, self._theme)
 
     def _build_idle_page(self) -> tuple[QWidget, QLabel, QPushButton]:
         """The page shown while no run is in progress: the message, and a button that opens the HMI."""

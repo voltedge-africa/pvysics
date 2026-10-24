@@ -1,17 +1,16 @@
-"""The log pane: a collapsible bottom dock that shows the session's LogModel.
+"""The log pane: a pop-up window, opened from View > Logs (Ctrl+L), that shows the session's LogModel.
 
-Each window docks one pane at its bottom. Both panes show the same model, so they list the same
-lines and share the level filter. The pane has a level filter, Clear and Copy (Copy puts the visible
-text on the clipboard), and it colours warning and error lines from the theme palette. New lines
-arrive through the bridge and are drawn on a UI tick. The view follows the newest line unless the
-user has scrolled up. Collapsing keeps the header row and hides the list; Hide removes the pane, and the window's
-View > Show log (Ctrl+L) brings it back.
+Each window owns one pane. It floats above the window, hidden until asked for, so the log never takes room
+from the work. Both panes show the same model, so they list the same lines and share the level filter. The pane
+has a level filter, Clear and Copy (Copy puts the visible text on the clipboard), and it colours warning and
+error lines from the theme palette. New lines arrive through the bridge and are drawn on a UI tick. The view
+follows the newest line unless the user has scrolled up.
 """
 
 import logging
 
-from PyQt6.QtCore import QSignalBlocker, QSize, Qt, QTimer
-from PyQt6.QtGui import QColor, QFontDatabase, QFontMetrics, QGuiApplication, QTextCharFormat, QTextCursor
+from PyQt6.QtCore import QSize, Qt, QTimer
+from PyQt6.QtGui import QColor, QFontDatabase, QGuiApplication, QTextCharFormat, QTextCursor
 from PyQt6.QtWidgets import (
     QComboBox,
     QDockWidget,
@@ -21,7 +20,6 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit,
     QPushButton,
     QTextEdit,
-    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -39,7 +37,7 @@ LEVEL_CHOICES = (
     ("Error", logging.ERROR),
 )
 UI_INTERVAL_MS = 100  # new lines are drawn at most this often
-DEFAULT_LINES = 5  # the list is this tall when the pane first opens
+POPUP_SIZE = QSize(720, 320)  # the pop-up opens this big
 
 
 def line_colour(entry: LogEntry, palette: Palette) -> str | None:
@@ -52,26 +50,16 @@ def line_colour(entry: LogEntry, palette: Palette) -> str | None:
 
 
 class LogPane(QDockWidget):
-    """The log dock. Build it with bottom_log_pane, which docks it in a window."""
+    """The log pop-up. Build it with popup_log_pane."""
 
     def __init__(self, bridge: LogBridge, theme: ThemeManager, parent: QWidget | None = None) -> None:
         super().__init__("Log", parent)
         self.setObjectName("log_pane")
-        # Closable, or Qt disables the View > Show log action. The empty title bar below shows no close button.
-        self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable)
-        self.setTitleBarWidget(QWidget())  # the header row below is the title
+        # Closable, or Qt disables the View > Logs action; the close button on the pop-up's title bar hides it again.
+        self.setFeatures(QDockWidget.DockWidgetFeature.DockWidgetClosable | QDockWidget.DockWidgetFeature.DockWidgetMovable)
         self._bridge = bridge
         self._palette = theme.palette
-        self._collapsed = False
         self._dirty = True
-
-        self.collapse_button = QToolButton()
-        self.collapse_button.setText("Log")
-        self.collapse_button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
-        self.collapse_button.setCheckable(True)
-        self.collapse_button.setChecked(True)
-        self.collapse_button.setArrowType(Qt.ArrowType.DownArrow)
-        self.collapse_button.toggled.connect(self._on_collapse_toggled)
 
         self.level_box = QComboBox()
         for label, level in LEVEL_CHOICES:
@@ -82,28 +70,21 @@ class LogPane(QDockWidget):
         self.clear_button.clicked.connect(self._on_clear_clicked)
         self.copy_button = QPushButton("Copy")
         self.copy_button.clicked.connect(self._on_copy_clicked)
-        self.hide_button = QPushButton("Hide")
-        self.hide_button.setToolTip("Hide the log. View > Show log (Ctrl+L) brings it back.")
-        self.hide_button.clicked.connect(self._on_hide_clicked)
-        # The window's View menu shows this action checked while the pane is visible, and toggles it.
+        # The window's View menu shows this action checked while the pop-up is open, and toggles it.
         self.view_action = self.toggleViewAction()
-        self.view_action.setText("Show &log")
+        self.view_action.setText("&Logs")
         self.view_action.setShortcut("Ctrl+L")
 
         self.text_view = QPlainTextEdit()
         self.text_view.setReadOnly(True)
         self.text_view.setFont(QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont))
-        # Two lines is the least that is useful. The dock still opens at DEFAULT_LINES, so a short window can shrink.
-        self.text_view.setMinimumHeight(QFontMetrics(self.text_view.font()).lineSpacing() * 2 + 12)
 
         header = QHBoxLayout()
-        header.addWidget(self.collapse_button)
         header.addStretch(1)
         header.addWidget(QLabel("Level"))
         header.addWidget(self.level_box)
         header.addWidget(self.clear_button)
         header.addWidget(self.copy_button)
-        header.addWidget(self.hide_button)
         layout = QVBoxLayout()
         layout.addLayout(header)
         layout.addWidget(self.text_view, 1)
@@ -118,37 +99,6 @@ class LogPane(QDockWidget):
         self._timer.setInterval(UI_INTERVAL_MS)
         self._timer.timeout.connect(self._on_tick)
         self._timer.start()
-
-    @property
-    def is_collapsed(self) -> bool:
-        return self._collapsed
-
-    def set_collapsed(self, collapsed: bool) -> None:
-        """Hide the list and keep the header, or show the list again."""
-        self._collapsed = collapsed
-        self.text_view.setVisible(not collapsed)
-        with QSignalBlocker(self.collapse_button):  # the button's own toggle already did this
-            self.collapse_button.setChecked(not collapsed)
-        self.collapse_button.setArrowType(Qt.ArrowType.RightArrow if collapsed else Qt.ArrowType.DownArrow)
-        self.fit_height()
-
-    def fit_height(self) -> None:
-        """Give the dock its height for the current state: the header when collapsed, else a few lines."""
-        window = self.parentWidget()
-        if isinstance(window, QMainWindow):
-            for layout in (self._content.layout(), self.widget().layout()):
-                layout.invalidate()  # a list shown or hidden changes the layout's size hint
-                layout.activate()
-            window.resizeDocks([self], [self.sizeHint().height()], Qt.Orientation.Vertical)
-
-    def sizeHint(self) -> QSize:
-        """The header and, when expanded, DEFAULT_LINES lines of the list, not the list's full size hint."""
-        hint = super().sizeHint()
-        if self._collapsed:
-            return hint  # the hidden list takes no room
-        line = QFontMetrics(self.text_view.font()).lineSpacing()
-        list_height = self.text_view.sizeHint().height()
-        return QSize(hint.width(), hint.height() - list_height + DEFAULT_LINES * line)
 
     def visible_text(self) -> str:
         """The text the list shows, which is also what Copy puts on the clipboard."""
@@ -210,19 +160,15 @@ class LogPane(QDockWidget):
         self._bridge.clear()
         self.refresh()
 
-    def _on_hide_clicked(self, *_args) -> None:
-        self.hide()
-
     def _on_copy_clicked(self, *_args) -> None:
         QGuiApplication.clipboard().setText(self.visible_text())
 
-    def _on_collapse_toggled(self, checked: bool) -> None:
-        self.set_collapsed(not checked)
 
-
-def bottom_log_pane(window: QMainWindow, bridge: LogBridge, theme: ThemeManager) -> LogPane:
-    """Dock a log pane along the bottom of window and return it."""
+def popup_log_pane(window: QMainWindow, bridge: LogBridge, theme: ThemeManager) -> LogPane:
+    """Make a log pop-up for window, hidden until View > Logs opens it."""
     pane = LogPane(bridge, theme, window)
     window.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, pane)
-    pane.fit_height()  # start small
+    pane.setFloating(True)
+    pane.resize(POPUP_SIZE)
+    pane.hide()
     return pane

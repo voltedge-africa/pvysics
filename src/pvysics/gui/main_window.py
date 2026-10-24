@@ -6,7 +6,7 @@ from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QDockWidget, QMainWindow, QTabWidget, QWidget
 
 from pvysics.gui.dashboard import Dashboard
-from pvysics.gui.log_pane import bottom_log_pane
+from pvysics.gui.log_pane import popup_log_pane
 from pvysics.gui.model_view import ModelView
 from pvysics.gui.process_view import ProcessView
 from pvysics.gui.setup_view import SetupView
@@ -52,7 +52,7 @@ class MainWindow(QMainWindow):
         self._tabs.addTab(self.model_view, "Model")
         self._tabs.addTab(self.setup_view, "Setup")
         self.setCentralWidget(self._tabs)
-        self.log_pane = bottom_log_pane(self, session.log_bridge, self.theme)
+        self.log_pane = popup_log_pane(self, session.log_bridge, self.theme)
         self.docks = {"alarms": _dock("Alarms", self.process_view.alarm_panel)}
         self.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, self.docks["alarms"])
         self.resizeDocks([self.docks["alarms"]], [ALARMS_WIDTH_PX], Qt.Orientation.Horizontal)

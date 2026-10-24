@@ -11,7 +11,7 @@ The prototype is a PyQt6 application with two windows that read the same run:
 - **HMI** (PV Digital Twin): Process, Model and Setup tabs (Setup is a list of sections: Profile, Site, Module, Plant and sensors, Limits and Review). One toolbar for the run and fault injection, a QML strip of live plant and twin figures with the deviation gauge, the power trend, the SDM circuit and curves, and the run setup. The alarm list is a dock on the right.
 - **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is a QML strip of headline figures over a set of chart docks: measured vs predicted power, the deviation, irradiance and temperature, voltage and current, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), the time in each state, and the events. Drag a dock to rearrange it, float it, tab it with another, or close it and bring it back from View > Panels.
 
-Each window has a log pane at its bottom. It collapses to its header, and Hide (or View > Show log, Ctrl+L) removes it and brings it back. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
+Each window has a log, a pop-up opened from View > Logs (Ctrl+L) and hidden otherwise. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
 
 Every chart can be explored: the wheel zooms, a drag pans, and an **Export** button appears at the chart's top right corner while the pointer is over it (image, data as CSV, or reset the view).
 
@@ -150,7 +150,7 @@ I measured this with the faults injected at 10:00 on the bundled day at the defa
 
 **Log**
 
-- [ ] The log pane at the bottom of each window lists the actions as time, level and message, for example "Run started", "Fault injected" and "Alarm Abnormal". Both windows show the same lines.
+- [ ] Open **View > Logs** in each window. The pop-up lists the actions as time, level and message, for example "Run started", "Fault injected" and "Alarm Abnormal". Both windows show the same lines.
 - [ ] Choose **Warning** in **Level**: only warnings and errors remain. Choose **Info** again and the hidden lines return. **Clear** empties the log in both windows. **Copy** puts the visible text on the clipboard.
 - [ ] Load a CSV or datasheet that the checks reject (for example a file with no header row). A WARNING line gives the same reason as the message on the Setup tab.
 - [ ] Press the **Log** button in the pane's header to collapse the list to its header row, and press it again to show the list.

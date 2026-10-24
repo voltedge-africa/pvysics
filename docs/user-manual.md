@@ -212,12 +212,10 @@ When you fetch from NASA POWER, **Preview...** opens the fetched profile for ins
 | ![HMI, light](screenshots/light_02_hmi_process_idle.png) | ![HMI, dark](screenshots/dark_02_hmi_process_idle.png) |
 | ![Dashboard, light](screenshots/light_09_dashboard_overview.png) | ![Dashboard, dark](screenshots/dark_09_dashboard_overview.png) |
 
-**The log.** Each window has a log pane along its bottom. It lists what the app is doing as time, level and message.
+**The log.** Open it from **View > Logs** (Ctrl+L). It is a pop-up window, so it takes no room until you ask for it; close it with its close button. It lists what the app is doing as time, level and message.
 
-- Drag the bar above it to resize it, or press the **Log** arrow to collapse it to its header.
 - **Level** filters by Debug, Info, Warning or Error. Warnings are amber and errors are red.
 - **Clear** empties it, and **Copy** puts the visible lines on the clipboard.
-- **Hide** removes the pane. **View > Show log** (Ctrl+L) brings it back.
 
 Both windows show the same log.
 
@@ -255,4 +253,4 @@ Setup > **Reset to defaults**, then **Apply and start**.
 | A fetch fails. | NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads from the cache. |
 | The state stays Normal after injecting a fault. | At night there is too little light to compare, so no state is shown. Run on until the sun is up. |
 | Changes on Setup have no effect. | Press **Apply and start**. Edits apply only then. |
-| The log or the alarm list has disappeared. | **View > Show log** (Ctrl+L), or **View > Panels**. |
+| The log or the alarm list has disappeared. | **View > Logs** (Ctrl+L), or **View > Panels**. |
