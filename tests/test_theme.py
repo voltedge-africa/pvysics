@@ -68,7 +68,7 @@ def test_schematic_recolour_drops_the_white_background_and_keeps_green_readable(
     for original in ("#ffffff", "#000000", "#137f36"):
         assert original not in dark
     assert DARK.window in dark and DARK.text in dark and DARK.schematic_accent in dark
-    assert recoloured_svg(svg, LIGHT).decode("utf-8").count(LIGHT.card) >= 1
+    assert recoloured_svg(svg, LIGHT).decode("utf-8").count(LIGHT.window) >= 1
 
 
 @pytest.mark.parametrize("name", model_view.EQUATION_IMAGES)
