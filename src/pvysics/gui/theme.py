@@ -151,6 +151,13 @@ class ThemeMenu(QObject):
         self._menu.addSeparator()
         self._menu.addAction(action)
 
+    def add_actions(self, actions: list[QAction], submenu: str) -> None:
+        """Add several View items under one submenu, such as a Panels list."""
+        self._menu.addSeparator()
+        menu = self._menu.addMenu(submenu)
+        for action in actions:
+            menu.addAction(action)
+
     @property
     def actions(self) -> dict[str, QAction]:
         """The menu's actions keyed by choice: CHOICE_SYSTEM, CHOICE_LIGHT, CHOICE_DARK."""

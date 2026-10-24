@@ -55,7 +55,7 @@ def _asset(name: str) -> bytes:
 def recoloured_svg(svg: bytes, palette: Palette) -> bytes:
     """The schematic with its white, black and green swapped for the palette's card, text and accent colours."""
     swaps = {
-        SCHEMATIC_BACKGROUND: palette.card,
+        SCHEMATIC_BACKGROUND: palette.window,
         SCHEMATIC_INK: palette.text,
         SCHEMATIC_ACCENT: palette.schematic_accent,
     }
@@ -170,12 +170,7 @@ class EquationsWidget(QWidget):
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-        pad = self.fontMetrics().height() / 2
-        painter.setPen(QPen(QColor(self._palette.card_border)))
-        painter.setBrush(QBrush(QColor(self._palette.card)))
         for image, picture in zip(self._images, self.picture_rects()):
-            card = picture.adjusted(-pad, -pad, pad, pad)
-            painter.drawRoundedRect(card, pad / 3, pad / 3)
             painter.drawImage(picture, image, QRectF(image.rect()))
         painter.end()
 

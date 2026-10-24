@@ -5,9 +5,12 @@ import pytest
 # Run Qt without a display server so the tests pass headless on any platform.
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PyQt6.QtCore import QEvent, QSettings
+from PyQt6.QtQuick import QQuickWindow, QSGRendererInterface
 from PyQt6.QtWidgets import QApplication
 
 from pvysics.gui.session import Session
+
+QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.Software)  # as the app does: no GPU needed
 
 
 @pytest.fixture(autouse=True)

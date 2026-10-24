@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 
 import pyqtgraph as pg
 from PyQt6.QtGui import QColor
-from PyQt6.QtWidgets import QGridLayout, QGroupBox, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from pvysics.datasheet import ModuleDatasheet
 from pvysics.gui.palette import STATE_COLOURS, Palette
@@ -246,19 +246,19 @@ class LiveCharts(QWidget):
         self.state_caption = _caption()
 
     def _build_panels(self) -> None:
-        self.voltage_current_box = QGroupBox("Voltage and current")
-        voltage_layout = QVBoxLayout(self.voltage_current_box)
+        self.voltage_current_box = _plain_box()
+        voltage_layout = self.voltage_current_box.layout()
         voltage_layout.addWidget(self.voltage_plot, 1)
         voltage_layout.addWidget(self.current_plot, 1)
 
-        self.curves_box = QGroupBox("I-V and P-V curve at the measured G and T, with the operating point")
-        curve_row = QHBoxLayout(self.curves_box)
+        self.curves_box = _plain_box(QHBoxLayout)  # the I-V and P-V curve at the measured G and T, with the operating point
+        curve_row = self.curves_box.layout()
         curve_row.addWidget(self.iv_plot, 1)
         curve_row.addWidget(self.pv_plot, 1)
 
-        self.energy_box = _framed("Cumulative energy", self.energy_plot)
-        self.histogram_box = _framed("Power deviation (daylight)", self.histogram_plot, self.histogram_caption)
-        self.states_box = _framed("Time in each state", self.state_plot, self.state_caption)
+        self.energy_box = _framed(self.energy_plot)
+        self.histogram_box = _framed(self.histogram_plot, self.histogram_caption)
+        self.states_box = _framed(self.state_plot, self.state_caption)
 
     def _build_grid(self) -> None:
         grid = QGridLayout(self)
@@ -279,9 +279,17 @@ def _caption() -> QLabel:
     return label
 
 
-def _framed(title: str, plot: pg.PlotWidget, caption: QLabel | None = None) -> QGroupBox:
-    box = QGroupBox(title)
-    layout = QVBoxLayout(box)
+def _plain_box(layout_type=QVBoxLayout) -> QWidget:
+    """A bare container for a chart or two: the dock around it carries the title."""
+    box = QWidget()
+    layout = layout_type(box)
+    layout.setContentsMargins(0, 0, 0, 0)
+    return box
+
+
+def _framed(plot: pg.PlotWidget, caption: QLabel | None = None) -> QWidget:
+    box = _plain_box()
+    layout = box.layout()
     layout.addWidget(plot, 1)
     if caption is not None:
         layout.addWidget(caption)

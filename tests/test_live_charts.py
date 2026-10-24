@@ -101,7 +101,7 @@ def test_the_dashboard_has_an_overview_that_holds_the_live_charts_and_a_validati
     assert [tabs.tabText(index) for index in range(tabs.count())] == ["Overview", "Validation"]
     for box in (dashboard.live.voltage_current_box, dashboard.live.curves_box, dashboard.live.energy_box,
                 dashboard.live.histogram_box, dashboard.live.states_box):
-        assert dashboard.overview_scroll.isAncestorOf(box)  # the live charts sit in the Overview, not a tab of their own
+        assert dashboard.charts.isAncestorOf(box)  # the live charts are docks in the Overview, not a tab of their own
 
 
 def test_each_live_chart_has_data_after_a_short_run(qtbot):
@@ -352,10 +352,10 @@ def test_the_overview_shows_the_idle_message_when_no_run_is_in_progress(qtbot):
     qtbot.addWidget(dashboard)
 
     assert dashboard._idle_page.isVisible()
-    assert not dashboard.overview_scroll.isVisible()
+    assert not dashboard.overview.isVisible()
 
 
-def test_the_overview_fits_at_1280_by_800_without_horizontal_scrolling_and_plots_keep_their_height(qtbot):
+def test_the_overview_docks_every_chart_at_1280_by_800_and_plots_keep_their_height(qtbot):
     window = window_with(qtbot)
     dashboard = window.open_dashboard()
     qtbot.addWidget(dashboard)
@@ -368,8 +368,7 @@ def test_the_overview_fits_at_1280_by_800_without_horizontal_scrolling_and_plots
     live = dashboard.live
     for plot in (live.voltage_plot, live.current_plot, live.iv_plot, live.pv_plot, live.energy_plot,
                  live.histogram_plot, live.state_plot):
-        assert plot.height() >= plot.minimumHeight()  # a plot below the fold is laid out, just scrolled out of view
-    assert dashboard.overview_scroll.horizontalScrollBar().maximum() == 0
+        assert plot.height() >= plot.minimumHeight()
 
 
 def test_offscreen_smoke_runs_a_short_run_with_a_fault_and_the_live_charts_have_data(qtbot):

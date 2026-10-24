@@ -1,7 +1,7 @@
 """The look of the app as one stylesheet built from a Palette. No Qt imports: the rules are tested headless.
 
 Fusion plus the QPalette (gui/theme.py) gives every platform the same base. This sheet adds the parts
-a palette cannot say: group boxes as cards, buttons with a clear primary action, tabs with an accent
+a palette cannot say: sections as plain captions, buttons with a clear primary action, tabs with an accent
 underline and a small type scale. Widgets opt in with Qt properties, so no widget carries its own colours:
 
     role   "caption" small muted text, "value" a figure, "hero" a headline figure, "title" a section heading,
@@ -11,7 +11,6 @@ underline and a small type scale. Widgets opt in with Qt properties, so no widge
 
 from pvysics.gui.palette import Palette
 
-RADIUS_PX = 8
 FIELD_PADDING_PX = 4
 
 
@@ -26,39 +25,29 @@ QToolTip {{
 }}
 
 QGroupBox {{
-    background-color: {p.card};
-    border: 1px solid {p.card_border};
-    border-radius: {RADIUS_PX}px;
-    margin-top: 1.1em;
-    padding: 0.9em 0.6em 0.6em 0.6em;
+    background: transparent;
+    border: none;
+    margin-top: 1.4em;
+    padding: 0.4em 0 0 0;
 }}
-QGroupBox[flat="true"] {{ margin-top: 0; padding-top: 0.6em; }}
+QGroupBox[flat="true"] {{ margin-top: 0; }}
 QGroupBox::title {{
     subcontrol-origin: margin;
     subcontrol-position: top left;
-    left: 12px;
-    padding: 0 6px;
+    left: 0;
+    padding: 0;
     color: {p.muted_text};
     font-weight: 600;
 }}
 
-QFrame[card="true"] {{
-    background-color: {p.card};
-    border: 1px solid {p.card_border};
-    border-radius: {RADIUS_PX}px;
-}}
-QFrame[card="true"] QLabel {{
-    background: transparent;
-    border: none;
-}}
+QDockWidget {{ color: {p.muted_text}; font-weight: 600; }}
+QDockWidget::title {{ background: transparent; text-align: left; padding: 6px 2px; }}
 
 QLabel[role="caption"] {{ color: {p.muted_text}; font-size: 9pt; }}
 QLabel[role="muted"] {{ color: {p.muted_text}; }}
 QLabel[role="strong"] {{ font-weight: 600; }}
 QLabel[role="value"] {{ font-size: 15pt; font-weight: 600; }}
 QLabel[role="dirty"] {{ color: {p.warning}; font-weight: 600; }}
-QLabel[role="metric"] {{ font-size: 22pt; font-weight: 700; }}
-QLabel[role="unit"] {{ color: {p.muted_text}; font-size: 10pt; padding-bottom: 4px; }}
 QLabel[role="section"] {{ color: {p.muted_text}; font-size: 8pt; font-weight: 700; }}
 QLabel[role="hero"] {{ font-size: 22pt; font-weight: 700; }}
 QLabel[role="title"] {{ font-size: 15pt; font-weight: 700; }}
@@ -67,7 +56,7 @@ QPushButton {{
     background-color: {p.card};
     color: {p.text};
     border: 1px solid {p.card_border};
-    border-radius: 6px;
+    border-radius: 4px;
     padding: 5px 14px;
     min-height: 1.3em;
 }}
@@ -94,7 +83,7 @@ QPushButton[variant="active"] {{
     font-weight: 600;
 }}
 
-QMainWindow::separator {{ background: {p.card_border}; height: 5px; border-radius: 2px; }}
+QMainWindow::separator {{ background: transparent; width: 6px; height: 6px; }}
 QMainWindow::separator:hover {{ background: {p.highlight}; }}
 
 QTabWidget::pane {{ border: none; border-top: 1px solid {p.card_border}; }}
@@ -130,16 +119,24 @@ QListWidget#sectionNav::item {{
 }}
 QListWidget#sectionNav::item:hover {{ color: {p.text}; }}
 QListWidget#sectionNav::item:selected {{
-    color: {p.text};
-    background-color: {p.card};
-    border: 1px solid {p.card_border};
+    color: {p.highlight};
+    background-color: transparent;
 }}
 
 QListWidget, QPlainTextEdit {{
-    background-color: {p.base};
-    border: 1px solid {p.card_border};
-    border-radius: 6px;
+    background-color: transparent;
+    border: none;
 }}
+
+QToolButton[role="chartExport"] {{
+    background-color: {p.base};
+    color: {p.text};
+    border: 1px solid {p.card_border};
+    border-radius: 4px;
+    padding: 2px 8px;
+}}
+QToolButton[role="chartExport"]:hover {{ border-color: {p.highlight}; }}
+QToolButton[role="chartExport"]::menu-indicator {{ image: none; }}
 
 QProgressBar {{
     border: 1px solid {p.card_border};

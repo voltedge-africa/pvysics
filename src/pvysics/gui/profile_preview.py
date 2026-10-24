@@ -27,6 +27,7 @@ from PyQt6.QtWidgets import (
 
 from pvysics.fetch import FetchOptions, Irradiance, TimeStandard
 from pvysics.gui.palette import Palette
+from pvysics.gui.ui_helpers import CompactPlot
 from pvysics.gui.theme import ThemeManager, style_plot
 from pvysics.profile import Profile
 from pvysics.profile_stats import ProfileStats, plot_indices, profile_stats
@@ -72,7 +73,7 @@ class TimeAxis(pg.AxisItem):
 
 
 def _chart(left_label: str, origin: np.datetime64, minimum_height: int) -> pg.PlotWidget:
-    plot = pg.PlotWidget(axisItems={"bottom": TimeAxis(origin)})
+    plot = CompactPlot(axisItems={"bottom": TimeAxis(origin)})
     for side in ("left", "bottom"):
         plot.getAxis(side).enableAutoSIPrefix(False)  # 900 W/m2 must not show as 0.9 kW/m2
     plot.showGrid(x=True, y=True, alpha=0.3)

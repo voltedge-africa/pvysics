@@ -145,7 +145,7 @@ def test_use_profile_in_the_preview_makes_the_fetched_profile_active_and_it_show
     assert setup.profile_name == staged_name
     assert "NASA POWER" in setup.read_config().profile.name
     assert staged_name in setup.summary_label.text()
-    assert "Apply and start" in setup.message
+    assert staged_name in setup.message
     assert setup.profile_box.findData(staged_name) >= 0
     assert panel.preview_dialog is None
 
@@ -176,7 +176,7 @@ def test_offline_fetch_shows_a_problem_logs_an_error_and_keeps_the_active_profil
     assert panel.staged_profile is None
     assert "Fetch failed" in setup.message
     assert "could not reach NASA POWER" in setup.message
-    assert "active profile is unchanged" in setup.message
+    assert setup.profile_name == active  # a failed fetch changes nothing
     assert any(record.levelno == logging.ERROR for record in caplog.records)
 
 

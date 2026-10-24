@@ -3,7 +3,7 @@ from dataclasses import replace
 import numpy as np
 import pyqtgraph as pg
 import pytest
-from PyQt6.QtWidgets import QAbstractButton, QAbstractSpinBox, QComboBox, QLineEdit, QSlider
+from PyQt6.QtWidgets import QAbstractSpinBox, QCheckBox, QComboBox, QLineEdit, QPushButton, QSlider
 
 from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.dashboard import Dashboard
@@ -72,12 +72,12 @@ def test_dashboard_and_hmi_show_the_same_run(qtbot):
 
     latest = window.history.latest
     readings = format_readings(latest)
-    assert dashboard.tiles["p_measured"].text() == readings["P"]
-    assert dashboard.tiles["p_predicted"].text() == readings["P_pred"]
-    assert dashboard.tiles["deviation"].text() == f"{latest.deviation_pct:+.1f} %"
-    assert dashboard.tiles["state"].text() == latest.state.value
-    assert dashboard.tiles["energy"].text() == f"{window.history.energy_wh:.1f} Wh"
-    assert window.process_view.plant.value("P") == readings["P"]
+    assert dashboard.strip.value("p_measured") == readings["P"]
+    assert dashboard.strip.value("p_predicted") == readings["P_pred"]
+    assert dashboard.strip.value("deviation") == f"{latest.deviation_pct:+.1f} %"
+    assert dashboard.strip.value("state") == latest.state.value
+    assert dashboard.strip.value("energy") == f"{window.history.energy_wh:.1f} Wh"
+    assert window.process_view.strip.value("P") == readings["P"]
     assert window.history.energy_wh > 0.0
     assert len(plotted_deviation(dashboard)) == window.history.sample_count
 
@@ -88,7 +88,7 @@ def test_overview_has_no_controls_that_change_the_run(qtbot):
     qtbot.addWidget(dashboard)
 
     controls = dashboard.overview.findChildren(
-        (QAbstractButton, QComboBox, QAbstractSpinBox, QLineEdit, QSlider)
+        (QPushButton, QCheckBox, QComboBox, QAbstractSpinBox, QLineEdit, QSlider)  # not the docks' title buttons or the charts' Export
     )
 
     assert controls == []  # the only controls are on the Validation tab, and they do not touch the run
@@ -132,8 +132,8 @@ def test_fault_injected_in_the_hmi_shows_in_the_charts_and_event_log(qtbot):
     texts = event_texts(dashboard)
     assert any("Fault: none -> partial shading" in text for text in texts)
     assert any("State: Normal -> Abnormal" in text for text in texts)
-    assert dashboard.tiles["state"].text() == "Abnormal"
-    assert dashboard.tiles["state"].colour() == STATE_COLOURS[State.ABNORMAL]
+    assert dashboard.strip.value("state") == "Abnormal"
+    assert dashboard.strip.fill("state") == STATE_COLOURS[State.ABNORMAL]
     expected = [sample.deviation_pct for sample in window.history.samples_from(0)]
     assert np.allclose(plotted_deviation(dashboard), expected)
     assert min(expected) < -10.0  # the shading drop shows as a deep negative deviation
@@ -195,7 +195,7 @@ def test_closing_the_dashboard_leaves_the_hmi_running_and_reopening_shows_the_hi
 
     assert reopened.isVisible()
     assert len(plotted_deviation(reopened)) == window.history.sample_count
-    assert reopened.tiles["p_measured"].text() == format_readings(window.history.latest)["P"]
+    assert reopened.strip.value("p_measured") == format_readings(window.history.latest)["P"]
 
 
 def test_a_dashboard_opened_mid_run_shows_the_history_so_far_including_faults(qtbot):
@@ -229,8 +229,8 @@ def test_reset_clears_the_dashboard(qtbot):
 
     assert plotted_deviation(dashboard).size == 0
     assert event_texts(dashboard) == []
-    assert dashboard.tiles["p_measured"].text() == PLACEHOLDER
-    assert dashboard.tiles["state"].colour() is None
+    assert dashboard.strip.value("p_measured") == PLACEHOLDER
+    assert dashboard.strip.fill("state") is None
 
 
 def test_offscreen_smoke_opens_the_dashboard_and_logs_events_for_a_run_with_a_fault(qtbot):
@@ -262,7 +262,7 @@ def test_offscreen_smoke_opens_the_dashboard_and_logs_events_for_a_run_with_a_fa
     assert not window.isVisible()
 
 
-IDLE_MESSAGE = "No run in progress. Start a run from the HMI."
+IDLE_MESSAGE = "No run in progress."
 
 
 def test_dashboard_opened_alone_without_a_run_says_how_to_start_one(qtbot):
@@ -310,3 +310,18 @@ def test_dashboard_with_the_hmi_open_shows_the_overview_before_a_run(qtbot):
     dashboard.refresh()
 
     assert dashboard.overview.isVisible()
+
+
+def test_every_chart_is_a_dock_that_can_be_closed_floated_and_brought_back(qtbot):
+    window = window_with(qtbot, config=midday_config())
+    dashboard = window.open_dashboard()
+    qtbot.addWidget(dashboard)
+    dock = dashboard.docks["power"]
+
+    assert dock.features() & dock.DockWidgetFeature.DockWidgetClosable
+    assert dock.features() & dock.DockWidgetFeature.DockWidgetFloatable
+    dock.close()
+    assert not dock.isVisible()
+    dock.toggleViewAction().trigger()
+    assert dock.isVisible()
+    assert dashboard.docks.keys() >= {"power", "deviation", "conditions", "electrical", "curves", "energy", "histogram", "states", "events"}

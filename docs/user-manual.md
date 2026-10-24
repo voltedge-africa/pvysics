@@ -43,17 +43,7 @@ From the repository root:
 uv run pvysics
 ```
 
-The launcher opens.
-
-![The launcher](screenshots/light_01_launcher.png)
-
-| Button | Opens |
-|---|---|
-| **Open HMI** | The window where you run the plant and the twin, inject faults and set up the run. |
-| **Open Dashboard** | The read-only charts, events and validation. |
-| **Open both** | Both windows on the same run. The usual choice for a demo. |
-
-To skip the launcher, use `uv run pvysics --hmi`, `--dashboard` or `--both`. Closing the last window quits the app.
+The HMI and the Dashboard open together on the same run. To open only one, use `uv run pvysics --hmi` or `--dashboard`. A closed window comes back from the **Window** menu. The app quits when the last window closes.
 
 ## 3. The HMI
 
@@ -77,19 +67,19 @@ This is where you run the simulation.
 | **Inject** buttons | Partial shading, Soiling, Rs increase, Diode failure, Sensor drift. Click one to inject that fault into the plant. A fault that is on shows as a dark button. Use **Clear all** to remove faults. |
 | **Clear all** | Removes every injected fault. |
 
-Before the run starts, the toolbar shows only the controls. Once the run is playing, the right end shows a one-line sentence about the current state and a coloured pill (Normal, Warning or Abnormal).
+Once the run is playing, the right end shows a one-line status and a coloured pill (Normal, Warning or Abnormal).
 
-**Measurement tiles**
+**Figures**
 
-| Group | Tiles |
+| Group | Figures |
 |---|---|
 | Plant, measured | Irradiance G, module temperature T, voltage V, current I, measured power P |
 | Twin | Predicted power P |
 | Comparison | Deviation, with a bar showing the 5 % and 10 % limits (green is Normal, amber is Warning, red is Abnormal) |
 
-**Power over the run** plots measured power (black) against predicted power (green, dashed). A dashed vertical line marks the moment a fault was injected.
+**The chart** plots measured power (black) against predicted power (green, dashed). A dashed vertical line marks a fault injection.
 
-**Alarms** lists each alarm with its time, state, deviation and probable cause. The header says how many are new. Press **Acknowledge** to mark them as seen.
+**Alarms** are a dock on the right: time, state, deviation and probable cause. Press **Acknowledge** to mark one as seen. Drag the dock to move it, or close it and bring it back from **View > Panels**.
 
 ### 3.2 Model
 
@@ -114,26 +104,34 @@ Use the Dashboard to watch a run. It changes nothing.
 
 ![The Dashboard overview](screenshots/light_09_dashboard_overview.png)
 
-- **The tiles at the top** show measured power, predicted power, deviation, the state and the energy produced so far.
-- **The charts** below scroll with the page: measured against predicted power, the deviation against its limits, irradiance and temperature, voltage and current, the I-V and P-V curves with the operating point, cumulative energy, a histogram of deviations, and the time spent in each state.
+- **The figures at the top** show measured power, predicted power, deviation, the state and the energy produced so far.
+- **Each chart is a dock.** Drag its title to rearrange it, press the small button at its top right to float it, or close it. **View > Panels** brings any dock back.
+- The charts are power, deviation, irradiance and temperature, voltage and current, the I-V and P-V curves, and (tabbed together) energy, the deviation spread, the time in each state and the events.
 
-![The whole Overview, scrolled](screenshots/light_10_dashboard_overview_full.png)
+![A tabbed dock](screenshots/light_10_dashboard_overview_tabs.png)
 
 If you open the Dashboard before a run, it says there is no run in progress and offers **Open HMI**.
 
-### 4.2 Validation
+### 4.2 Exploring and exporting a chart
+
+Every chart can be explored:
+
+- The mouse wheel zooms and a drag pans.
+- While the pointer is over a chart, an **Export** button appears at its top right corner. It offers **Image (PNG)...**, **Data (CSV)...** and **Reset view**.
+
+### 4.3 Validation
 
 Validation tests the twin against known answers. It runs one healthy day and one day for each of the five faults.
 
 ![Validation before it has run](screenshots/light_11_validation_empty.png)
 
-Press **Run validation**. The window stays usable while it runs.
+Press **Run validation**. 
 
 ![Validation results](screenshots/light_12_validation_results.png)
 
 | Result | What it tells you |
 |---|---|
-| **MAE, RMSE, MAPE** | How closely the twin's power matches the healthy plant. Night samples are excluded, and MAPE also skips samples under 5 W. |
+| **MAE, RMSE, MAPE** | How closely the twin's power matches the healthy plant. Hover the figures for what is excluded. |
 | **Detection rate** | The share of fault samples the twin flagged as Abnormal. |
 | **Mean delay** | How long after injection the twin noticed. |
 | **False alarms** | How often the healthy run was flagged, at your configured limits and at limits derived from the healthy run's own noise. |
@@ -209,7 +207,7 @@ When you fetch from NASA POWER, **Preview...** opens the fetched profile for ins
 
 ## 7. Themes and the log
 
-**Themes.** The app follows your system's light or dark setting. In the **View** menu, choose **System**, **Light** or **Dark** to override it.
+**Themes.** The app follows your system's light or dark setting. In the **View** menu, choose **System**, **Light** or **Dark** to override it. The look is flat: no boxes, only type, space and thin rules.
 
 | Light | Dark |
 |---|---|
@@ -229,10 +227,10 @@ Both windows show the same log.
 
 **Watch a fault being caught**
 
-1. Press **Open both** on the launcher.
+1. Run `uv run pvysics`.
 2. In the HMI, set the speed to `600x` and press **Start**.
 3. Once the plant output has risen, click **Partial shading**.
-4. Watch the deviation tile and bar, the state pill and the alarm. The Dashboard shows the same event.
+4. Watch the deviation figure and bar, the state pill and the alarm. The Dashboard shows the same event.
 
 **Run on real weather**
 
@@ -243,7 +241,7 @@ Both windows show the same log.
 **Check the twin's accuracy**
 
 1. Open the Dashboard and go to **Validation**.
-2. Press **Run validation** and read the tiles and tables.
+2. Press **Run validation** and read the figures and tables.
 3. Use **Export metrics CSV...** to keep the numbers.
 
 **Start over**
@@ -259,4 +257,4 @@ Setup > **Reset to defaults**, then **Apply and start**.
 | A fetch fails. | NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads from the cache. |
 | The state stays Normal after injecting a fault. | At night there is too little light to compare, so no state is shown. Run on until the sun is up. |
 | Changes on Setup have no effect. | Press **Apply and start**. Edits apply only then. |
-| The log pane has disappeared. | Press Ctrl+L, or use **View > Show log**. |
+| The log or the alarm list has disappeared. | **View > Show log** (Ctrl+L), or **View > Panels**. |

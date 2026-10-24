@@ -8,12 +8,14 @@ New to the app? Read the [user manual](docs/user-manual.md).
 
 The prototype is a PyQt6 application with two windows that read the same run:
 
-- **HMI** (PV Digital Twin): Process, Model and Setup tabs (Setup is a list of sections: Profile, Site, Module, Plant and sensors, Limits and Review). Live plant and twin readings, the deviation gauge, state banner, fault injection, alarms, the SDM circuit and curves, and the run setup.
-- **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is one scrolling grid of cards under the KPI tiles: measured vs predicted power and the deviation first, then irradiance and temperature, voltage and current, cumulative energy, the I-V and P-V curves with the measured operating point, the time in each state, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), and the event log. Charts that were once on a separate Live charts tab are part of the Overview.
+- **HMI** (PV Digital Twin): Process, Model and Setup tabs (Setup is a list of sections: Profile, Site, Module, Plant and sensors, Limits and Review). One toolbar for the run and fault injection, a QML strip of live plant and twin figures with the deviation gauge, the power trend, the SDM circuit and curves, and the run setup. The alarm list is a dock on the right.
+- **Dashboard** (PV Digital Twin Dashboard): a read-only Overview and Validation (MAE, RMSE, MAPE, fault-detection scores, CSV export). The Overview is a QML strip of headline figures over a set of chart docks: measured vs predicted power, the deviation, irradiance and temperature, voltage and current, the I-V and P-V curves with the measured operating point, cumulative energy, a histogram of the daylight power deviation (-10 % to +10 % in 0.5 % bins), the time in each state, and the events. Drag a dock to rearrange it, float it, tab it with another, or close it and bring it back from View > Panels.
 
 Each window has a log pane at its bottom. It collapses to its header, and Hide (or View > Show log, Ctrl+L) removes it and brings it back. It lists what the app is doing as time, level and message, with a level filter, Clear and Copy. Both windows show the same log.
 
-The look is green, black, gray and white (the department's colours), in a light and a dark theme that follow the system setting. View > System, Light or Dark overrides it. Amber and red appear only where they mean something: the Warning and Abnormal states, alarms and errors.
+Every chart can be explored: the wheel zooms, a drag pans, and an **Export** button appears at the chart's top right corner while the pointer is over it (image, data as CSV, or reset the view).
+
+The look is flat, with no boxes: type, space and hairlines on the window. It is green, black, gray and white (the department's colours), in a light and a dark theme that follow the system setting. View > System, Light or Dark overrides it. Amber and red appear only where they mean something: the Warning and Abnormal states, alarms and errors.
 
 The default input is static: the bundled profile is one hourly NASA POWER sample for Durban, and the default module is a generic 60-cell, 250 W datasheet. The Setup tab can also fetch a profile from NASA POWER for a chosen place and dates (see Fetching a profile below). There is no hardware.
 
@@ -61,18 +63,18 @@ macOS: the same commands, in Terminal.
 
 Windows: the same commands, in PowerShell.
 
-`uv run pvysics` opens a small launcher with **Open HMI**, **Open Dashboard** and **Open both**. Command-line switches start the app without the launcher:
+`uv run pvysics` opens the HMI and the Dashboard together. Command-line switches open one window instead:
 
 | Command | Opens |
 | --- | --- |
-| `uv run pvysics` | the launcher |
+| `uv run pvysics` | the HMI and the Dashboard |
 | `uv run pvysics --hmi` | the HMI only |
 | `uv run pvysics --dashboard` | the Dashboard only |
-| `uv run pvysics --both` | the HMI and the Dashboard, without the launcher |
+| `uv run pvysics --both` | the HMI and the Dashboard (the default, spelled out) |
 
 The switches exclude each other. An unknown switch prints the usage and exits with status 2.
 
-The HMI and the Dashboard share one run. Closing a window does not stop the run or the other window, and a closed window opens again from the launcher or from the Window menu. The app quits when the last open window closes. A Dashboard opened without the HMI, with no run started, says how to start one.
+The HMI and the Dashboard share one run. Closing a window does not stop the run or the other window, and a closed window opens again from the Window menu. The app quits when the last open window closes. A Dashboard opened without the HMI, with no run started, says how to start one.
 
 ### Linux Qt library note
 
@@ -107,7 +109,7 @@ A request covers at most 31 days, and the end date cannot be in the future. Resp
 ## Architecture
 
 - **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV), `log_model.py` (the bounded log buffer and its level filter), `fetch.py` (the NASA POWER fetch client, its request building, response parsing and disk cache; the transport is injected, so tests never use the network), and `profile_stats.py` (the statistics of a fetched profile for its preview). Tests and scripts call these directly. Modules log through the standard `logging` module under the `pvysics` name.
-- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `launcher.py` (the launcher), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), `fetch_panel.py` (the Fetch profile group on the Setup tab, which runs fetches on a worker thread), `profile_preview.py` (the preview dialog of a fetched profile), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive. `log_bridge.py` is the one logging handler: it passes records to the UI thread through a Qt signal, and `log_pane.py` is the log pane docked in each window.
+- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `metric_strip.py` and `qml/MetricStrip.qml` (the figures, drawn in QML), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), `fetch_panel.py` (the Fetch profile group on the Setup tab, which runs fetches on a worker thread), `profile_preview.py` (the preview dialog of a fetched profile), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive. `log_bridge.py` is the one logging handler: it passes records to the UI thread through a Qt signal, and `log_pane.py` is the log pane docked in each window.
 - **Data bus** (`gui/data_bus.py`): an in-process `DataBus` of Qt signals (`sample`, `event`, `run_reset`). Both windows subscribe to it through the session, which owns it along with the run. It stands in for the WebSocket and CSV bus in the design. The `Sample` record is the one an ESP32 would publish later.
 
 ## Demo script
@@ -116,7 +118,7 @@ Use this checklist against the running app. Each step describes what the code do
 
 **Start**
 
-- [ ] Run `uv run pvysics`. The launcher opens. Press **Open both**: the HMI and the Dashboard open on the same run. (Or run `uv run pvysics --hmi`, `--dashboard` or `--both` to skip the launcher. A Dashboard opened alone, before a run, says "No run in progress" and offers **Open HMI**.)
+- [ ] Run `uv run pvysics`. The HMI and the Dashboard open on the same run. (Or run `uv run pvysics --hmi` or `--dashboard` for one window. A Dashboard opened alone, before a run, says "No run in progress" and offers **Open HMI**.)
 
 **Setup**
 
@@ -130,7 +132,7 @@ Use this checklist against the running app. Each step describes what the code do
 - [ ] On the Process tab, set **Speed** to 28800x. A day plays in about 3 s; the default 1x is real time.
 - [ ] Press **Start** (or **Pause** to stop). The banner shows Normal in green. The plant readings (G, T, V, I, P measured) and the twin's P predicted update on every step.
 - [ ] The deviation gauge stays near zero. On the bundled day with defaults the deviation stayed within 2 % (largest 1.9 % at seed 0). Where predicted power is below 5 W (night), the deviation is shown as 0 %.
-- [ ] Open the Dashboard Overview. The KPI tiles (P measured, P predicted, Deviation, State, Energy) and the charts fill in. The event list is empty while nothing changes.
+- [ ] Open the Dashboard Overview. The headline figures (P measured, P predicted, Deviation, State, Energy) and the chart docks fill in. The Events dock is empty while nothing changes. Hover a chart and use **Export** at its top right to save its image or data.
 
 **Fault and alarm**
 

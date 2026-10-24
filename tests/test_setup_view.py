@@ -70,7 +70,7 @@ def test_valid_csv_loads_once_accepted_and_only_applies_at_apply(qtbot, tmp_path
     dialog = setup.csv_dialog
 
     assert dialog.use_button.isEnabled()
-    assert "Passed" in dialog.checks_label.text()
+    assert "3 rows" in dialog.checks_label.text()
     dialog.accept()
 
     assert setup.profile_name == "site.csv"
@@ -261,12 +261,12 @@ def test_apply_and_start_runs_the_changed_setup(qtbot):
     setup.apply_button.click()
 
     assert window.playback.is_running
-    assert window.centralWidget().currentWidget() is window.process_view
+    assert window.current_view() is window.process_view
     assert window.history.sample_count == 0  # the history belongs to the new run
     window.playback.tick()
     assert window.history.sample_count > 0
     assert window.process_view.time_label.text() != PLACEHOLDER
-    assert window.process_view.gauge.scale_pct == pytest.approx(GAUGE_SCALE_FACTOR * 4.0)
+    assert window.process_view.strip.gauge_scale_pct == pytest.approx(GAUGE_SCALE_FACTOR * 4.0)
 
 
 def test_dashboard_takes_the_applied_limits(qtbot):

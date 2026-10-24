@@ -61,9 +61,9 @@ def test_validation_tab_says_night_is_excluded_and_shows_no_numbers_before_a_run
     qtbot.addWidget(dashboard)
     view = dashboard.validation
 
-    assert "Night-time samples are excluded" in view.note_label.text()
-    assert "MAPE also skips" in view.note_label.text()
-    assert view.tiles["mape"].text() == PLACEHOLDER
+    assert "Night samples are excluded" in view.strip.toolTip()
+    assert "MAPE also skips" in view.strip.toolTip()
+    assert view.strip.value("mape") == PLACEHOLDER
     assert not view.export_samples_button.isEnabled()
     assert not view.export_metrics_button.isEnabled()
 
@@ -92,7 +92,7 @@ def test_run_validation_runs_off_the_ui_thread_and_disables_the_button_while_it_
     assert view.run_button.isEnabled()
     assert view.progress.isHidden()
     assert view.report is not None
-    assert view.tiles["mae"].text().endswith(" W")
+    assert view.strip.value("mae").endswith(" W")
 
 
 def test_results_are_shown_as_metric_tiles_confusion_matrix_detection_and_false_alarms(qtbot, window):
@@ -104,13 +104,13 @@ def test_results_are_shown_as_metric_tiles_confusion_matrix_detection_and_false_
     wait_until_idle(qtbot, view)
     report = view.report
 
-    assert view.tiles["rmse"].text() == f"{report.metrics.rmse_w:.2f} W"
-    assert view.tiles["mape"].text() == f"{report.metrics.mape_pct:.2f} %"
+    assert view.strip.value("rmse") == f"{report.metrics.rmse_w:.2f} W"
+    assert view.strip.value("mape") == f"{report.metrics.mape_pct:.2f} %"
     assert view.confusion_table.item(1, 2).text() == str(report.confusion.count(True, State.ABNORMAL))
     assert view.fault_table.rowCount() == len(FaultKind)
     assert view.fault_table.item(0, 0).text() == FaultKind.PARTIAL_SHADING.value
-    assert view.false_alarm_config_label.text().startswith(f"{report.false_alarm_rate * 100:.1f} %")
-    assert f"{report.false_alarm_rate_derived * 100:.1f} %" in view.false_alarm_derived_label.text()
+    assert view.strip.value("false_alarm_config").startswith(f"{report.false_alarm_rate * 100:.1f} %")
+    assert f"{report.false_alarm_rate_derived * 100:.1f} %" in view.strip.value("false_alarm_derived")
     assert view.export_samples_button.isEnabled() and view.export_metrics_button.isEnabled()
 
 
@@ -239,10 +239,10 @@ def test_the_bundled_day_validation_shows_the_numbers_on_the_tab(qtbot):
 
     expected = run_validation(bundled_run_config(seed=0))
     assert view.report.metrics == expected.metrics
-    assert view.tiles["mae"].text() == f"{expected.metrics.mae_w:.2f} W"
-    assert view.mean_delay_label.text() == "0 s"
-    assert view.detection_rate_label.text() == "100.0 %"
-    assert view.false_alarm_config_label.text().startswith("0.0 %")
+    assert view.strip.value("mae") == f"{expected.metrics.mae_w:.2f} W"
+    assert view.strip.value("mean_delay") == "0 s"
+    assert view.strip.value("detection_rate") == "100.0 %"
+    assert view.strip.value("false_alarm_config").startswith("0.0 %")
 
 
 def _runs(view):

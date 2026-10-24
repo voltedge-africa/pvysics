@@ -191,7 +191,7 @@ class FetchPanel(QGroupBox):
         self._worker.cancel()
         self.cancel_button.setEnabled(False)
         self.status_label.setText(
-            "Cancelling. The request finishes in the background and its result is discarded."
+            "Cancelling..."
         )
 
     def show_preview(self) -> None:
@@ -221,7 +221,7 @@ class FetchPanel(QGroupBox):
         self._from_cache = False
         self._request = None
         self._set_busy(False)
-        self.message.emit(f"Discarded {name}. The active profile is unchanged.", False)
+        self.message.emit(f"Discarded {name}.", False)
         log.info("Fetched profile discarded: %s", name)
 
     def shutdown(self) -> None:
@@ -241,12 +241,12 @@ class FetchPanel(QGroupBox):
         self._staged = result.profile
         self._from_cache = result.from_cache
         self.status_label.setText(summary_line(result.profile, result.from_cache))
-        self.message.emit(f"Fetched {result.profile.name}. Preview it to use or discard it.", False)
+        self.message.emit(f"Fetched {result.profile.name}. Preview to use it.", False)
         self.show_preview()
 
     def _on_failed(self, text: str) -> None:
         self.status_label.setText(self._status_text())
-        self.message.emit(f"Fetch failed: {text}. The active profile is unchanged.", True)
+        self.message.emit(f"Fetch failed: {text}", True)
 
     def _on_thread_finished(self) -> None:
         cancelled = self._worker is not None and self._worker.cancelled
@@ -255,7 +255,7 @@ class FetchPanel(QGroupBox):
         self._set_busy(False)
         if cancelled:
             self.status_label.setText(self._status_text())
-            self.message.emit("Fetch cancelled. Its result was discarded; the active profile is unchanged.", False)
+            self.message.emit("Fetch cancelled.", False)
 
     def _set_busy(self, busy: bool) -> None:
         self.fetch_button.setEnabled(not busy)
@@ -266,7 +266,7 @@ class FetchPanel(QGroupBox):
             widget.setEnabled(not busy)
         self._refresh_site_fields(busy)
         if busy:
-            self.status_label.setText("Fetching from NASA POWER. Please wait; the rest of the window stays usable.")
+            self.status_label.setText("Fetching from NASA POWER...")
         else:
             self.status_label.setText(self._status_text())
 
@@ -283,7 +283,7 @@ class FetchPanel(QGroupBox):
     def _status_text(self) -> str:
         """The summary of the staged profile, or a hint when nothing has been fetched yet."""
         if self._staged is None:
-            return "No fetched profile yet. Press Fetch to request one from NASA POWER."
+            return "Nothing fetched yet."
         return summary_line(self._staged, self._from_cache)
 
     def _on_use_site_toggled(self, *_args) -> None:

@@ -229,7 +229,7 @@ def test_the_view_paints_at_a_high_dpi_scale(make_harness):
     assert image.devicePixelRatio() == 2.0
 
 
-def test_main_window_has_process_and_model_tabs_and_the_model_tab_follows_the_run(qtbot):
+def test_main_window_has_process_model_and_setup_tabs_and_the_model_follows_the_run(qtbot):
     window = Session(config=midday_config()).open_hmi()
     qtbot.addWidget(window)
     window.show()
@@ -237,7 +237,8 @@ def test_main_window_has_process_and_model_tabs_and_the_model_tab_follows_the_ru
     tabs = window.centralWidget()
     assert [tabs.tabText(index) for index in range(tabs.count())] == ["Process", "Model", "Setup"]
 
-    tabs.setCurrentWidget(window.model_view)
+    window.show_view(window.model_view)
+    assert window.current_view() is window.model_view
     window.playback.set_speed(SPEEDS[-1])
     window.process_view.start_button.click()
     for _ in range(5):

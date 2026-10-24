@@ -37,8 +37,6 @@ class PowerTrend(QWidget):
         self.plot = CompactPlot()
         self.plot.hint = PLOT_HINT
         self.plot.setMinimumHeight(MIN_PLOT_HEIGHT_PX)
-        self.plot.setMouseEnabled(x=False, y=False)
-        self.plot.setMenuEnabled(False)
         self.plot.showGrid(x=True, y=True, alpha=0.25)
         self.plot.setLabel("left", "Power (W)")
         self.plot.setLabel("bottom", "Time since start (h)")

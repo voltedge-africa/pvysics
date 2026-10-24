@@ -22,7 +22,6 @@ from PyQt6.QtWidgets import (
     QDialogButtonBox,
     QAbstractItemView,
     QDoubleSpinBox,
-    QFrame,
     QHeaderView,
     QTableWidget,
     QTableWidgetItem,
@@ -187,11 +186,6 @@ class ProfileDialog(QDialog):
 
         self.checks_label = QLabel()
         self.checks_label.setWordWrap(True)
-        self.checks_card = QFrame()
-        set_property(self.checks_card, "card", "true")
-        card_layout = QVBoxLayout(self.checks_card)
-        card_layout.setContentsMargins(14, 10, 14, 10)
-        card_layout.addWidget(self.checks_label)
 
         buttons = QDialogButtonBox()
         self.use_button = buttons.addButton("Use profile", QDialogButtonBox.ButtonRole.AcceptRole)
@@ -204,11 +198,10 @@ class ProfileDialog(QDialog):
         layout.setContentsMargins(20, 18, 20, 16)
         layout.setSpacing(14)
         layout.addWidget(role_label(file_name, "title"))
-        layout.addWidget(role_label("Choose the column that holds each value.", "muted"))
         layout.addLayout(mapping)
         layout.addWidget(role_label("FIRST ROWS", "section"))
         layout.addWidget(self.preview_table)
-        layout.addWidget(self.checks_card)
+        layout.addWidget(self.checks_label)
         layout.addWidget(buttons)
         for box in (self.timestamp_box, self.irradiance_box, self.temperature_box):
             box.currentIndexChanged.connect(self._check)
@@ -229,15 +222,15 @@ class ProfileDialog(QDialog):
         except ProfileError as error:
             self._profile = None
             log.warning("Profile %s rejected: %s", self._file_name, error)
-            self.checks_label.setText(f"Rejected: {error}. The previous profile stays active.")
+            self.checks_label.setText(f"Rejected: {error}")
             self.checks_label.setForegroundRole(ERROR_ROLE)
             self.use_button.setEnabled(False)
             return
         self._profile = profile
         step = (profile.timestamps[1] - profile.timestamps[0]) / np.timedelta64(1, "s")
         self.checks_label.setText(
-            f"Passed: {len(profile.timestamps)} rows from {_stamp(profile.timestamps[0])} "
-            f"to {_stamp(profile.timestamps[-1])}, time step {step:g} s."
+            f"{len(profile.timestamps)} rows, {_stamp(profile.timestamps[0])} to {_stamp(profile.timestamps[-1])}, "
+            f"step {step:g} s."
         )
         self.checks_label.setForegroundRole(QPalette.ColorRole.WindowText)
         self.use_button.setEnabled(True)
@@ -319,7 +312,7 @@ class SetupView(QWidget):
         if problems:
             self._warn("Not valid. " + " ".join(problems))
         else:
-            self._say("Setup is valid. Nothing changes until Apply and start.")
+            self._say("Setup is valid.")
             log.info("Setup validated: valid")
         return problems
 
@@ -333,14 +326,14 @@ class SetupView(QWidget):
         self._show_summary(config)
         self._applied_rows = summary_rows(config)
         self._update_dirty()
-        self._say("Applied. The new run has started from the beginning.")
+        self._say("Applied. New run started.")
         log.info("Setup applied: %s", _summary(config))
         self.apply_requested.emit(config)
 
     def reset_to_defaults(self) -> None:
         """Show the default setup again. Like every edit, this applies nothing."""
         self._fill(bundled_run_config())
-        self._say("Controls reset to the defaults. Nothing changes until Apply and start.")
+        self._say("Defaults restored.")
 
     def load_csv(self, path: str) -> None:
         """Open the column mapping for a CSV file. The profile changes only if the user accepts it."""
@@ -364,25 +357,25 @@ class SetupView(QWidget):
         try:
             datasheet = read_datasheet(path)
         except DatasheetError as error:
-            self._warn(f"Datasheet rejected: {error}. The module is still {self._datasheet.name}.")
+            self._warn(f"Datasheet rejected: {error}")
             return
         self._set_datasheet(datasheet)
-        self._say(f"Loaded module {datasheet.name}. Apply and start to use it.")
+        self._say(f"Module {datasheet.name} loaded.")
 
     def _use_csv(self) -> None:
         profile = self.csv_dialog.profile()
         if profile is None:
             return
         self._set_profile(profile)
-        self._say(f"Loaded {profile.name}: {len(profile.timestamps)} samples. Apply and start to use it.")
+        self._say(f"{profile.name}: {len(profile.timestamps)} samples loaded.")
 
     def _cancel_csv(self) -> None:
-        self._say("Load cancelled. The previous profile stays active.")
+        self._say("Load cancelled.")
 
     def _use_fetched(self, profile: Profile) -> None:
         self._set_profile(profile)
         self._show_summary(self.read_config())  # the Run summary shows the profile the next Apply and start will use
-        self._say(f"Using fetched {profile.name}: {len(profile.timestamps)} samples. Apply and start to use it.")
+        self._say(f"Using {profile.name}: {len(profile.timestamps)} samples.")
 
     def _show_fetch_message(self, text: str, problem: bool) -> None:
         self._say(text, error=problem)  # the fetch has already logged the problem at its level
@@ -438,7 +431,7 @@ class SetupView(QWidget):
     def _reset_module(self) -> None:
         datasheet = load_generic_datasheet()
         self._set_datasheet(datasheet)
-        self._say(f"Module reset to {datasheet.name}. Nothing changes until Apply and start.")
+        self._say(f"Module reset to {datasheet.name}.")
 
     def _on_profile_chosen(self, index: int) -> None:
         self._profile = self._profiles[self.profile_box.itemData(index)]
@@ -655,7 +648,8 @@ class SetupView(QWidget):
         buttons.addWidget(self.reset_module_button)
         layout.addLayout(buttons)
 
-        site_group = QGroupBox("Site (metadata only, does not change the physics)")
+        site_group = QGroupBox("Site")
+        site_group.setToolTip("Metadata only: the site does not change the physics.")
         form = site_form = QFormLayout(site_group)
         _roomy(form)
         form.addRow("Latitude", unit_row(self.latitude_spin, "°"))
@@ -694,26 +688,25 @@ class SetupView(QWidget):
         QVBoxLayout(summary_group).addWidget(self.summary_label)
 
         # A settings page: the sections in a list on the left, one section at a time on the right. Each page
-        # is a column of readable width with a title and a line saying what it is for, so nothing is packed.
+        # is a column of readable width under its title, so nothing is packed.
         sections = (
-            ("Profile", "Where the sunlight and temperature come from.", (profile_group, self.fetch_panel)),
-            ("Site", "Where the plant is. This labels the run and sets the default fetch position.", (site_group,)),
-            ("Module", "The datasheet the twin predicts with.", (module_group,)),
-            ("Plant and sensors", "How the simulated plant differs from the twin, and how its sensors misread.",
-             (mismatch_group, sensor_group)),
-            ("Limits", "When the state turns Warning or Abnormal.", (threshold_group,)),
-            ("Review", "What the next run will use. Nothing changes until Apply and start.", (summary_group,)),
+            ("Profile", (profile_group, self.fetch_panel)),
+            ("Site", (site_group,)),
+            ("Module", (module_group,)),
+            ("Plant and sensors", (mismatch_group, sensor_group)),
+            ("Limits", (threshold_group,)),
+            ("Review", (summary_group,)),
         )
         self.section_list = QListWidget()
         self.section_list.setObjectName("sectionNav")
         self.section_list.setFixedWidth(NAV_WIDTH_PX)
         self.pages = QStackedWidget()
         row_height = self.section_list.fontMetrics().height() * 2 + 8  # Qt sizes list rows without the stylesheet's padding
-        for title, blurb, groups in sections:
+        for title, groups in sections:
             item = QListWidgetItem(title)
             item.setSizeHint(QSize(NAV_WIDTH_PX, row_height))
             self.section_list.addItem(item)
-            self.pages.addWidget(self._page(title, blurb, groups))
+            self.pages.addWidget(self._page(title, groups))
         self.section_list.currentRowChanged.connect(self.pages.setCurrentIndex)
         self.section_list.setCurrentRow(0)
         # The page scrolls, so a short window shows the top of a page and the rest a scroll away.
@@ -736,17 +729,14 @@ class SetupView(QWidget):
         root.addLayout(body, 1)
         root.addLayout(actions)
 
-    def _page(self, title: str, blurb: str, groups: tuple[QGroupBox, ...]) -> QWidget:
-        """One section: its title, what it is for, then its cards, in a column of readable width."""
+    def _page(self, title: str, groups: tuple[QGroupBox, ...]) -> QWidget:
+        """One section: its title, then its groups, in a column of readable width."""
         column = QWidget()
         column.setMaximumWidth(PAGE_MAX_WIDTH_PX)
         layout = QVBoxLayout(column)
         layout.setContentsMargins(8, 12, 8, 16)
         layout.setSpacing(14)
         layout.addWidget(role_label(title, "title"))
-        description = role_label(blurb, "muted")
-        description.setWordWrap(True)
-        layout.addWidget(description)
         for group in groups:
             if len(groups) == 1:  # the page title already names a lone card
                 group.setTitle("")

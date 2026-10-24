@@ -53,7 +53,7 @@ def test_one_run_feeds_the_hmi_and_the_dashboard(qtbot, session):
 
     _x, plotted = dashboard._deviation.getData()
     assert len(plotted) == session.history.sample_count > 0
-    assert dashboard.tiles["p_measured"].text() == format_readings(session.history.latest)["P"]
+    assert dashboard.strip.value("p_measured") == format_readings(session.history.latest)["P"]
 
 
 def test_closing_either_window_leaves_the_other_and_the_run_going(qtbot, session):

@@ -156,7 +156,7 @@ def test_use_profile_makes_the_staged_profile_active_and_it_is_in_the_run_summar
 
     assert setup.read_config().profile is staged
     assert staged.name in setup.summary_label.text()
-    assert "Apply and start" in setup.message
+    assert staged.name in setup.message
     assert panel.preview_dialog is None
 
 
@@ -172,7 +172,7 @@ def test_discard_drops_the_staged_profile_and_the_previous_active_profile_stays(
     assert not panel.preview_button.isEnabled()
     assert panel.preview_dialog is None
     assert setup.read_config().profile is active
-    assert "The active profile is unchanged" in setup.message
+    assert "Discarded" in setup.message
     assert any(r.levelno == logging.INFO and "discarded" in r.getMessage() for r in caplog.records)
 
 

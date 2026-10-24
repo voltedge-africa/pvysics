@@ -51,7 +51,7 @@ def test_start_plays_pause_freezes_and_reset_returns_to_the_start(qtbot):
 
     assert view.time_label.text() == PLACEHOLDER
     assert view.banner.text() == "Ready"
-    assert view.plant.value("G") == PLACEHOLDER
+    assert view.strip.value("G") == PLACEHOLDER
     view.start_button.click()
     window.playback.tick()
     assert view.time_label.text() == shown_after_one_tick
@@ -101,13 +101,13 @@ def test_plant_and_twin_readings_update_on_every_sample(qtbot):
         window.playback.tick()
         if seen:
             latest = seen[-1]
-            assert view.plant.value("G") == f"{format_number(latest.measured_irradiance, 0)} W/m²"
-            assert view.plant.value("T") == f"{format_number(latest.measured_temperature, 1)} °C"
-            assert view.plant.value("V") == f"{format_number(latest.measured_voltage, 1)} V"
-            assert view.plant.value("I") == f"{format_number(latest.measured_current, 1)} A"
-            assert view.plant.value("P") == f"{format_number(latest.power_measured, 1)} W"
-            assert view.twin.value("P_pred") == f"{format_number(latest.power_predicted, 1)} W"
-            shown_values.append(view.plant.value("P"))
+            assert view.strip.value("G") == f"{format_number(latest.measured_irradiance, 0)} W/m²"
+            assert view.strip.value("T") == f"{format_number(latest.measured_temperature, 1)} °C"
+            assert view.strip.value("V") == f"{format_number(latest.measured_voltage, 1)} V"
+            assert view.strip.value("I") == f"{format_number(latest.measured_current, 1)} A"
+            assert view.strip.value("P") == f"{format_number(latest.power_measured, 1)} W"
+            assert view.strip.value("P_pred") == f"{format_number(latest.power_predicted, 1)} W"
+            shown_values.append(view.strip.value("P"))
     assert len(set(shown_values)) > 1
 
 
@@ -118,19 +118,19 @@ def test_banner_and_gauge_follow_normal_warning_and_abnormal_faults(qtbot):
 
     window.playback.tick()
     assert view.banner.colour() == GREEN
-    assert view.gauge.state is State.NORMAL
+    assert view.strip.gauge_state is State.NORMAL
 
     window.playback.inject(Fault(FaultKind.SENSOR_DRIFT, 0.08))  # a deviation between the limits
     window.playback.tick()
     assert view.banner.colour() == AMBER
     assert view.banner.text() == "Warning"
-    assert view.gauge.state is State.WARNING
+    assert view.strip.gauge_state is State.WARNING
 
     view.fault_buttons[FaultKind.SENSOR_DRIFT].click()  # the default drift, past the abnormal limit
     window.playback.tick()
     assert view.banner.colour() == RED
     assert view.banner.text() == "Abnormal"
-    assert view.gauge.state is State.ABNORMAL
+    assert view.strip.gauge_state is State.ABNORMAL
 
 
 def test_fault_button_injects_and_clear_all_returns_the_banner_to_normal(qtbot):
@@ -163,14 +163,14 @@ def test_alarm_list_shows_time_severity_and_cause_and_can_be_acknowledged(qtbot)
     assert panel.list_widget.count() == 1
     item = panel.list_widget.item(0)
     assert "ABNORMAL" in item.text()
-    assert "Probable cause: partial shading" in item.text()
+    assert "partial shading" in item.text()
     assert item.font().bold()
     assert panel.summary_label.text() == "1 new"
     assert panel.acknowledge_button.isEnabled()
 
     panel.acknowledge_button.click()
 
-    assert "(acknowledged)" in panel.list_widget.item(0).text()
+    assert "(seen)" in panel.list_widget.item(0).text()
     assert not panel.list_widget.item(0).font().bold()
     assert panel.summary_label.text() == "No new alarms"
     assert not panel.acknowledge_button.isEnabled()
@@ -237,8 +237,8 @@ def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
     window.grab()
 
     assert view.banner.text() in {"Normal", "Warning", "Abnormal"}
-    assert view.plant.value("G") != PLACEHOLDER
-    assert view.twin.value("P_pred") != PLACEHOLDER
+    assert view.strip.value("G") != PLACEHOLDER
+    assert view.strip.value("P_pred") != PLACEHOLDER
     assert view.time_label.text() != PLACEHOLDER
     window.close()
     assert not window.isVisible()

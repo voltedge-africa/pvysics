@@ -1,15 +1,12 @@
 """The Dashboard window: read-only analytics on the session's run, shared with the HMI.
 
-Layout follows the dashboard wireframe: KPI tiles on top, measured vs predicted power and
-the deviation chart in the middle, irradiance and temperature with the event log below. Charts take
-their colours from the theme, and follow it when the theme changes.
-The Dashboard has no controls that change the run; it subscribes to the DataBus for new data
-and reads the run's history on each UI tick. Plots are updated once per tick, with only the
-Samples that arrived since the last tick appended, so a full day stays responsive.
-The Overview tab holds the live view. The Live charts tab holds five more live views (live_charts.py).
-The Validation tab runs its own headless batch on the
-applied config and never changes or restarts the run. With no HMI open and no Sample yet, the
-Overview and Live charts tabs show an idle message and a button that opens the HMI.
+Headline figures (drawn in QML) sit on top. Below them each chart is a dock widget: drag one to rearrange,
+float it, tab it with another, or close it and bring it back from View > Panels. Charts take their colours
+from the theme and follow it when it changes. The Dashboard has no controls that change the run; it
+subscribes to the DataBus for new data and reads the run's history on each UI tick. Plots are updated once
+per tick, with only the Samples that arrived since the last tick appended, so a full day stays responsive.
+The Validation tab runs its own headless batch on the applied config and never changes or restarts the run.
+With no HMI open and no Sample yet, the Overview shows an idle message and a button that opens the HMI.
 """
 
 import logging
@@ -20,13 +17,11 @@ import pyqtgraph as pg
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QAction, QColor
 from PyQt6.QtWidgets import (
-    QGridLayout,
-    QGroupBox,
+    QDockWidget,
     QLabel,
     QListWidget,
     QMainWindow,
     QPushButton,
-    QScrollArea,
     QStackedWidget,
     QTabWidget,
     QVBoxLayout,
@@ -36,11 +31,11 @@ from PyQt6.QtWidgets import (
 from pvysics.gui.log_pane import bottom_log_pane
 from pvysics.gui.live_charts import LiveCharts
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
-from pvysics.gui.process_view import GAUGE_SCALE_FACTOR, PLACEHOLDER, format_readings
+from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, MetricStrip
+from pvysics.gui.process_view import format_readings
 from pvysics.gui.ui_helpers import CompactPlot
 from pvysics.gui.theme import ThemeMenu, style_plot
 from pvysics.gui.validation_view import ValidationView
-from pvysics.gui.widgets import KpiTile
 from pvysics.run import Event, RunConfig, Sample, State, Thresholds
 
 if TYPE_CHECKING:
@@ -49,11 +44,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 UI_INTERVAL_MS = 100  # the Dashboard refreshes at most this often
-IDLE_MESSAGE = "No run in progress. Start a run from the HMI."
+IDLE_MESSAGE = "No run in progress."
 BAND_ALPHA = 0.35
-CARD_COLUMNS = 3
-CARD_ROWS = 4
-CARD_MIN_HEIGHT_PX = 250  # a card is never shorter, so its axes stay legible; the Overview scrolls instead
 TIME_LABEL = "Time since start (h)"
 COLUMNS = (
     "hours",
@@ -129,20 +121,28 @@ class Dashboard(QMainWindow):
         self._history = session.history
         self._theme = session.theme
         self._thresholds = session.config.thresholds
-        self.validation = ValidationView(session.config)
+        self.validation = ValidationView(session.config, palette=session.theme.palette)
         self._band_items: list[pg.LinearRegionItem] = []
         self._columns = SampleColumns()
         self._samples_shown = 0
         self._events_shown = 0
         self._dirty = True
 
-        self.tiles = {
-            "p_measured": KpiTile("P measured"),
-            "p_predicted": KpiTile("P predicted"),
-            "deviation": KpiTile("Deviation"),
-            "state": KpiTile("State"),
-            "energy": KpiTile("Energy"),
-        }
+        self.strip = MetricStrip(
+            [
+                (
+                    "Now",
+                    [
+                        ("p_measured", "P measured"),
+                        ("p_predicted", "P predicted"),
+                        ("deviation", "Deviation"),
+                        ("state", "State"),
+                        ("energy", "Energy"),
+                    ],
+                )
+            ],
+            self._theme.palette,
+        )
         self.event_list = QListWidget()
         self.event_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
         self._build_charts()
@@ -155,6 +155,7 @@ class Dashboard(QMainWindow):
         window_menu.addAction(self.open_hmi_action)
         self.theme_menu = ThemeMenu(self, self._theme)
         self.theme_menu.add_action(self.log_pane.view_action)
+        self.theme_menu.add_actions([dock.toggleViewAction() for dock in self.docks.values()], "Panels")
         self._theme.changed.connect(self._apply_palette)
         self._apply_palette(self._theme.palette)
 
@@ -245,6 +246,8 @@ class Dashboard(QMainWindow):
         for plot in (self.power_plot, self.deviation_plot, self.irradiance_plot, self.temperature_plot):
             style_plot(plot, palette)
         self.live.apply_palette(palette)
+        self.strip.set_palette(palette)
+        self.validation.strip.set_palette(palette)
         self._power_measured.setPen(pg.mkPen(palette.measured, width=2))
         self._power_predicted.setPen(pg.mkPen(palette.predicted, width=2, style=Qt.PenStyle.DashLine))
         self._deviation.setPen(pg.mkPen(palette.deviation, width=2))
@@ -253,17 +256,18 @@ class Dashboard(QMainWindow):
 
     def _show_kpis(self, latest: Sample | None, energy_wh: float) -> None:
         if latest is None:
-            for tile in self.tiles.values():
-                tile.set_value(PLACEHOLDER)
+            self.strip.clear()
             return
         readings = format_readings(latest)
-        self.tiles["p_measured"].set_value(readings["P"])
-        self.tiles["p_predicted"].set_value(readings["P_pred"])
-        self.tiles["deviation"].set_value(f"{latest.deviation_pct:+.1f} %")
-        self.tiles["energy"].set_value(f"{energy_wh:.1f} Wh")
-        self.tiles["state"].set_value(
-            latest.state.value, STATE_COLOURS[latest.state], STATE_TEXT_COLOURS[latest.state]
+        self.strip.set_values(
+            {
+                "p_measured": readings["P"],
+                "p_predicted": readings["P_pred"],
+                "deviation": f"{latest.deviation_pct:+.1f} %",
+                "energy": f"{energy_wh:.1f} Wh",
+            }
         )
+        self.strip.set_value("state", latest.state.value, STATE_COLOURS[latest.state], STATE_TEXT_COLOURS[latest.state])
 
     def _plot_columns(self) -> None:
         """Hand each curve its full column once per tick: one setData per curve."""
@@ -317,49 +321,48 @@ class Dashboard(QMainWindow):
             self._band_items.append(region)
 
     def _build_layout(self) -> None:
-        tiles = QGridLayout()
-        for column, tile in enumerate(self.tiles.values()):
-            tiles.addWidget(tile, 0, column)
+        conditions = QWidget()
+        conditions_layout = QVBoxLayout(conditions)
+        conditions_layout.setContentsMargins(0, 0, 0, 0)
+        conditions_layout.addWidget(self.irradiance_plot)
+        conditions_layout.addWidget(self.temperature_plot)
 
-        power_box = _framed("Measured vs predicted power", self.power_plot)
-        deviation_box = _framed("Power deviation", self.deviation_plot)
-        irradiance_box = QGroupBox("Irradiance and temperature")
-        irradiance_layout = QVBoxLayout(irradiance_box)
-        irradiance_layout.addWidget(self.irradiance_plot)
-        irradiance_layout.addWidget(self.temperature_plot)
-        events_box = QGroupBox("Latest events")
-        events_layout = QVBoxLayout(events_box)
-        events_layout.addWidget(self.event_list)
-
-        # One grid of cards, most telling first: power against the twin and the deviation, then the
-        # conditions behind them, then the electrical detail, then the distributions and the event log.
+        # Every chart is a dock. The first row is power against the twin, the deviation and the conditions behind
+        # them; the second is the electrical detail and, tabbed together, the distributions and the event list.
         live = self.live
-        charts = QGridLayout()
-        charts.addWidget(power_box, 0, 0, 1, 2)
-        charts.addWidget(deviation_box, 0, 2)
-        charts.addWidget(irradiance_box, 1, 0)
-        charts.addWidget(live.voltage_current_box, 1, 1)
-        charts.addWidget(live.energy_box, 1, 2)
-        charts.addWidget(live.curves_box, 2, 0, 1, 2)
-        charts.addWidget(live.states_box, 2, 2)
-        charts.addWidget(live.histogram_box, 3, 0)
-        charts.addWidget(events_box, 3, 1, 1, 2)
-        for column in range(CARD_COLUMNS):
-            charts.setColumnStretch(column, 1)
-        for row in range(CARD_ROWS):
-            charts.setRowMinimumHeight(row, CARD_MIN_HEIGHT_PX)
-            charts.setRowStretch(row, 1)
-        body = QWidget()
-        body.setLayout(charts)
-        # The cards scroll, so a short window shows the first rows and the rest a scroll away; the KPI row stays put.
-        self.overview_scroll = QScrollArea()
-        self.overview_scroll.setWidgetResizable(True)
-        self.overview_scroll.setWidget(body)
+        self.charts = QMainWindow()
+        self.charts.setDockNestingEnabled(True)
+        self.charts.setCentralWidget(None)
+        self.charts.setTabPosition(Qt.DockWidgetArea.AllDockWidgetAreas, QTabWidget.TabPosition.North)
+        self.docks = {
+            "power": _dock("Power", self.power_plot),
+            "deviation": _dock("Deviation", self.deviation_plot),
+            "conditions": _dock("Irradiance and temperature", conditions),
+            "electrical": _dock("Voltage and current", live.voltage_current_box),
+            "curves": _dock("I-V and P-V", live.curves_box),
+            "energy": _dock("Energy", live.energy_box),
+            "histogram": _dock("Deviation spread", live.histogram_box),
+            "states": _dock("Time in state", live.states_box),
+            "events": _dock("Events", self.event_list),
+        }
+        docks = self.docks
+        self.charts.addDockWidget(Qt.DockWidgetArea.TopDockWidgetArea, docks["power"])
+        self.charts.splitDockWidget(docks["power"], docks["deviation"], Qt.Orientation.Horizontal)
+        self.charts.splitDockWidget(docks["deviation"], docks["conditions"], Qt.Orientation.Horizontal)
+        self.charts.addDockWidget(Qt.DockWidgetArea.BottomDockWidgetArea, docks["electrical"])
+        self.charts.splitDockWidget(docks["electrical"], docks["curves"], Qt.Orientation.Horizontal)
+        self.charts.splitDockWidget(docks["curves"], docks["energy"], Qt.Orientation.Horizontal)
+        for key in ("histogram", "states", "events"):
+            self.charts.tabifyDockWidget(docks["energy"], docks[key])
+        docks["energy"].raise_()
+        self.charts.resizeDocks([docks["power"], docks["deviation"], docks["conditions"]], [5, 3, 3], Qt.Orientation.Horizontal)
+        self.charts.resizeDocks([docks["electrical"], docks["curves"], docks["energy"]], [3, 4, 3], Qt.Orientation.Horizontal)
 
         self.overview = QWidget()
         layout = QVBoxLayout(self.overview)
-        layout.addLayout(tiles)
-        layout.addWidget(self.overview_scroll, 1)
+        layout.setSpacing(8)
+        layout.addWidget(self.strip)
+        layout.addWidget(self.charts, 1)
         self._idle_page, self.idle_message, self.open_hmi_button = self._build_idle_page()
         self._pages = QStackedWidget()
         self._pages.addWidget(self._idle_page)
@@ -396,8 +399,9 @@ def _chart(left_label: str) -> pg.PlotWidget:
     return plot
 
 
-def _framed(title: str, plot: pg.PlotWidget) -> QGroupBox:
-    box = QGroupBox(title)
-    layout = QVBoxLayout(box)
-    layout.addWidget(plot)
-    return box
+def _dock(title: str, widget: QWidget) -> QDockWidget:
+    """A chart as a dock: movable, floatable and closable, with its title in a flat title bar."""
+    dock = QDockWidget(title)
+    dock.setObjectName(f"dock_{title}")
+    dock.setWidget(widget)
+    return dock
