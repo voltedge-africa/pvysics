@@ -1,10 +1,10 @@
 import pytest
 
-from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, MetricStrip, split_reading
+from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, Group, MetricStrip, Tile, split_reading
 from pvysics.gui.palette import DARK, LIGHT
 from pvysics.run import State
 
-GROUPS = [("Plant", [("G", "Irradiance G"), ("V", "Voltage V")]), ("Comparison", [("dev", "Deviation")])]
+GROUPS = [Group("Plant", [Tile("G", "Irradiance"), Tile("V", "Voltage")]), Group("Comparison", [Tile("dev", "Deviation", "hero")])]
 
 
 @pytest.mark.parametrize(

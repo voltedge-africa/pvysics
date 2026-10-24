@@ -31,7 +31,7 @@ from pvysics.faults import FaultKind
 from pvysics.gui.palette import STATE_COLOURS
 from pvysics.gui.process_view import PLACEHOLDER
 from pvysics.gui.ui_helpers import role_label, set_property
-from pvysics.gui.metric_strip import MetricStrip
+from pvysics.gui.metric_strip import Group, MetricStrip, Tile
 from pvysics.gui.palette import LIGHT, Palette
 from pvysics.run import RunConfig, State
 from pvysics.validation import NEAR_ZERO_W, STATE_ORDER, ValidationReport, run_validation
@@ -87,15 +87,16 @@ class ValidationView(QWidget):
         self._worker: ValidationWorker | None = None
         self.strip = MetricStrip(
             [
-                ("Accuracy on healthy data", [("mae", "MAE"), ("rmse", "RMSE"), ("mape", "MAPE")]),
-                (
+                Group("Accuracy on healthy data", [Tile("mae", "MAE"), Tile("rmse", "RMSE"), Tile("mape", "MAPE")], spread=True),
+                Group(
                     "Fault detection",
                     [
-                        ("detection_rate", "Detection rate"),
-                        ("mean_delay", "Mean delay"),
-                        ("false_alarm_config", "False alarms"),
-                        ("false_alarm_derived", "False alarms, derived limits"),
+                        Tile("detection_rate", "Detection rate"),
+                        Tile("mean_delay", "Mean delay"),
+                        Tile("false_alarm_config", "False alarms"),
+                        Tile("false_alarm_derived", "False alarms, derived limits"),
                     ],
+                    spread=True,
                 ),
             ],
             palette,
@@ -347,7 +348,7 @@ def _section(title: str, body: QWidget) -> QWidget:
     section = QWidget()
     layout = QVBoxLayout(section)
     layout.setContentsMargins(0, 0, 0, 0)
-    layout.addWidget(role_label(title.upper(), "section"))
+    layout.addWidget(role_label(title, "section"))
     layout.addWidget(body)
     layout.addStretch(1)
     return section

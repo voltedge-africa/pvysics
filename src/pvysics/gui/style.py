@@ -49,7 +49,7 @@ QLabel[role="muted"] {{ color: {p.muted_text}; }}
 QLabel[role="strong"] {{ font-weight: 600; }}
 QLabel[role="value"] {{ font-size: 15pt; font-weight: 600; }}
 QLabel[role="dirty"] {{ color: {p.warning}; font-weight: 600; }}
-QLabel[role="section"] {{ color: {p.muted_text}; font-size: 8pt; font-weight: 700; }}
+QLabel[role="section"] {{ color: {p.muted_text}; font-weight: 600; }}
 QLabel[role="hero"] {{ font-size: 22pt; font-weight: 700; }}
 QLabel[role="title"] {{ font-size: 15pt; font-weight: 700; }}
 
@@ -120,9 +120,13 @@ QListWidget#sectionNav::item {{
 }}
 QListWidget#sectionNav::item:hover {{ color: {p.text}; }}
 QListWidget#sectionNav::item:selected {{
+    border: none;
     color: {p.highlight};
     background-color: transparent;
 }}
+
+QListWidget::item {{ padding: 4px 6px; }}
+QListWidget::item:selected {{ border: 1px solid {p.highlight}; color: {p.text}; }}
 
 QListWidget, QPlainTextEdit {{
     background-color: transparent;
@@ -138,6 +142,10 @@ QToolButton[role="chartExport"] {{
 }}
 QToolButton[role="chartExport"]:hover {{ border-color: {p.highlight}; }}
 QToolButton[role="chartExport"]::menu-indicator {{ image: none; }}
+
+QTableWidget {{ background: transparent; border: none; gridline-color: {p.card_border}; }}
+QHeaderView::section {{ background: transparent; color: {p.muted_text}; border: none; padding: 5px 6px; font-weight: 600; }}
+QTableCornerButton::section {{ background: transparent; border: none; }}
 
 QProgressBar {{
     border: 1px solid {p.card_border};

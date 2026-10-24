@@ -323,7 +323,7 @@ def test_live_charts_follow_the_theme_and_a_new_chart_starts_in_the_current_them
     for plot in (live.voltage_plot, live.current_plot, live.iv_plot, live.pv_plot, live.energy_plot,
                  live.histogram_plot, live.state_plot):
         assert plot.backgroundBrush().color() == QColor(DARK.chart_background)
-        assert plot.getAxis("left").pen().color() == QColor(DARK.chart_foreground)
+        assert plot.getAxis("left").pen().color() == QColor(DARK.muted_text)
     assert live._voltage.opts["pen"].color() == QColor(DARK.voltage)
 
     theme.set_choice("light")

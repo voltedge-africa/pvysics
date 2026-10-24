@@ -31,7 +31,7 @@ from PyQt6.QtWidgets import (
 from pvysics.gui.log_pane import bottom_log_pane
 from pvysics.gui.live_charts import LiveCharts
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
-from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, MetricStrip
+from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, Group, MetricStrip, Tile
 from pvysics.gui.process_view import format_readings
 from pvysics.gui.ui_helpers import CompactPlot, pane
 from pvysics.gui.theme import ThemeMenu, style_plot
@@ -130,15 +130,16 @@ class Dashboard(QMainWindow):
 
         self.strip = MetricStrip(
             [
-                (
+                Group(
                     "Now",
                     [
-                        ("p_measured", "P measured"),
-                        ("p_predicted", "P predicted"),
-                        ("deviation", "Deviation"),
-                        ("state", "State"),
-                        ("energy", "Energy"),
+                        Tile("p_measured", "Measured power"),
+                        Tile("p_predicted", "Predicted power"),
+                        Tile("deviation", "Deviation"),
+                        Tile("state", "State"),
+                        Tile("energy", "Energy today"),
                     ],
+                    spread=True,
                 )
             ],
             self._theme.palette,
@@ -341,8 +342,8 @@ class Dashboard(QMainWindow):
             "electrical": _dock("Voltage and current", live.voltage_current_box),
             "curves": _dock("I-V and P-V", live.curves_box),
             "energy": _dock("Energy", live.energy_box),
-            "histogram": _dock("Deviation spread", live.histogram_box),
-            "states": _dock("Time in state", live.states_box),
+            "histogram": _dock("Spread", live.histogram_box),
+            "states": _dock("States", live.states_box),
             "events": _dock("Events", self.event_list),
         }
         docks = self.docks

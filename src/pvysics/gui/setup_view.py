@@ -199,7 +199,7 @@ class ProfileDialog(QDialog):
         layout.setSpacing(14)
         layout.addWidget(role_label(file_name, "title"))
         layout.addLayout(mapping)
-        layout.addWidget(role_label("FIRST ROWS", "section"))
+        layout.addWidget(role_label("First rows", "section"))
         layout.addWidget(self.preview_table)
         layout.addWidget(self.checks_label)
         layout.addWidget(buttons)

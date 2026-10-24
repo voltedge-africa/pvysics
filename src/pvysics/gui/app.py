@@ -4,6 +4,7 @@ from PyQt6.QtQuick import QQuickWindow, QSGRendererInterface
 from PyQt6.QtWidgets import QApplication
 
 from pvysics.gui.cli import BOTH, DASHBOARD, HMI, parse_opening
+from pvysics.gui.fonts import install as install_fonts
 from pvysics.gui.session import Session
 
 
@@ -13,6 +14,7 @@ def main(argv: list[str] | None = None) -> int:
     # The QML figures are flat type and a few rectangles: software rendering needs no GPU and looks the same everywhere.
     QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.Software)
     app = QApplication.instance() or QApplication(sys.argv)
+    install_fonts(app)
     app.setOrganizationName("pvysics")  # names the QSettings store, which is platform-neutral
     app.setApplicationName("pvysics")
     session = Session()  # one run for the whole app; it lives as long as the event loop

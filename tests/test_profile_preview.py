@@ -107,7 +107,7 @@ def test_the_preview_charts_follow_the_theme_and_a_new_preview_starts_in_the_cur
 
     for plot in (dialog.irradiance_plot, dialog.temperature_plot):
         assert plot.backgroundBrush().color() == QColor(DARK.chart_background)
-        assert plot.getAxis("left").pen().color() == QColor(DARK.chart_foreground)
+        assert plot.getAxis("left").pen().color() == QColor(DARK.muted_text)
     assert dialog.irradiance_curve.opts["pen"].color() == QColor(DARK.irradiance)
     assert dialog.temperature_curve.opts["pen"].color() == QColor(DARK.temperature)
 

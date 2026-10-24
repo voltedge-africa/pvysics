@@ -50,7 +50,7 @@ def test_start_plays_pause_freezes_and_reset_returns_to_the_start(qtbot):
     view.reset_button.click()
 
     assert view.time_label.text() == PLACEHOLDER
-    assert view.banner.text() == "Ready"
+    assert view.strip.state_text == ""
     assert view.strip.value("G") == PLACEHOLDER
     view.start_button.click()
     window.playback.tick()
@@ -117,19 +117,19 @@ def test_banner_and_gauge_follow_normal_warning_and_abnormal_faults(qtbot):
     view.start_button.click()
 
     window.playback.tick()
-    assert view.banner.colour() == GREEN
+    assert view.strip.state_colour == GREEN
     assert view.strip.gauge_state is State.NORMAL
 
     window.playback.inject(Fault(FaultKind.SENSOR_DRIFT, 0.08))  # a deviation between the limits
     window.playback.tick()
-    assert view.banner.colour() == AMBER
-    assert view.banner.text() == "Warning"
+    assert view.strip.state_colour == AMBER
+    assert view.strip.state_text == "Warning"
     assert view.strip.gauge_state is State.WARNING
 
     view.fault_buttons[FaultKind.SENSOR_DRIFT].click()  # the default drift, past the abnormal limit
     window.playback.tick()
-    assert view.banner.colour() == RED
-    assert view.banner.text() == "Abnormal"
+    assert view.strip.state_colour == RED
+    assert view.strip.state_text == "Abnormal"
     assert view.strip.gauge_state is State.ABNORMAL
 
 
@@ -141,11 +141,11 @@ def test_fault_button_injects_and_clear_all_returns_the_banner_to_normal(qtbot):
 
     view.fault_buttons[FaultKind.PARTIAL_SHADING].click()
     window.playback.tick()
-    assert view.banner.text() == "Abnormal"
+    assert view.strip.state_text == "Abnormal"
 
     view.clear_faults_button.click()
     window.playback.tick()
-    assert view.banner.text() == "Normal"
+    assert view.strip.state_text == "Normal"
 
 
 def test_alarm_list_shows_time_severity_and_cause_and_can_be_acknowledged(qtbot):
@@ -225,7 +225,7 @@ def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
     window.show()
     qtbot.waitExposed(window)
     view = window.process_view
-    assert view.banner.text() == "Ready"
+    assert view.strip.state_text == ""
 
     window.playback.set_speed(FASTEST)
     view.start_button.click()
@@ -236,7 +236,7 @@ def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
         window.playback.tick()
     window.grab()
 
-    assert view.banner.text() in {"Normal", "Warning", "Abnormal"}
+    assert view.strip.state_text in {"Normal", "Warning", "Abnormal"}
     assert view.strip.value("G") != PLACEHOLDER
     assert view.strip.value("P_pred") != PLACEHOLDER
     assert view.time_label.text() != PLACEHOLDER

@@ -64,18 +64,16 @@ This is where you run the simulation.
 | **Reset** | Clears the run so it can start again. |
 | **Speed** (`1x` to `28800x`) | How many times faster than real time the run plays. At 28800x a whole day plays in about 3 seconds. |
 | Clock | The simulated date and time of the current sample. |
-| **Inject** buttons | Partial shading, Soiling, Rs increase, Diode failure, Sensor drift. Click one to inject that fault into the plant. A fault that is on shows as a dark button. Use **Clear all** to remove faults. |
+| **Inject a fault** buttons | Partial shading, Soiling, Rs increase, Diode failure, Sensor drift. Click one to inject that fault into the plant. A fault that is on shows as a dark button. Use **Clear all** to remove faults. |
 | **Clear all** | Removes every injected fault. |
-
-Once the run is playing, the right end shows a one-line status and a coloured pill (Normal, Warning or Abnormal).
 
 **Figures**
 
-| Group | Figures |
+| Group | Shows |
 |---|---|
-| Plant, measured | Irradiance G, module temperature T, voltage V, current I, measured power P |
-| Twin | Predicted power P |
-| Comparison | Deviation, with a bar showing the 5 % and 10 % limits (green is Normal, amber is Warning, red is Abnormal) |
+| Deviation | The largest figure on the screen: how far the plant is from the twin, in percent. Under it, the state in words, and a rail with the limits (zero in the middle, warning and abnormal either side) and a marker for where the deviation is now. |
+| Power | Measured power from the plant and predicted power from the twin |
+| Conditions | Irradiance, module temperature, voltage and current |
 
 **The chart** plots measured power (black) against predicted power (green, dashed). A dashed vertical line marks a fault injection.
 

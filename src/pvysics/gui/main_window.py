@@ -17,7 +17,7 @@ from pvysics.run import RunConfig
 log = logging.getLogger(__name__)
 DEFAULT_WIDTH_PX = 1280
 DEFAULT_HEIGHT_PX = 800
-ALARMS_WIDTH_PX = 300
+ALARMS_WIDTH_PX = 360
 
 if TYPE_CHECKING:
     from pvysics.gui.session import Session

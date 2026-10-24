@@ -26,33 +26,34 @@ from PyQt6.QtWidgets import (
 from pvysics.alarms import Alarm, AlarmLog
 from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.data_bus import DataBus
-from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, MetricStrip
-from pvysics.gui.palette import LIGHT, STATE_COLOURS, STATE_TEXT_COLOURS, Palette
+from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, Group, MetricStrip, Tile
+from pvysics.gui.palette import LIGHT, STATE_COLOURS, Palette
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.gui.trend import PowerTrend
-from pvysics.gui.ui_helpers import ElidedLabel, role_label, set_property, vertical_separator
+from pvysics.gui.ui_helpers import role_label, set_property, vertical_separator
 from pvysics.history import RunHistory
 from pvysics.run import POWER_FLOOR_W, Sample, State, Thresholds
 
 PLACEHOLDER = "-"
-IDLE_TEXT = "Ready"
-IDLE_COLOUR = "#616161"
 
-IDLE_SENTENCE = ""
-IDLE_DETAIL = "The twin predicts power from the measured irradiance and temperature, then compares."
 NIGHT_SENTENCE = "Too little light to compare."
 NIGHT_DETAIL = "The twin and the plant both read close to zero, so the state stays Normal."
-# (key, caption); the first reading of a panel is its headline figure.
-PLANT_READINGS = [
-    ("G", "Irradiance G"),
-    ("T", "Module temp T"),
-    ("V", "Voltage V"),
-    ("I", "Current I"),
-    ("P", "Power P measured"),
-]
-TWIN_READINGS = [("P_pred", "Power P predicted")]
 DEVIATION_KEY = "deviation"
-TWIN_NOTE = "Single Diode Model with the datasheet parameters, evaluated at the measured G and T."
+STRIP_GROUPS = [
+    Group("Deviation", [Tile(DEVIATION_KEY, "", "hero")], columns=1, weight=5),
+    Group("Power", [Tile("P", "Measured", "large"), Tile("P_pred", "Predicted", "large")], columns=1, weight=2),
+    Group(
+        "Conditions",
+        [
+            Tile("G", "Irradiance", "medium"),
+            Tile("T", "Module temperature", "medium"),
+            Tile("V", "Voltage", "medium"),
+            Tile("I", "Current", "medium"),
+        ],
+        columns=2,
+        weight=4,
+    ),
+]
 FAULT_BUTTON_LABELS = {
     FaultKind.PARTIAL_SHADING: "Partial shading",
     FaultKind.SOILING: "Soiling",
@@ -77,7 +78,7 @@ def format_number(value: float, decimals: int, signed: bool = False) -> str:
 
 
 def format_readings(sample: Sample) -> dict[str, str]:
-    """The display text for every reading in a Sample, keyed as in PLANT_READINGS and TWIN_READINGS."""
+    """The display text for every reading in a Sample, keyed as in STRIP_GROUPS."""
     return {
         "G": f"{format_number(sample.measured_irradiance, 0)} W/m²",
         "T": f"{format_number(sample.measured_temperature, 1)} °C",
@@ -94,33 +95,6 @@ def _tinted(colour: str, alpha: float) -> QColor:
     return tint
 
 
-class StateBanner(QLabel):
-    """The State as a coloured pill: green, amber or red, or grey before a run starts."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setMinimumWidth(self.fontMetrics().horizontalAdvance("Abnormal") * 3 // 2)
-        self._colour = IDLE_COLOUR
-        self.show_state(None)
-
-    def colour(self) -> str:
-        return self._colour
-
-    def show_state(self, state: State | None) -> None:
-        if state is None:
-            text, colour, text_colour = IDLE_TEXT, IDLE_COLOUR, "#ffffff"
-        else:
-            text, colour, text_colour = state.value, STATE_COLOURS[state], STATE_TEXT_COLOURS[state]
-        self._colour = colour
-        self.setText(text)
-        self.setVisible(state is not None)  # nothing to say before a run starts
-        self.setStyleSheet(
-            f"background-color: {colour}; color: {text_colour}; border-radius: 6px;"
-            " padding: 3px 12px; font-weight: 700;"
-        )
-
-
 class ReadingsPanel(QWidget):
     """A titled block of readings. The first reading is the headline figure, the rest are listed below it."""
 
@@ -135,7 +109,7 @@ class ReadingsPanel(QWidget):
         self._values: dict[str, QLabel] = {}
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(role_label(title.upper(), "section"))
+        layout.addWidget(role_label(title, "section"))
         (head_key, head_caption), rest = readings[0], readings[1:]
         head_value = role_label(PLACEHOLDER, "hero")
         self._values[head_key] = head_value
@@ -198,6 +172,7 @@ class AlarmPanel(QWidget):
         self.summary_label = QLabel()
         self.list_widget = QListWidget()
         self.list_widget.setWordWrap(True)
+        self.list_widget.setTextElideMode(Qt.TextElideMode.ElideNone)
         self.list_widget.setMinimumHeight(self.fontMetrics().height() * 3)  # three rows; it scrolls when more
         self.acknowledge_button = QPushButton("Acknowledge")
         self.acknowledge_button.setEnabled(False)
@@ -315,21 +290,7 @@ class ProcessView(QWidget):
         super().__init__(parent)
         self._controller = controller
         palette = LIGHT if theme is None else theme.palette
-        self.banner = StateBanner()
-        self.summary_label = ElidedLabel(IDLE_SENTENCE)
-        self.summary_label.setProperty("role", "strong")
-        self.summary_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        self.summary_label.setToolTip(IDLE_DETAIL)
-        self.strip = MetricStrip(
-            [
-                ("Plant, measured", PLANT_READINGS),
-                ("Twin", TWIN_READINGS),
-                ("Comparison", [(DEVIATION_KEY, "Deviation")]),
-            ],
-            palette,
-            gauge_key=DEVIATION_KEY,
-        )
-        self.strip.setToolTip(TWIN_NOTE)
+        self.strip = MetricStrip(STRIP_GROUPS, palette, gauge_key=DEVIATION_KEY)
         self.strip.set_limits(controller.config.thresholds.warning_pct, controller.config.thresholds.abnormal_pct)
         self.trend = PowerTrend(palette)
         self.alarm_panel = AlarmPanel(bus)
@@ -399,14 +360,11 @@ class ProcessView(QWidget):
         row.addWidget(vertical_separator())
         row.addWidget(self.speed_box)
         row.addWidget(self.time_label)
-        row.addWidget(vertical_separator())
-        row.addWidget(role_label("Inject", "muted"))
+        row.addStretch(1)
+        row.addWidget(role_label("Inject a fault", "muted"))
         for button in self.fault_buttons.values():
             row.addWidget(button)
         row.addWidget(self.clear_faults_button)
-        row.addWidget(vertical_separator())
-        row.addWidget(self.summary_label, 1)
-        row.addWidget(self.banner)
         return toolbar
 
     def _on_fault_clicked(self, *_args) -> None:
@@ -444,25 +402,22 @@ class ProcessView(QWidget):
         readings = format_readings(sample)
         readings[DEVIATION_KEY] = f"{format_number(sample.deviation_pct, 1, signed=True)} %"
         self.strip.set_values(readings)
-        self.banner.show_state(sample.state)
+        sentence, detail = describe_state(sample, self._controller.config.thresholds)
+        self.strip.set_status(sample.state.value, sample.state, sentence)
+        self.strip.setToolTip(detail)
         thresholds = self._controller.config.thresholds
         self.strip.set_gauge(sample.deviation_pct, sample.state, thresholds.warning_pct, thresholds.abnormal_pct)
         self.time_label.setText(np.datetime_as_string(sample.timestamp, unit="m").replace("T", " "))
-        sentence, detail = describe_state(sample, self._controller.config.thresholds)
-        self.summary_label.setText(sentence)
-        self.summary_label.setToolTip(detail)
         for kind, button in self.fault_buttons.items():
             set_property(button, "variant", "active" if kind in sample.active_faults else "tool")
         self.trend.add_sample(sample)
 
     def _show_start(self) -> None:
-        self.banner.show_state(None)
+        self.strip.setToolTip("")
         self.strip.clear()
         thresholds = self._controller.config.thresholds
         self.strip.set_limits(thresholds.warning_pct, thresholds.abnormal_pct)
         self.time_label.setText(PLACEHOLDER)
-        self.summary_label.setText(IDLE_SENTENCE)
-        self.summary_label.setToolTip(IDLE_DETAIL)
         for button in self.fault_buttons.values():
             set_property(button, "variant", "tool")
         self.trend.clear()

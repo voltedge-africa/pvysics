@@ -15,7 +15,7 @@ Each window has a log pane at its bottom. It collapses to its header, and Hide (
 
 Every chart can be explored: the wheel zooms, a drag pans, and an **Export** button appears at the chart's top right corner while the pointer is over it (image, data as CSV, or reset the view).
 
-The look is flat, with no boxes: type, space and hairlines on the window. It is green, black, gray and white (the department's colours), in a light and a dark theme that follow the system setting. View > System, Light or Dark overrides it. Amber and red appear only where they mean something: the Warning and Abnormal states, alarms and errors.
+The type is Barlow, bundled with the app (SIL Open Font License, in `src/pvysics/gui/fonts/`), with tabular digits so live figures do not jitter. The look is flat, with no boxes: type, space and hairlines on the window. It is green, black, gray and white (the department's colours), in a light and a dark theme that follow the system setting. View > System, Light or Dark overrides it. Amber and red appear only where they mean something: the Warning and Abnormal states, alarms and errors.
 
 The default input is static: the bundled profile is one hourly NASA POWER sample for Durban, and the default module is a generic 60-cell, 250 W datasheet. The Setup tab can also fetch a profile from NASA POWER for a chosen place and dates (see Fetching a profile below). There is no hardware.
 

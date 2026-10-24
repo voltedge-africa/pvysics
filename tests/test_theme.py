@@ -31,6 +31,7 @@ WCAG_TEXT_RATIO = 4.5
 def test_text_and_chart_foreground_contrast_exceed_wcag_ratio(palette: Palette):
     assert contrast_ratio(palette.text, palette.window) > WCAG_TEXT_RATIO
     assert contrast_ratio(palette.chart_foreground, palette.chart_background) > WCAG_TEXT_RATIO
+    assert contrast_ratio(palette.muted_text, palette.chart_background) > WCAG_TEXT_RATIO  # the axes and tick labels
     assert contrast_ratio(palette.muted_text, palette.window) > WCAG_TEXT_RATIO
     assert contrast_ratio(palette.error, palette.window) > WCAG_TEXT_RATIO
 
@@ -187,7 +188,7 @@ def test_smoke_switching_theme_with_hmi_and_dashboard_open_recolours_charts(qtbo
     assert app.palette().color(QPalette.ColorRole.Window) == QColor(DARK.window)
     for plot in (dashboard.power_plot, dashboard.deviation_plot, window.model_view.iv_plot, window.model_view.pv_plot):
         assert plot.backgroundBrush().color() == QColor(DARK.chart_background)
-        assert plot.getAxis("left").pen().color() == QColor(DARK.chart_foreground)
+        assert plot.getAxis("left").pen().color() == QColor(DARK.muted_text)
     assert dashboard._power_measured.opts["pen"].color() == QColor(DARK.measured)
     for label in dashboard.power_plot.plotItem.legend.items:
         assert DARK.chart_foreground in label[1].item.toHtml().lower()
@@ -208,4 +209,4 @@ def test_a_chart_created_after_a_theme_change_starts_in_that_theme(qtbot, tmp_pa
     qtbot.addWidget(view)
 
     assert view.iv_plot.backgroundBrush().color() == QColor(DARK.chart_background)
-    assert view.pv_plot.getAxis("bottom").pen().color() == QColor(DARK.chart_foreground)
+    assert view.pv_plot.getAxis("bottom").pen().color() == QColor(DARK.muted_text)

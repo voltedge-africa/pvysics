@@ -11,7 +11,7 @@ import logging
 
 import pyqtgraph as pg
 from PyQt6.QtCore import QCoreApplication, QObject, QSettings, Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QActionGroup, QColor, QGuiApplication, QPalette
+from PyQt6.QtGui import QAction, QActionGroup, QColor, QFont, QGuiApplication, QPalette
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
 from pvysics.gui.palette import CHOICE_DARK, CHOICE_LIGHT, CHOICE_SYSTEM, CHOICES, Palette, palette_for
@@ -107,13 +107,20 @@ def qt_palette(palette: Palette) -> QPalette:
     return qt
 
 
+GRID_ALPHA = 0.18
+
+
 def style_plot(plot: pg.PlotWidget, palette: Palette) -> None:
     """Background, axes, labels and legend of a chart in the palette. Series colours belong to the view."""
     plot.setBackground(palette.chart_background)
+    plot.showGrid(x=False, y=True, alpha=GRID_ALPHA)  # a faint rule per tick on the value axis; time needs none
+    tick_font = QFont(QGuiApplication.font())
+    tick_font.setPointSizeF(max(tick_font.pointSizeF() - 1.0, 7.0))
     for side in ("left", "bottom"):
         axis = plot.getAxis(side)
-        axis.setPen(palette.chart_foreground)  # the axis line, its ticks and the grid lines
-        axis.setTextPen(palette.chart_foreground)
+        axis.setPen(palette.muted_text)  # the axis line, its ticks and the grid lines
+        axis.setTextPen(palette.muted_text)
+        axis.setTickFont(tick_font)
     legend = plot.plotItem.legend
     if legend is not None:
         legend.setLabelTextColor(palette.chart_foreground)
