@@ -18,6 +18,8 @@ from pvysics.run import Sample
 UI_TICK_MS = 100
 MIN_PLOT_HEIGHT_PX = 110
 PLOT_HINT = QSize(320, 150)  # the trend shares the Process screen with cards, faults and alarms
+EMPTY_HOURS = 24  # the time axis of an empty trend
+EMPTY_POWER_W = 100  # and its power axis
 
 
 class PowerTrend(QWidget):
@@ -40,7 +42,7 @@ class PowerTrend(QWidget):
         self.plot.showGrid(x=True, y=True, alpha=0.25)
         self.plot.setLabel("left", "Power (W)")
         self.plot.setLabel("bottom", "Time since start (h)")
-        self.plot.enableAutoRange(x=True, y=True)
+        self._show_empty_view()
         self.plot.addLegend(offset=(10, 10))
         self.measured_curve = self.plot.plot([], [], name="P measured")
         self.predicted_curve = self.plot.plot([], [], name="P predicted")
@@ -98,11 +100,20 @@ class PowerTrend(QWidget):
         self.measured_curve.setData([], [])
         self.predicted_curve.setData([], [])
         self._dirty = False
+        self._show_empty_view()
+
+    def _show_empty_view(self) -> None:
+        """A day on the time axis and a modest power range, so a chart with no data has sensible axes."""
+        self.plot.setRange(xRange=(0, EMPTY_HOURS), yRange=(0, EMPTY_POWER_W), padding=0)
+        self._empty = True
 
     def flush(self) -> None:
         """Draw what has been buffered since the last flush, with one setData per curve."""
         if not self._dirty:
             return
+        if self._empty:
+            self._empty = False
+            self.plot.enableAutoRange(x=True, y=True)  # follow the data from the first sample on
         self.measured_curve.setData(self._hours, self._measured)
         self.predicted_curve.setData(self._hours, self._predicted)
         self._dirty = False

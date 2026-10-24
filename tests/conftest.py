@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pytest
 
@@ -44,3 +45,20 @@ def pytest_runtest_teardown(item):
             session.deleteLater()
         app.sendPostedEvents(None, QEvent.Type.DeferredDelete)
     return result
+
+
+def pytest_sessionfinish(session, exitstatus):
+    """Keep one harmless pyqtgraph shutdown message out of the output.
+
+    As the last window is torn down, pyqtgraph resizes a LabelItem that is not fully built and PyQt prints a
+    KeyError for its missing "justify" option. It is raised inside pyqtgraph's own virtual method, after every
+    test has finished, so the hook drops that one error and passes every other through.
+    """
+    previous = sys.excepthook
+
+    def hook(kind, value, trace):
+        if kind is KeyError and value.args == ("justify",):
+            return
+        previous(kind, value, trace)
+
+    sys.excepthook = hook

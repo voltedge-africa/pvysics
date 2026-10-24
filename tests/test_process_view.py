@@ -242,3 +242,17 @@ def test_offscreen_smoke_plays_a_short_run_through_the_window(qtbot):
     assert view.time_label.text() != PLACEHOLDER
     window.close()
     assert not window.isVisible()
+
+
+def test_an_empty_trend_shows_a_day_and_follows_the_data_from_the_first_sample(qtbot):
+    window = Session(config=midday_config()).open_hmi()
+    qtbot.addWidget(window)
+    trend = window.process_view.trend
+    (x_low, x_high), (y_low, y_high) = trend.plot.viewRange()
+
+    assert (x_low, x_high) == (0, 24)
+    assert y_low == 0 and y_high > 0
+    window.process_view.start_button.click()
+    window.playback.tick()
+    trend.flush()
+    assert trend.plot.plotItem.vb.state["autoRange"][0] is not False
