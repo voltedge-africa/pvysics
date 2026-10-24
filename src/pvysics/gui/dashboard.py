@@ -33,7 +33,7 @@ from pvysics.gui.live_charts import LiveCharts
 from pvysics.gui.palette import STATE_COLOURS, STATE_TEXT_COLOURS, Palette
 from pvysics.gui.metric_strip import GAUGE_SCALE_FACTOR, MetricStrip
 from pvysics.gui.process_view import format_readings
-from pvysics.gui.ui_helpers import CompactPlot
+from pvysics.gui.ui_helpers import CompactPlot, pane
 from pvysics.gui.theme import ThemeMenu, style_plot
 from pvysics.gui.validation_view import ValidationView
 from pvysics.run import Event, RunConfig, Sample, State, Thresholds
@@ -403,5 +403,5 @@ def _dock(title: str, widget: QWidget) -> QDockWidget:
     """A chart as a dock: movable, floatable and closable, with its title in a flat title bar."""
     dock = QDockWidget(title)
     dock.setObjectName(f"dock_{title}")
-    dock.setWidget(widget)
+    dock.setWidget(pane(widget))
     return dock

@@ -29,6 +29,7 @@ from PyQt6.QtWidgets import (
 from pvysics.gui.log_bridge import LogBridge
 from pvysics.gui.palette import Palette
 from pvysics.gui.theme import ThemeManager
+from pvysics.gui.ui_helpers import pane
 from pvysics.log_model import LogEntry, format_entry
 
 LEVEL_CHOICES = (
@@ -108,7 +109,8 @@ class LogPane(QDockWidget):
         layout.addWidget(self.text_view, 1)
         content = QWidget()
         content.setLayout(layout)
-        self.setWidget(content)
+        self._content = content
+        self.setWidget(pane(content))
 
         bridge.updated.connect(self._mark_dirty)
         theme.changed.connect(self._on_palette_changed)
@@ -134,8 +136,9 @@ class LogPane(QDockWidget):
         """Give the dock its height for the current state: the header when collapsed, else a few lines."""
         window = self.parentWidget()
         if isinstance(window, QMainWindow):
-            self.widget().layout().invalidate()  # a list shown or hidden changes the layout's size hint
-            self.widget().layout().activate()
+            for layout in (self._content.layout(), self.widget().layout()):
+                layout.invalidate()  # a list shown or hidden changes the layout's size hint
+                layout.activate()
             window.resizeDocks([self], [self.sizeHint().height()], Qt.Orientation.Vertical)
 
     def sizeHint(self) -> QSize:

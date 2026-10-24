@@ -41,7 +41,8 @@ QGroupBox::title {{
 }}
 
 QDockWidget {{ color: {p.muted_text}; font-weight: 600; }}
-QDockWidget::title {{ background: transparent; text-align: left; padding: 6px 2px; }}
+QFrame[pane="true"] {{ border: 1px solid {p.card_border}; }}
+QDockWidget::title {{ background: transparent; text-align: left; padding: 6px 8px; }}
 
 QLabel[role="caption"] {{ color: {p.muted_text}; font-size: 9pt; }}
 QLabel[role="muted"] {{ color: {p.muted_text}; }}

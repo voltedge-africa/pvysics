@@ -11,6 +11,7 @@ from pvysics.gui.model_view import ModelView
 from pvysics.gui.process_view import ProcessView
 from pvysics.gui.setup_view import SetupView
 from pvysics.gui.theme import ThemeMenu
+from pvysics.gui.ui_helpers import pane
 from pvysics.run import RunConfig
 
 log = logging.getLogger(__name__)
@@ -94,5 +95,5 @@ class MainWindow(QMainWindow):
 def _dock(title: str, widget: QWidget) -> QDockWidget:
     dock = QDockWidget(title)
     dock.setObjectName(f"dock_{title}")
-    dock.setWidget(widget)
+    dock.setWidget(pane(widget))
     return dock

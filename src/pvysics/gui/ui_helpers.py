@@ -31,6 +31,16 @@ def role_label(text: str, role: str, alignment=None) -> QLabel:
     return label
 
 
+def pane(widget: QWidget) -> QFrame:
+    """Wrap a dock's content in a hairline border, so neighbouring panes read as separate."""
+    frame = QFrame()
+    frame.setProperty("pane", "true")
+    layout = QHBoxLayout(frame)
+    layout.setContentsMargins(1, 1, 1, 1)
+    layout.addWidget(widget)
+    return frame
+
+
 def unit_row(field: QWidget, unit: str) -> QWidget:
     """A field with its unit in a muted label beside it, so the number field holds only the number."""
     row = QWidget()
