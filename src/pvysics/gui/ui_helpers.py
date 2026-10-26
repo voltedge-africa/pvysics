@@ -69,6 +69,12 @@ class FloatingDock(QDockWidget):
         self._restyle()
 
     def _restyle(self) -> None:
+        # The dock paints its own border while floating, so its pane drops the hairline (a stylesheet rule
+        # keyed on the dock's :floating state does not reach the pane, and leaves every docked pane unbordered)
+        pane_state = "floating" if self.isFloating() else "true"
+        for frame in self.findChildren(QFrame):
+            if frame.property("pane") is not None:
+                set_property(frame, "pane", pane_state)
         self.update()
 
 

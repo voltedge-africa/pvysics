@@ -42,7 +42,7 @@ QGroupBox::title {{
 }}
 
 QDockWidget {{ color: {p.muted_text}; font-weight: 600; }}
-QDockWidget:floating QFrame[pane="true"] {{ border: none; }}
+QFrame[pane="floating"] {{ border: none; }}
 QFrame[pane="true"] {{ border: 1px solid {p.card_border}; }}
 QDockWidget::title {{ background: transparent; text-align: left; padding: 6px 8px; }}
 
