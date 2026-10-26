@@ -209,6 +209,7 @@ uv run --group build python packaging/build.py
 
 PyInstaller cannot cross-compile, so run it on each platform you are packaging for. `packaging/release.sh` runs the tests, builds, writes `dist/SHA256SUMS` and prints the `gh release create` command to upload the files. Output goes to `dist/`:
 
-- Linux: `pvysics-<version>-linux-x86_64.tar.gz`. Unpack it and run `./install.sh` (per user, or `sudo PREFIX=/opt ./install.sh`).
+- Debian and derivatives: `pvysics_<version>_amd64.deb`, installed with `sudo apt install ./pvysics_*.deb`. It needs glibc at least as new as the build machine's (stated in its Depends), so build on the oldest Debian-family release you support.
+- Other Linux: `pvysics-<version>-linux-x86_64.tar.gz`. Unpack it and run `./install.sh` (per user, or `sudo PREFIX=/opt ./install.sh`).
 - Windows: `pvysics-<version>-windows.zip`, plus a `-setup.exe` when Inno Setup (`iscc`) is installed.
 - macOS: `pvysics-<version>-macos.dmg`. It is unsigned, so the first launch needs right-click, Open.
