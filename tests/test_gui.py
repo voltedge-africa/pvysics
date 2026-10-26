@@ -32,7 +32,7 @@ def windows_visible_when_main_runs(argv: list[str]) -> list[str]:
 
     QTimer.singleShot(0, inspect_and_quit)
 
-    assert main(argv) == 0
+    assert main(argv, splash=False) == 0
     return visible_titles
 
 

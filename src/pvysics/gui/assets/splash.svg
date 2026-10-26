@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" width="800" height="450">
+  <title>pvysics</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14612b"/>
+      <stop offset="1" stop-color="#0a3d1a"/>
+    </linearGradient>
+  </defs>
+  <rect width="800" height="450" fill="url(#bg)"/>
+  <!-- faint I-V and P-V curves across the background -->
+  <g fill="none" stroke="#ffffff" stroke-opacity="0.10" stroke-width="3" stroke-linecap="round">
+    <path d="M0 330 H330 C400 330 430 360 450 450"/>
+    <path d="M0 450 C180 360 380 190 480 190 C560 190 600 300 640 450"/>
+  </g>
+  <!-- the icon -->
+  <g transform="translate(70 100) scale(0.9)">
+    <rect width="256" height="256" rx="56" fill="#1f8a41"/>
+    <circle cx="196" cy="62" r="22" fill="#ffca28"/>
+    <g stroke="#ffca28" stroke-width="6" stroke-linecap="round">
+      <path d="M196 24v10M196 90v10M158 62h10M224 62h10M169 35l7 7M216 82l7 7M223 35l-7 7M176 82l-7 7"/>
+    </g>
+    <g transform="translate(0 6)">
+      <path d="M44 176 L84 98 H212 L172 176 Z" fill="#ffffff" fill-opacity="0.16" stroke="#ffffff" stroke-width="7" stroke-linejoin="round"/>
+      <g stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none">
+        <path d="M70.7 124H198.7M57.3 150H185.3"/>
+        <path d="M126.7 98L86.7 176M169.3 98L129.3 176"/>
+      </g>
+      <path d="M108 176v26M148 176v26M92 204H164" stroke="#ffffff" stroke-width="7" stroke-linecap="round" fill="none"/>
+    </g>
+  </g>
+  <text x="340" y="205" font-family="Barlow, sans-serif" font-weight="700" font-size="82" fill="#ffffff">pvysics</text>
+  <text x="344" y="248" font-family="Barlow, sans-serif" font-weight="500" font-size="24" fill="#ffffff" fill-opacity="0.85">Physics-informed digital twin</text>
+  <text x="344" y="278" font-family="Barlow, sans-serif" font-weight="500" font-size="24" fill="#ffffff" fill-opacity="0.85">for PV state estimation</text>
+  <rect x="344" y="316" width="120" height="4" rx="2" fill="#ffca28"/>
+  <text x="344" y="352" font-family="Barlow, sans-serif" font-weight="500" font-size="18" fill="#ffffff" fill-opacity="0.6">Loading…</text>
+</svg>

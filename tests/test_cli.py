@@ -50,3 +50,13 @@ def test_cli_imports_without_qt():
     result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
 
     assert result.returncode == 0, result.stderr
+
+
+def test_the_app_icon_and_splash_are_valid_svgs_that_render(qtbot):
+    from PyQt6.QtSvg import QSvgRenderer
+
+    from pvysics.gui.app import SPLASH_SIZE, _asset, splash_pixmap
+
+    for name in ("icon.svg", "splash.svg"):
+        assert QSvgRenderer(_asset(name)).isValid()
+    assert splash_pixmap().size().width() >= SPLASH_SIZE.width()

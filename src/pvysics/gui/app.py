@@ -1,8 +1,11 @@
 import sys
+from importlib.resources import files
 
-from PyQt6.QtCore import QtMsgType, qInstallMessageHandler
+from PyQt6.QtCore import QSize, Qt, QtMsgType, qInstallMessageHandler
+from PyQt6.QtGui import QIcon, QImage, QPainter, QPixmap
 from PyQt6.QtQuick import QQuickWindow, QSGRendererInterface
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtSvg import QSvgRenderer
+from PyQt6.QtWidgets import QApplication, QSplashScreen
 
 from pvysics.gui.cli import ALL, BOTH, DASHBOARD, HMI, SENSORS, parse_opening
 from pvysics.gui.fonts import install as install_fonts
@@ -29,8 +32,31 @@ def _qt_message(kind: QtMsgType, _context, message: str) -> None:
         print(message, file=sys.stderr)
 
 
-def main(argv: list[str] | None = None) -> int:
-    """Run the app. Switches on the command line choose the windows to open; none opens all three windows."""
+SPLASH_SIZE = QSize(800, 450)  # the splash image's own size, in logical pixels
+
+
+def _asset(name: str) -> str:
+    return str(files("pvysics.gui").joinpath("assets", name))
+
+
+def splash_pixmap() -> QPixmap:
+    """The splash image (assets/splash.svg) drawn sharp at the screen's pixel ratio."""
+    ratio = QApplication.primaryScreen().devicePixelRatio() if QApplication.primaryScreen() else 1.0
+    image = QImage(SPLASH_SIZE * ratio, QImage.Format.Format_ARGB32_Premultiplied)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    QSvgRenderer(_asset("splash.svg")).render(painter)
+    painter.end()
+    pixmap = QPixmap.fromImage(image)
+    pixmap.setDevicePixelRatio(ratio)
+    return pixmap
+
+
+def main(argv: list[str] | None = None, *, splash: bool = True) -> int:
+    """Run the app. Switches on the command line choose the windows to open; none opens all three windows.
+
+    The splash is painted by running the event loop briefly, so a caller that queues a timer for the loop passes
+    splash=False."""
     opening = parse_opening(sys.argv[1:] if argv is None else argv)  # a bad switch exits before Qt starts
     # The QML figures are flat type and a few rectangles: software rendering needs no GPU and looks the same everywhere.
     QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.Software)
@@ -39,8 +65,15 @@ def main(argv: list[str] | None = None) -> int:
     install_fonts(app)
     app.setOrganizationName("pvysics")  # names the QSettings store, which is platform-neutral
     app.setApplicationName("pvysics")
+    app.setWindowIcon(QIcon(_asset("icon.svg")))
+    screen = QSplashScreen(splash_pixmap()) if splash else None
+    if screen:
+        screen.show()
+        screen.repaint()  # paint it now: the session and its windows take a while to build before the event loop runs
     session = Session()  # one run for the whole app; it lives as long as the event loop
     show_windows(session, opening)
+    if screen:
+        screen.close()
     code = app.exec()
     session.close()  # removes the log handler; the run ends with the event loop
     return code

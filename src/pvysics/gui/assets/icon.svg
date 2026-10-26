@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <title>pvysics</title>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f8a41"/>
+      <stop offset="1" stop-color="#0b5a25"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
+  <!-- the sun -->
+  <circle cx="196" cy="62" r="22" fill="#ffca28"/>
+  <g stroke="#ffca28" stroke-width="6" stroke-linecap="round">
+    <path d="M196 24v10M196 90v10M158 62h10M224 62h10M169 35l7 7M216 82l7 7M223 35l-7 7M176 82l-7 7"/>
+  </g>
+  <!-- the panel: a tilted three by three grid of cells -->
+  <g transform="translate(0 6)">
+    <path d="M44 176 L84 98 H212 L172 176 Z" fill="#ffffff" fill-opacity="0.16" stroke="#ffffff" stroke-width="7" stroke-linejoin="round"/>
+    <g stroke="#ffffff" stroke-width="4" stroke-linecap="round" fill="none">
+      <path d="M70.7 124H198.7M57.3 150H185.3"/>
+      <path d="M126.7 98L86.7 176M169.3 98L129.3 176"/>
+    </g>
+    <path d="M108 176v26M148 176v26M92 204H164" stroke="#ffffff" stroke-width="7" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>
