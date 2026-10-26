@@ -4,7 +4,7 @@
 
 Writes to dist/: a .tar.gz with an install script (Linux), a .zip plus an Inno Setup script (Windows) or a .dmg
 (macOS). The result needs no Python on the target device. PyInstaller cannot cross-compile, so build on each
-platform (the CI workflow does).
+platform (run it on each machine).
 """
 
 import os

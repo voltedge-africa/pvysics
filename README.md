@@ -207,7 +207,7 @@ The packaged app bundles Python, Qt and every data file, so the target device ne
 uv run --group build python packaging/build.py
 ```
 
-PyInstaller cannot cross-compile, so run it on the platform you are packaging for (the `build` GitHub Actions workflow does all three). Output goes to `dist/`:
+PyInstaller cannot cross-compile, so run it on each platform you are packaging for. `packaging/release.sh` runs the tests, builds, writes `dist/SHA256SUMS` and prints the `gh release create` command to upload the files. Output goes to `dist/`:
 
 - Linux: `pvysics-<version>-linux-x86_64.tar.gz`. Unpack it and run `./install.sh` (per user, or `sudo PREFIX=/opt ./install.sh`).
 - Windows: `pvysics-<version>-windows.zip`, plus a `-setup.exe` when Inno Setup (`iscc`) is installed.
