@@ -172,6 +172,7 @@ def test_the_batch_ignores_the_configs_own_scheduled_faults():
         assert all(set(s.active_faults) <= {fault_run.kind} for s in fault_run.result.samples)
 
 
+@pytest.mark.slow
 def test_every_labelled_fault_is_detected_on_the_bundled_day_at_default_thresholds(bundled_report):
     for score in bundled_report.faults:
         assert score.delay_s is not None

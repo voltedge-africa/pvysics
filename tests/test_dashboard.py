@@ -3,6 +3,7 @@ from dataclasses import replace
 import numpy as np
 import pyqtgraph as pg
 import pytest
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QAbstractSpinBox, QCheckBox, QComboBox, QLineEdit, QPushButton, QSlider
 
 from pvysics.faults import FaultKind, default_fault
@@ -345,3 +346,23 @@ def test_a_floating_dock_is_solid_with_a_green_border_and_its_chart_follows(qtbo
     assert border.pixelColor(0, border.height() // 2) == dock.palette().highlight().color()  # the green border
     dock.setFloating(False)
     assert dashboard.power_plot.backgroundBrush().color() == docked
+
+
+def test_docked_dashboard_panes_have_a_border_and_floating_ones_drop_it(qtbot):
+    window = window_with(qtbot)
+    dashboard = window.open_dashboard()
+    qtbot.addWidget(dashboard)
+    dashboard.resize(1000, 700)
+    dashboard.show()
+    dock = dashboard.docks["power"]
+    frame = dock.widget()
+    border = QColor(dashboard._theme.palette.card_border).rgb()
+
+    assert frame.property("pane") == "true"
+    assert frame.grab().toImage().pixel(0, frame.height() // 2) == border
+
+    dock.setFloating(True)
+
+    assert frame.property("pane") == "floating"  # the floating dock paints its own green border instead
+    dock.setFloating(False)
+    assert frame.property("pane") == "true"

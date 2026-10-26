@@ -227,6 +227,7 @@ def test_closing_the_dashboard_during_a_validation_waits_for_it(qtbot, window):
     assert not dashboard.isVisible()
 
 
+@pytest.mark.slow
 def test_the_bundled_day_validation_shows_the_numbers_on_the_tab(qtbot):
     window = Session(config=bundled_run_config(seed=0)).open_hmi()
     qtbot.addWidget(window)

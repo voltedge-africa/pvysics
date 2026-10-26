@@ -24,9 +24,23 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
     "pytest-qt>=4.5.0",
+    "pytest-xdist>=3.8.0",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 qt_api = "pyqt6"
+# Parallel by file: a few tests crash a worker when they share one with tests from other files.
+addopts = ["-n", "auto", "--dist", "loadfile", "--strict-markers", "--strict-config"]
+filterwarnings = ["error"]
+markers = ["slow: takes several seconds (the bundled-day validation); deselect with -m 'not slow'"]
+
+[tool.coverage.run]
+source = ["pvysics"]
+
+[tool.coverage.report]
+fail_under = 97
+show_missing = true
+skip_covered = true
