@@ -198,3 +198,17 @@ I measured this with the faults injected at 10:00 on the bundled day at the defa
 - The time step is fixed at 60 s and is not a control in the app.
 - Closing the Dashboard while a validation runs waits for the batch to finish, a few seconds at most.
 - Machine learning fault classification is out of scope, as are installers and code signing. Run from source with uv is the supported path.
+
+## Building an installable app
+
+The packaged app bundles Python, Qt and every data file, so the target device needs no Python.
+
+```
+uv run --group build python packaging/build.py
+```
+
+PyInstaller cannot cross-compile, so run it on the platform you are packaging for (the `build` GitHub Actions workflow does all three). Output goes to `dist/`:
+
+- Linux: `pvysics-<version>-linux-x86_64.tar.gz`. Unpack it and run `./install.sh` (per user, or `sudo PREFIX=/opt ./install.sh`).
+- Windows: `pvysics-<version>-windows.zip`, plus a `-setup.exe` when Inno Setup (`iscc`) is installed.
+- macOS: `pvysics-<version>-macos.dmg`. It is unsigned, so the first launch needs right-click, Open.

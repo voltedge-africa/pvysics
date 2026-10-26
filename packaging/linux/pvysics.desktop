@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=PV Digital Twin
+Comment=Physics-informed digital twin for PV state estimation
+Exec=@PREFIX@/pvysics/pvysics
+Icon=@PREFIX@/pvysics.png
+Terminal=false
+Categories=Science;Engineering;
