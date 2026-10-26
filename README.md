@@ -1,5 +1,13 @@
 # PV Digital Twin (pvysics)
 
+<p align="center">
+  <img src="src/pvysics/gui/assets/icon.svg" alt="pvysics app icon" width="128">
+</p>
+
+<p align="center">
+  <img src="src/pvysics/gui/assets/splash.svg" alt="pvysics splash screen" width="640">
+</p>
+
 A physics-informed digital twin for PV state estimation, as a runnable desktop prototype.
 
 A Single Diode Model (SDM) of a PV module runs as the **twin**. It predicts power from measured irradiance and temperature. A **simulated plant**, the same module with perturbed parameters, optional faults and sensor noise, stands in for the physical test bench, which does not exist yet. The state estimator compares measured with predicted power (the power deviation) against warning and abnormal limits and reports Normal, Warning or Abnormal.
