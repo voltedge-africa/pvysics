@@ -75,12 +75,19 @@ def fit_parameters(
         residuals,
         x0=[isc, 0.3, 200.0],
         bounds=([0.5 * isc, 1e-4, 1.0], [2.0 * isc, 10.0, 1e6]),
-        xtol=1e-14,
-        ftol=1e-14,
-        gtol=1e-14,
+        xtol=1e-10,
+        ftol=1e-10,
+        gtol=1e-10,
+        max_nfev=2000,
     )
-    if not fit.success or np.max(np.abs(fit.fun)) > FIT_TOLERANCE:
-        raise ValueError(f"cannot fit diode parameters to {datasheet.name}")
+    # Judge the fit by its residuals, not by SciPy's status: a badly scaled module (the bundled generic one, on some
+    # machines' BLAS) can hit the evaluation cap long after the residuals are far below FIT_TOLERANCE.
+    residual = float(np.max(np.abs(fit.fun)))
+    if not np.all(np.isfinite(fit.fun)) or residual > FIT_TOLERANCE:
+        raise ValueError(
+            f"cannot fit diode parameters to {datasheet.name} (status {fit.status}: {fit.message}; "
+            f"max residual {residual:.3e})"
+        )
     iph, rs, rsh = fit.x
     return DiodeParameters(
         ideality=ideality,

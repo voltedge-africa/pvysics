@@ -116,3 +116,55 @@ def test_edited_module_stc_power_matches_its_pmpp():
     assert curve.current[0] == pytest.approx(edited.isc_a, rel=0.02)
     assert curve.voltage[-1] == pytest.approx(edited.voc_v, rel=0.02)
     assert curve.mpp_power == pytest.approx(edited.pmpp_w, rel=0.02)
+
+
+def test_the_bundled_generic_module_fits():
+    parameters = fit_parameters(DATASHEET)
+
+    assert parameters.photocurrent_stc_a > 0
+    assert parameters.series_resistance_ohm > 0
+    assert parameters.shunt_resistance_ohm > 0
+
+
+def test_the_bundled_run_starts_the_plant_the_app_opens_with():
+    from pvysics.run import Simulation, bundled_run_config
+
+    Simulation(bundled_run_config())  # builds the plant, which fits the generic module: this is what failed at launch
+
+
+def test_a_fit_with_small_residuals_is_accepted_whatever_status_scipy_reports(monkeypatch):
+    # On one machine SciPy stopped on its evaluation cap (success False, status 0) with residuals ~2e-5.
+    from pvysics import single_diode
+
+    real = single_diode.least_squares
+
+    def capped(*args, **kwargs):
+        fit = real(*args, **kwargs)
+        fit.success, fit.status = False, 0
+        return fit
+
+    monkeypatch.setattr(single_diode, "least_squares", capped)
+    fit_parameters.cache_clear()
+    try:
+        assert fit_parameters(DATASHEET).photocurrent_stc_a > 0
+    finally:
+        fit_parameters.cache_clear()
+
+
+def test_a_fit_with_large_residuals_is_refused_with_the_reason(monkeypatch):
+    from pvysics import single_diode
+
+    real = single_diode.least_squares
+
+    def failed(*args, **kwargs):
+        fit = real(*args, **kwargs)
+        fit.fun = fit.fun + 0.5
+        return fit
+
+    monkeypatch.setattr(single_diode, "least_squares", failed)
+    fit_parameters.cache_clear()
+    try:
+        with pytest.raises(ValueError, match="max residual"):
+            fit_parameters(DATASHEET)
+    finally:
+        fit_parameters.cache_clear()
