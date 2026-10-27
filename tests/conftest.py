@@ -15,6 +15,12 @@ QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.Software)  # as the
 
 
 @pytest.fixture(autouse=True)
+def advanced_version(monkeypatch):
+    """Tests default to the advanced app (HMI, Dashboard, Sensors). Tests of the simple app unset the flag."""
+    monkeypatch.setenv("PVYSICS_ADVANCED_VERSION", "1")
+
+
+@pytest.fixture(autouse=True)
 def settings_in_temp_dir(tmp_path):
     """Every test reads and writes a temporary settings store, never the user's real settings."""
     QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))

@@ -2,7 +2,7 @@
 
 The session owns the DataBus, the PlaybackController, the RunHistory, the current RunConfig (the
 playback's config), the ThemeManager and the log (one LogModel fed by one LogBridge), so the run
-belongs to the application and not to any window. The HMI, the Dashboard and the Sensors window are created here on first use and kept by the
+belongs to the application and not to any window. The simple window, or in the advanced version the HMI, the Dashboard and the Sensors window, are created here on first use and kept by the
 session. Opening a window that is open raises it. Closing a window only hides it, so it can be
 shown again and the run goes on.
 """
@@ -20,6 +20,7 @@ from pvysics.gui.log_bridge import LogBridge
 from pvysics.gui.main_window import MainWindow
 from pvysics.gui.playback import PlaybackController
 from pvysics.gui.sensors import SensorsWindow
+from pvysics.gui.simple_window import SimpleWindow
 from pvysics.gui.theme import ThemeManager, apply_palette
 from pvysics.history import RunHistory
 from pvysics.log_model import LogModel
@@ -28,6 +29,7 @@ from pvysics.run import RunConfig, bundled_run_config
 HMI_KEY = "hmi"
 DASHBOARD_KEY = "dashboard"
 SENSORS_KEY = "sensors"
+SIMPLE_KEY = "simple"
 log = logging.getLogger(__name__)
 
 
@@ -87,6 +89,9 @@ class Session(QObject):
         self.playback.load(config)  # checks the config before anything changes
         self.config_changed.emit(config)
         self.playback.start()
+
+    def open_simple(self) -> SimpleWindow:
+        return self._open(SIMPLE_KEY, SimpleWindow)
 
     def open_hmi(self) -> MainWindow:
         return self._open(HMI_KEY, MainWindow)

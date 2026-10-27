@@ -8,6 +8,7 @@ from pvysics.gui.session import Session
 HMI_TITLE = "PV Digital Twin"
 DASHBOARD_TITLE = "PV Digital Twin Dashboard"
 SENSORS_TITLE = "PV Digital Twin Sensors"
+SIMPLE_TITLE = "PV Digital Twin"
 
 
 def test_main_window_opens_with_project_title_and_closes(qtbot):
@@ -59,6 +60,12 @@ def test_hmi_switch_opens_only_the_hmi():
 
 def test_dashboard_switch_opens_only_the_dashboard():
     assert windows_visible_when_main_runs(["--dashboard"]) == [DASHBOARD_TITLE]
+
+
+def test_without_the_advanced_flag_one_simple_window_opens(monkeypatch):
+    monkeypatch.delenv("PVYSICS_ADVANCED_VERSION")
+
+    assert windows_visible_when_main_runs([]) == [SIMPLE_TITLE]
 
 
 def test_unknown_switch_exits_with_usage_before_any_window_opens(capsys):

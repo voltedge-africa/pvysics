@@ -3,7 +3,7 @@ import sys
 
 import pytest
 
-from pvysics.gui.cli import ALL, BOTH, DASHBOARD, HMI, SENSORS, parse_opening
+from pvysics.gui.cli import ADVANCED_ENV, ALL, BOTH, DASHBOARD, HMI, SENSORS, SIMPLE, advanced_enabled, parse_opening
 
 
 @pytest.mark.parametrize(
@@ -60,3 +60,35 @@ def test_the_app_icon_and_splash_are_valid_svgs_that_render(qtbot):
     for name in ("icon.svg", "splash.svg"):
         assert QSvgRenderer(_asset(name)).isValid()
     assert splash_pixmap().size().width() >= SPLASH_SIZE.width()
+
+
+@pytest.mark.parametrize("value", ["1", "true", "TRUE", "Yes", " on "])
+def test_advanced_is_on_for_a_true_value(value):
+    assert advanced_enabled({ADVANCED_ENV: value})
+
+
+@pytest.mark.parametrize("value", ["", "0", "false", "no", "off", "advanced"])
+def test_advanced_is_off_for_anything_else(value):
+    assert not advanced_enabled({ADVANCED_ENV: value})
+
+
+def test_advanced_is_off_when_the_variable_is_unset():
+    assert not advanced_enabled({})
+
+
+def test_the_environment_decides_when_advanced_is_not_given(monkeypatch):
+    monkeypatch.delenv(ADVANCED_ENV)
+    assert parse_opening([]) == SIMPLE
+    monkeypatch.setenv(ADVANCED_ENV, "1")
+    assert parse_opening([]) == ALL
+
+
+def test_the_simple_app_opens_one_window_and_takes_no_window_switches(capsys):
+    assert parse_opening([], advanced=False) == SIMPLE
+    with pytest.raises(SystemExit) as exit_info:
+        parse_opening(["--hmi"], advanced=False)
+
+    assert exit_info.value.code != 0
+    err = capsys.readouterr().err
+    assert "unrecognized arguments: --hmi" in err
+    assert ADVANCED_ENV in err or "usage: pvysics" in err

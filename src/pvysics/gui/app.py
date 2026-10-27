@@ -7,7 +7,7 @@ from PyQt6.QtQuick import QQuickWindow, QSGRendererInterface
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import QApplication, QSplashScreen
 
-from pvysics.gui.cli import ALL, BOTH, DASHBOARD, HMI, SENSORS, parse_opening
+from pvysics.gui.cli import ALL, BOTH, DASHBOARD, HMI, SENSORS, SIMPLE, parse_opening
 from pvysics.gui.fonts import install as install_fonts
 from pvysics.gui.session import Session
 
@@ -53,7 +53,8 @@ def splash_pixmap() -> QPixmap:
 
 
 def main(argv: list[str] | None = None, *, splash: bool = True) -> int:
-    """Run the app. Switches on the command line choose the windows to open; none opens all three windows.
+    """Run the app. It opens the simple window, unless PVYSICS_ADVANCED_VERSION is set: then switches on the
+    command line choose the windows to open, and none opens all three.
 
     The splash is painted by running the event loop briefly, so a caller that queues a timer for the loop passes
     splash=False."""
@@ -80,6 +81,8 @@ def main(argv: list[str] | None = None, *, splash: bool = True) -> int:
 
 
 def show_windows(session: Session, opening: str) -> None:
+    if opening == SIMPLE:
+        session.open_simple()
     if opening in (HMI, BOTH, ALL):
         session.open_hmi()
     if opening in (DASHBOARD, BOTH, ALL):
