@@ -49,6 +49,7 @@ from pvysics.datasheet import (
     load_generic_datasheet,
 )
 from pvysics.datasheet import load_datasheet as read_datasheet
+from pvysics.datasheet import write_datasheet_template
 from pvysics.profile import (
     BUNDLED_DAYS,
     NASA_COLUMNS,
@@ -60,6 +61,8 @@ from pvysics.profile import (
     guess_columns,
     load_bundled_profile,
     parse_profile_table,
+    read_profile_text,
+    write_profile_template,
 )
 from pvysics.gui.fetch_panel import FetchPanel
 from pvysics.gui.theme import ERROR_ROLE, ThemeManager
@@ -338,14 +341,11 @@ class SetupView(QWidget):
         self._say("Defaults restored.")
 
     def load_csv(self, path: str) -> None:
-        """Open the column mapping for a CSV file. The profile changes only if the user accepts it."""
+        """Open the column mapping for a CSV or Excel file. The profile changes only if the user accepts it."""
         file = Path(path)
         try:
-            text = file.read_text(encoding="utf-8-sig")
+            text = read_profile_text(file)  # a CSV as it is, an Excel workbook as the CSV of its first sheet
             header = csv_columns(text)
-        except (OSError, UnicodeDecodeError) as error:
-            self._warn(f"{file.name}: cannot read the file as text ({error}). The profile is unchanged.")
-            return
         except ProfileError as error:
             self._warn(f"{file.name}: {error}. The profile is unchanged.")
             return
@@ -418,17 +418,56 @@ class SetupView(QWidget):
 
     def _choose_csv(self) -> None:
         path, _filter = QFileDialog.getOpenFileName(
-            self, "Load profile CSV", "", "CSV files (*.csv);;All files (*)"
+            self, "Load weather profile", "", "Profiles (*.csv *.xlsx);;CSV files (*.csv);;Excel workbooks (*.xlsx);;All files (*)"
         )
         if path:
             self.load_csv(path)
 
     def _choose_datasheet(self) -> None:
         path, _filter = QFileDialog.getOpenFileName(
-            self, "Load module datasheet", "", "Module datasheets (*.json *.toml);;All files (*)"
+            self,
+            "Load module datasheet",
+            "",
+            "Module datasheets (*.xlsx *.csv *.json *.toml);;Excel workbooks (*.xlsx);;CSV files (*.csv);;"
+            "JSON and TOML (*.json *.toml);;All files (*)",
         )
         if path:
             self.load_datasheet(path)
+
+    def save_profile_template(self, path: str) -> None:
+        """Write the weather profile template to path (.csv or .xlsx), reporting any problem on the status line."""
+        self._save_template(path, write_profile_template, "Weather template")
+
+    def save_datasheet_template(self, path: str) -> None:
+        """Write the module datasheet template to path (.csv or .xlsx), reporting any problem on the status line."""
+        self._save_template(path, write_datasheet_template, "Datasheet template")
+
+    def _save_template(self, path: str, write, what: str) -> None:
+        file = Path(path)
+        try:
+            write(file)
+        except (ProfileError, DatasheetError, OSError) as error:
+            self._warn(f"Could not write {file.name}: {error}")
+            return
+        self._say(f"{what} saved to {file}. Fill it in, then load it.")
+
+    def _choose_template(self, title: str, default_name: str, save) -> None:
+        path, chosen = QFileDialog.getSaveFileName(
+            self, title, default_name, "Excel workbook (*.xlsx);;CSV file (*.csv)"
+        )
+        if not path:
+            return
+        if Path(path).suffix.lower() not in (".csv", ".xlsx"):
+            path = f"{path}.csv" if "csv" in chosen.lower() else f"{path}.xlsx"
+        save(path)
+
+    def _choose_profile_template(self) -> None:
+        self._choose_template("Save the weather template", "pvysics-weather-template.xlsx", self.save_profile_template)
+
+    def _choose_datasheet_template(self) -> None:
+        self._choose_template(
+            "Save the datasheet template", "pvysics-datasheet-template.xlsx", self.save_datasheet_template
+        )
 
     def _reset_module(self) -> None:
         datasheet = load_generic_datasheet()
@@ -527,8 +566,11 @@ class SetupView(QWidget):
         self.profile_box.currentIndexChanged.connect(self._on_profile_chosen)
         self.profile_info = QLabel()
         self.profile_info.setWordWrap(True)
-        self.load_csv_button = QPushButton("Load CSV...")
+        self.load_csv_button = QPushButton("Load CSV or Excel...")
         self.load_csv_button.clicked.connect(self._choose_csv)
+        self.profile_template_button = QPushButton("Template...")
+        self.profile_template_button.setToolTip("Save an empty weather file to fill in, as Excel or CSV.")
+        self.profile_template_button.clicked.connect(self._choose_profile_template)
         self.fetch_panel = FetchPanel(self._theme, self)
         self.fetch_panel.message.connect(self._show_fetch_message)
         self.fetch_panel.profile_chosen.connect(self._use_fetched)
@@ -556,7 +598,11 @@ class SetupView(QWidget):
         for spin in self._module_spins.values():
             spin.valueChanged.connect(self._show_module_name)
         self.load_datasheet_button = QPushButton("Load datasheet...")
+        self.load_datasheet_button.setToolTip("Read a module datasheet from an Excel, CSV, JSON or TOML file.")
         self.load_datasheet_button.clicked.connect(self._choose_datasheet)
+        self.datasheet_template_button = QPushButton("Datasheet template...")
+        self.datasheet_template_button.setToolTip("Save an empty datasheet to fill in, as Excel or CSV.")
+        self.datasheet_template_button.clicked.connect(self._choose_datasheet_template)
         self.reset_module_button = QPushButton("Reset to generic module")
         self.reset_module_button.clicked.connect(self._reset_module)
 
@@ -598,7 +644,10 @@ class SetupView(QWidget):
         profile_group = QGroupBox("Input profile")
         layout = QVBoxLayout(profile_group)
         layout.addWidget(self.profile_box)
-        layout.addWidget(self.load_csv_button)
+        load_row = QHBoxLayout()
+        load_row.addWidget(self.load_csv_button, 1)
+        load_row.addWidget(self.profile_template_button)
+        layout.addLayout(load_row)
         layout.addWidget(self.profile_info)
 
         module_group = QGroupBox("Module datasheet")
@@ -622,6 +671,7 @@ class SetupView(QWidget):
         layout.addLayout(grid)
         buttons = QHBoxLayout()
         buttons.addWidget(self.load_datasheet_button)
+        buttons.addWidget(self.datasheet_template_button)
         buttons.addWidget(self.reset_module_button)
         layout.addLayout(buttons)
 

@@ -1,0 +1,9 @@
+parameter,value,unit,notes
+name,My module,,A label for this module
+Isc,8.9,A,Short-circuit current at standard test conditions (STC)
+Voc,37.8,V,Open-circuit voltage at STC
+Impp,8.3,A,Current at maximum power. Must be below Isc
+Vmpp,30.1,V,Voltage at maximum power. Must be below Voc
+Ki,0.05,%/C,"Temperature coefficient of Isc, in percent per degree C"
+Kv,-0.32,%/C,"Temperature coefficient of Voc, in percent per degree C (negative)"
+Ns,60,cells,"Cells in series, a whole number"

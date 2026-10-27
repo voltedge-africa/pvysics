@@ -13,6 +13,7 @@ from collections.abc import Callable
 from PyQt6.QtCore import QObject, pyqtSignal
 from PyQt6.QtWidgets import QApplication, QMainWindow
 
+from pvysics.dataset import DatasetReport, DatasetStore, default_store
 from pvysics.gui.alarm_panel import AlarmMonitor
 from pvysics.gui.dashboard import Dashboard
 from pvysics.gui.data_bus import DataBus
@@ -34,9 +35,10 @@ log = logging.getLogger(__name__)
 
 
 class Session(QObject):
-    """The app-level run and theme, shared by every window the session opens."""
+    """The app-level run, dataset store and theme, shared by every window the session opens."""
 
     config_changed = pyqtSignal(object)  # RunConfig, once a new config has been applied
+    dataset_replayed = pyqtSignal(str)  # the name of the dataset whose Samples were replayed
 
     def __init__(
         self,
@@ -58,6 +60,7 @@ class Session(QObject):
         self.alarms = AlarmMonitor(self.bus, self)  # alarms are recorded and logged whichever windows are open
         self.log_model = LogModel()
         self.log_bridge = LogBridge(self.log_model, self)  # from now on, "pvysics" records reach the model
+        self.datasets = default_store()  # the datasets the user imported
         config = bundled_run_config() if config is None else config
         self.playback = PlaybackController(config, self.bus, self)
         self._windows: dict[str, QMainWindow] = {}
@@ -89,6 +92,19 @@ class Session(QObject):
         self.playback.load(config)  # checks the config before anything changes
         self.config_changed.emit(config)
         self.playback.start()
+
+    def replay_dataset(self, report: DatasetReport) -> None:
+        """Show a dataset's analysed Samples as the run: the live run pauses and the history is replaced.
+
+        The samples go through the data bus as Samples, so every window (Dashboard, Trends,
+        Data, Event Log) reads them as it reads a run. A dataset has no Events.
+        """
+        self.playback.pause()
+        self.bus.run_reset.emit()
+        for sample in report.samples:
+            self.bus.sample.emit(sample)
+        log.info("Dataset replayed: %s (%d samples)", report.name, len(report.samples))
+        self.dataset_replayed.emit(report.name)
 
     def open_simple(self) -> SimpleWindow:
         return self._open(SIMPLE_KEY, SimpleWindow)

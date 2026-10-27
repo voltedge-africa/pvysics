@@ -5,12 +5,18 @@ datasheet keys Isc, Voc, Impp, Vmpp, Ki, Kv and Ns. A malformed or incomplete fi
 with a DatasheetError that says what is wrong. The file is never partly applied.
 """
 
+import csv
+import io
 import json
 import math
+import re
 import tomllib
+import zipfile
 from dataclasses import dataclass, replace
 from importlib.resources import files
 from pathlib import Path
+
+from pvysics.spreadsheet import CSV_SUFFIX, XLSX_SUFFIX, SpreadsheetError, write_table, xlsx_to_csv_text
 
 GENERIC_DATASHEET = "generic_60cell_250w.toml"
 CUSTOM_MODULE_NAME = "Custom module"  # the name of a module whose values the user has edited
@@ -26,6 +32,48 @@ JSON_KEYS = {
 JSON_NAMES = {field: key for key, field in JSON_KEYS.items()}  # field to key, for messages
 REQUIRED_FIELDS = ("name", "ns", "isc_a", "voc_v", "impp_a", "vmpp_v", "ki_pct_per_c", "kv_pct_per_c")
 POSITIVE_FIELDS = ("isc_a", "voc_v", "impp_a", "vmpp_v", "pmpp_w")
+
+
+# The datasheet template: one parameter per row. A CSV or Excel datasheet is read from the first two columns, the
+# parameter and its value; the unit and notes columns are for the person filling it in. The values are the bundled
+# generic module's, to be replaced.
+TEMPLATE_HEADER = ("parameter", "value", "unit", "notes")
+TEMPLATE_ROWS = (
+    ("name", "My module", "", "A label for this module"),
+    ("Isc", 8.9, "A", "Short-circuit current at standard test conditions (STC)"),
+    ("Voc", 37.8, "V", "Open-circuit voltage at STC"),
+    ("Impp", 8.3, "A", "Current at maximum power. Must be below Isc"),
+    ("Vmpp", 30.1, "V", "Voltage at maximum power. Must be below Voc"),
+    ("Ki", 0.05, "%/C", "Temperature coefficient of Isc, in percent per degree C"),
+    ("Kv", -0.32, "%/C", "Temperature coefficient of Voc, in percent per degree C (negative)"),
+    ("Ns", 60, "cells", "Cells in series, a whole number"),
+)
+TEMPLATE_NOTES = (
+    ("Row", "What to do"),
+    ("Parameters", "Put your module's values in the value column. Keep the parameter names in the first column."),
+    ("Optional", "You may add a row named Pmpp (rated power in W). Without it the app uses Vmpp times Impp."),
+    ("Where from", "All values are on the module's datasheet, at standard test conditions (1000 W/m2, 25 C)."),
+    ("Units", "Currents in A, voltages in V, temperature coefficients in %/C. Do not write units in the value cells."),
+)
+TABLE_KEYS = {  # a parameter name as written, lower case with spaces as underscores, to the datasheet field
+    "name": "name",
+    "ns": "ns",
+    "cells": "ns",
+    "isc": "isc_a",
+    "isc_a": "isc_a",
+    "voc": "voc_v",
+    "voc_v": "voc_v",
+    "impp": "impp_a",
+    "impp_a": "impp_a",
+    "vmpp": "vmpp_v",
+    "vmpp_v": "vmpp_v",
+    "ki": "ki_pct_per_c",
+    "ki_pct_per_c": "ki_pct_per_c",
+    "kv": "kv_pct_per_c",
+    "kv_pct_per_c": "kv_pct_per_c",
+    "pmpp": "pmpp_w",
+    "pmpp_w": "pmpp_w",
+}
 
 
 class DatasheetError(ValueError):
@@ -68,9 +116,11 @@ def load_datasheet(path: str | Path) -> ModuleDatasheet:
         values = _toml_values(path)
     elif suffix == ".json":
         values = _json_values(path)
+    elif suffix in (CSV_SUFFIX, XLSX_SUFFIX):
+        values = _table_values(path)
     else:
-        raise DatasheetError(f"{path.name}: the datasheet must be a .json or .toml file")
-    datasheet = _module(values, path.name, names=JSON_NAMES if suffix == ".json" else {})
+        raise DatasheetError(f"{path.name}: the datasheet must be a .xlsx, .csv, .json or .toml file")
+    datasheet = _module(values, path.name, names=JSON_NAMES if suffix != ".toml" else {})
     # Imported here because single_diode imports this module; a module that cannot be fitted is malformed.
     from pvysics.single_diode import fit_parameters
 
@@ -79,6 +129,41 @@ def load_datasheet(path: str | Path) -> ModuleDatasheet:
     except ValueError as error:
         raise DatasheetError(f"{path.name}: the values do not describe a module that can be modelled") from error
     return datasheet
+
+
+def write_datasheet_template(path: str | Path) -> None:
+    """Write the datasheet template as .csv or .xlsx, by the path's suffix. The workbook also has an Instructions sheet."""
+    try:
+        write_table(Path(path), TEMPLATE_HEADER, TEMPLATE_ROWS, TEMPLATE_NOTES, sheet="Datasheet")
+    except SpreadsheetError as error:
+        raise DatasheetError(f"the template is a .csv or .xlsx file, not '{Path(path).suffix}'") from error
+
+
+def _table_values(path: Path) -> dict:
+    """The datasheet fields of a CSV or Excel table of parameter and value rows. The name defaults to the file's."""
+    try:
+        text = _read_text(path) if path.suffix.lower() == CSV_SUFFIX else xlsx_to_csv_text(path)
+    except (OSError, zipfile.BadZipFile, SpreadsheetError) as error:
+        raise DatasheetError(f"{path.name}: cannot read the file ({error})") from error
+    rows = [row for row in csv.reader(io.StringIO(text)) if any(cell.strip() for cell in row)]
+    if rows and rows[0][0].strip().lower() == "parameter":
+        rows = rows[1:]  # the header row
+    values: dict = {"name": path.stem}
+    for row in rows:
+        field = TABLE_KEYS.get(re.sub(r"\(.*?\)", "", row[0]).strip().lower().replace(" ", "_"))
+        if field is None:
+            continue  # a row that is not a datasheet value, such as a note
+        cell = row[1].strip() if len(row) > 1 else ""
+        values[field] = cell if field == "name" else _table_number(cell, row[0].strip(), path.name, whole=field == "ns")
+    return values
+
+
+def _table_number(cell: str, parameter: str, file_name: str, whole: bool) -> float | int:
+    try:
+        number = float(cell)
+    except ValueError as error:
+        raise DatasheetError(f"{file_name}: {parameter} must be a number, got {cell!r}") from error
+    return int(number) if whole and number.is_integer() else number
 
 
 def _toml_values(path: Path) -> dict:

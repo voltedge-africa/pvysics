@@ -10,7 +10,8 @@ from pathlib import Path
 
 import numpy as np
 
-from pvysics.run import Sample
+from pvysics.dataset import DatasetReport
+from pvysics.run import Sample, State
 from pvysics.validation import STATE_ORDER, ValidationReport
 
 SAMPLE_COLUMNS = (
@@ -27,6 +28,17 @@ SAMPLE_COLUMNS = (
     "deviation_pct",
     "state",
     "active_faults",
+)
+DATASET_COLUMNS = (
+    "timestamp",
+    "irradiance_w_m2",
+    "temperature_c",
+    "voltage_v",
+    "current_a",
+    "actual_power_w",
+    "estimated_power_w",
+    "deviation_pct",
+    "state",
 )
 REPORT_COLUMNS = ("section", "measure", "value", "unit")
 
@@ -47,6 +59,62 @@ def write_validation_csv(path: Path, report: ValidationReport) -> None:
         writer = csv.writer(handle)
         writer.writerow(REPORT_COLUMNS)
         writer.writerows(_report_rows(report))
+
+
+def write_dataset_analysis_csv(path: Path, report: DatasetReport) -> None:
+    """Every analysed row of a dataset (the twin's estimate next to the actual power),
+    then the dataset's metrics, in one file."""
+    with Path(path).open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(DATASET_COLUMNS)
+        for sample in report.samples:
+            writer.writerow(_dataset_row(sample))
+        writer.writerow([])
+        writer.writerow(REPORT_COLUMNS)
+        writer.writerows(_dataset_metric_rows(report))
+
+
+def _dataset_row(sample: Sample) -> list[str | float]:
+    return [
+        np.datetime_as_string(sample.timestamp, unit="s"),
+        sample.measured_irradiance,
+        sample.measured_temperature,
+        sample.measured_voltage,
+        sample.measured_current,
+        sample.power_measured,
+        sample.power_predicted,
+        sample.deviation_pct,
+        sample.state.value,
+    ]
+
+
+def _dataset_metric_rows(report: DatasetReport) -> list[list[str | float | int]]:
+    """The dataset's metrics as section/measure/value/unit rows, as write_validation_csv writes them."""
+    metrics = report.metrics
+    rows: list[list[str | float | int]] = [
+        ["summary", "dataset", report.name, ""],
+        [
+            "summary",
+            "daylight rows analysed",
+            metrics.sample_count,
+            f"of {metrics.row_count} rows (night rows excluded)",
+        ],
+        ["metrics", "mean G", metrics.mean_irradiance_w_m2, "W/m^2"],
+        ["metrics", "mean actual P", metrics.mean_actual_w, "W"],
+        ["metrics", "mean estimated P", metrics.mean_estimated_w, "W"],
+        ["metrics", "MAE", metrics.mae_w, "W"],
+        ["metrics", "RMSE", metrics.rmse_w, "W"],
+        ["metrics", "MAPE", metrics.mape_pct, "%"],
+        ["metrics", "MBE", metrics.mbe_w, "W"],
+        ["metrics", "mean deviation", metrics.mean_deviation_pct, "%"],
+    ]
+    for state, share in (
+        (State.NORMAL, metrics.normal_pct),
+        (State.WARNING, metrics.warning_pct),
+        (State.ABNORMAL, metrics.abnormal_pct),
+    ):
+        rows.append(["shares", f"{state.value} share", share, "%"])
+    return rows
 
 
 def _sample_row(label: str, sample: Sample) -> list[str | float]:

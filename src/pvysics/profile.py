@@ -9,12 +9,16 @@ increase and gaps. A Profile is never filled in or repaired.
 import csv
 import io
 import math
+import zipfile
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 from importlib.resources import files
+from pathlib import Path
 
 import numpy as np
 from numpy.typing import NDArray
+
+from pvysics.spreadsheet import CSV_SUFFIX, XLSX_SUFFIX, SpreadsheetError, write_table, xlsx_to_csv_text
 
 BUNDLED_CSV = "durban_power_hourly.csv"
 BUNDLED_DAYS = (date(2025, 1, 15), date(2025, 1, 16), date(2025, 1, 17))
@@ -26,8 +30,51 @@ IRRADIANCE_NAMES = ("G", "ghi", "irradiance", "ALLSKY_SFC_SW_DWN")
 TEMPERATURE_NAMES = ("T", "temp_air", "temperature", "T2M")
 
 
+# The weather template: a clear day, hourly, with the column names the loader finds by itself. Irradiance in W/m2,
+# temperature in degrees C. The values are a smooth example (a half sine of irradiance), to be replaced.
+PROFILE_TEMPLATE_HEADER = ("timestamp", "irradiance", "temperature")
+PROFILE_TEMPLATE_ROWS = tuple(
+    (
+        f"2025-01-15T{hour:02d}:00:00",
+        round(max(0.0, 900.0 * math.sin(math.pi * (hour - 6) / 12.0)), 1),
+        round(18.0 + 10.0 * math.sin(math.pi * (hour - 9) / 12.0), 1),
+    )
+    for hour in range(24)
+)
+PROFILE_TEMPLATE_NOTES = (
+    ("Column", "What to put in it"),
+    ("timestamp", "Date and time of each value, for example 2025-01-15T09:00:00. Times must step by one fixed amount, with no gaps."),
+    ("irradiance", "Irradiance in W/m2 on the module (global horizontal or in-plane). Not negative."),
+    ("temperature", "Air temperature in degrees C."),
+    ("Rules", "Every cell must hold a number (no blanks, no -999). The file has one row per time step."),
+    ("Delete the examples", "Delete the 24 example rows on the Profile sheet, then paste your own from row 2."),
+)
+
+
 class ProfileError(ValueError):
     """The profile data is missing, has gaps, or has invalid values."""
+
+
+def read_profile_text(path: Path) -> str:
+    """The text of a profile file as CSV: a .csv as it is, an .xlsx as the CSV of its first sheet."""
+    path = Path(path)
+    suffix = path.suffix.lower()
+    try:
+        if suffix == CSV_SUFFIX:
+            return path.read_text(encoding="utf-8-sig")
+        if suffix == XLSX_SUFFIX:
+            return xlsx_to_csv_text(path, TIMESTAMP_NAMES)
+    except (OSError, UnicodeError, zipfile.BadZipFile, SpreadsheetError) as error:
+        raise ProfileError(f"cannot read {path.name} ({error})") from error
+    raise ProfileError(f"{path.name} is not a .csv or .xlsx file")
+
+
+def write_profile_template(path: Path) -> None:
+    """Write the weather template as .csv or .xlsx, by the path's suffix. The workbook also has an Instructions sheet."""
+    try:
+        write_table(path, PROFILE_TEMPLATE_HEADER, PROFILE_TEMPLATE_ROWS, PROFILE_TEMPLATE_NOTES, sheet="Profile")
+    except SpreadsheetError as error:
+        raise ProfileError(f"the template is a .csv or .xlsx file, not '{Path(path).suffix}'") from error
 
 
 @dataclass(frozen=True)

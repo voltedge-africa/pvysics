@@ -8,7 +8,7 @@
 
 #import "manual-style.typ": *
 #show: manual.with(
-  version: "0.2.0",
+  version: "0.3.0",
   doc-title: "PV Digital Twin: User Manual (Simple Version)",
   subtitle: [User Manual: Simple Version],
   tagline: [Run the simulated PV plant and its digital twin from one window: start a run, inject faults and read the results.],
@@ -42,15 +42,15 @@ At night the twin predicts almost no power, so there is nothing to compare: belo
 
 = Installing and starting <starting>
 
-*Windows.* Run `pvysics-0.2.0-windows-setup.exe` and follow the steps. It adds *PV Digital Twin* to the Start menu, and to the desktop if you tick the box. The installer is not code-signed, so Windows may show a warning: choose *More info*, then *Run anyway*. Without the installer, unzip `pvysics-0.2.0-windows.zip` and run `pvysics.exe` in the `pvysics` folder.
+*Windows.* Run `pvysics-0.3.0-windows-setup.exe` and follow the steps. It adds *PV Digital Twin* to the Start menu, and to the desktop if you tick the box. The installer is not code-signed, so Windows may show a warning: choose *More info*, then *Run anyway*. Without the installer, unzip `pvysics-0.3.0-windows.zip` and run `pvysics.exe` in the `pvysics` folder.
 
 *Linux.* On Debian, Ubuntu and Mint, install the package and start *PV Digital Twin* from the applications menu:
 
 ```
-sudo apt install ./pvysics_0.2.0_amd64.deb
+sudo apt install ./pvysics_0.3.0_amd64.deb
 ```
 
-On other distributions, unpack `pvysics-0.2.0-linux-x86_64.tar.gz` and run `./install.sh`.
+On other distributions, unpack `pvysics-0.3.0-linux-x86_64.tar.gz` and run `./install.sh`.
 
 *From the source code.* From the repository root:
 
@@ -70,7 +70,7 @@ The window has a *sidebar* of pages on the left and the page you chose on the ri
   columns: (auto, 1fr),
   [Page], [What it is for],
   [*Dashboard*], [Run the simulation, inject faults and watch the deviation. It opens first. See @dashboard.],
-  [*Analysis*], [Test the twin against known answers. See @analysis.],
+  [*Analysis*], [Score the twin on your own measurements, or against known answers. See @analysis.],
   [*SDM Model*], [See what the twin is computing. See @model.],
   [*Trends*], [Chart each sensor channel. See @trends.],
   [*Data*], [List every sample and save them as a CSV file. See @data.],
@@ -167,7 +167,81 @@ Each fault is injected at a fixed strength. Several faults can be on at once, an
 
 = Analysis <analysis>
 
-Analysis tests the twin against known answers. It runs one healthy day and one day for each of the five faults, with the setup you last applied. Press *Run validation*; it takes a few seconds and the app stays usable while it runs.
+Analysis tests the twin in two ways. The two buttons at the top right of the page switch between them.
+
+- *Dataset* (the one that opens) scores the twin on measurements you import. It needs no plant and no hardware.
+- *Simulation* scores the twin against a plant the app simulates. See @simulation-analysis.
+
+== Dataset analysis <dataset-analysis>
+
+A dataset is a CSV or Excel file of the plant's own readings, such as a logger or an ESP32 would write. The twin predicts the power from each row's irradiance and temperature, and the page compares that with the power the plant actually made.
+
+#shot("simple_18_dataset_empty.png", [Dataset analysis before a file is imported.])
+
+#table(
+  columns: (auto, 1fr),
+  [Button], [What it does],
+  [*Template...*], [Saves an empty file with the right columns and a few example rows, as Excel (`.xlsx`) or CSV. See @dataset-file.],
+  [*Import file...*], [Reads a CSV or Excel file into the app's dataset list and chooses it. The file is copied, so the original can be moved or deleted.],
+  [*Analyse*], [Scores the chosen dataset with the twin, using the datasheet and limits in Settings. It runs in the background.],
+  [*Replay on Dashboard*], [Shows the analysed dataset on every page as if it were a run. See below.],
+  [*Export analysis CSV*], [Saves every analysed row, then the figures below, as one CSV file.],
+  [*Delete dataset*], [Removes the chosen dataset from the list.],
+)
+
+The *Dataset* list holds every dataset you have imported, and keeps them between sessions.
+
+=== The file and its template <dataset-file>
+
+*Start from the template.* Press *Template...*, choose *Excel workbook* or *CSV file*, and save it. Copies are also in the `docs/templates` folder of the source code (`pvysics-dataset-template.xlsx` and `pvysics-dataset-template.csv`). The Excel template has two sheets: *Measurements*, with the columns and five example rows, and *Instructions*, with a line about each column. Delete the example rows and paste your own readings from row 2, keeping the column names in row 1.
+
+The file is a `.csv` or an `.xlsx`. For an Excel file, the first sheet is read, and a time that Excel has turned into a date is understood. An older `.xls` file must be saved again as `.xlsx` or CSV.
+
+The file needs a header row and one row for each reading. The columns are found by name, in any case. The names in the template are the first choice for each:
+
+#table(
+  columns: (auto, 1fr),
+  [What], [Header names that are recognised],
+  [Time], [`timestamp`, `time`, `datetime` or `date`, as a date and time such as `2025-01-15T10:00:00`],
+  [Irradiance (W/m²)], [`G`, `ghi`, `irradiance`, `irradiance_w_m2` or `ghi_w_m2`],
+  [Module temperature (°C)], [`T`, `temperature`, `temp`, `temp_air`, `module_temperature` or `pv_temp`],
+  [Power (W)], [`power`, `power_w`, `actual_power` or `pv_power`, *or* both of the next two],
+  [Voltage (V) and current (A)], [`voltage` or `pv_voltage`, and `current` or `pv_current`. The power is their product],
+)
+
+The times must increase, but the step may vary, because real logs have gaps. A file is rejected, with the reason shown, if a column is missing, a value is missing or not a number, irradiance is negative or there are fewer than two rows.
+
+=== The results <dataset-results>
+
+#shot("simple_19_dataset_results.png", [Dataset results: the figures, the deviation along the dataset and estimated power against actual power. This dataset has shading from 11:00.])
+
+#table(
+  columns: (auto, 1fr),
+  [Figure], [What it tells you],
+  [*Samples*, *Mean G*, *Mean actual P*, *Mean estimated P*], [The size of the dataset and its averages. The estimated power is the twin's.],
+  [*MAE*, *RMSE*, *MAPE*], [How far the twin's power is from the actual power, in watts and in percent.],
+  [*MBE*], [The mean of estimated minus actual power. Positive means the twin over-predicts, so the plant is under-producing.],
+  [*Mean deviation*], [The average deviation in percent, with the sign explained in @what.],
+  [*Normal*, *Warning*, *Abnormal*], [The share of the rows in each state, using the limits in Settings.],
+)
+
+The figures use daylight rows only, where the twin predicts at least 5 W, so night rows do not dilute them. MAPE also skips rows where the actual power is under 5 W. Two charts show the deviation row by row and the estimated power against the actual power: a healthy plant lies along the dashed line.
+
+=== Replaying a dataset <dataset-replay>
+
+*Replay on Dashboard* pauses the live run and puts the dataset's rows through the app as the run. The Dashboard, Trends, Data and Event Log then show the dataset, and the source chip on the Dashboard reads *Source: dataset* and its name. A dataset has no injected faults, so only its state changes are listed. Pressing *Apply and start* in Settings starts a simulated run again, and the chip goes back to the simulated plant.
+
+#shot("simple_21_dashboard_replay.png", [The Dashboard after a replay: the source chip names the dataset, and the chart shows the actual power falling away from the twin's prediction where the dataset has shading.])
+
+#recipe[Score your own measurements]
+
++ Open *Analysis*, make sure *Dataset* is chosen, and press *Template...* if you need the file to fill in.
++ Press *Import file...* and choose your file, then press *Analyse* and read the figures.
++ Press *Replay on Dashboard* to see the rows against the twin's prediction, and *Export analysis CSV* to keep the numbers.
+
+== Simulation analysis <simulation-analysis>
+
+The *Simulation* button shows the validation of the twin against known answers. It runs one healthy day and one day for each of the five faults, with the setup you last applied. Press *Run validation*; it takes a few seconds and the app stays usable while it runs.
 
 #shot("simple_14_analysis_empty.png", [Analysis before it has run.])
 
@@ -253,9 +327,9 @@ Each number field holds only the number. Its unit is the grey label beside it.
 
 The profile is the day of irradiance and temperature that drives the run.
 
-#shot("light_05a_setup_profile.png", [Settings, Profile: the bundled days, Load CSV, and the NASA POWER fetch.])
+#shot("simple_22_settings_profile.png", [Settings, Profile: the bundled days, Load CSV or Excel, the weather template, and the NASA POWER fetch.])
 
-- Choose a bundled day from the list, or press *Load CSV...* for your own file (see @loading).
+- Choose a bundled day from the list, or press *Load CSV or Excel...* for your own file. *Template...* saves an empty weather file to fill in (see @loading).
 - *Fetch profile (NASA POWER)* downloads real weather for a place and dates. Tick *Use Site location* to use the latitude and longitude from the Site section, or untick it to type your own. Choose the start and end dates, the irradiance type and the time standard, then press *Fetch*. A request covers at most 31 days, and the end date cannot be in the future. *Preview...* shows the fetched data before you use it. Fetches are kept, so a repeat fetch works without a connection.
 
 == Site <site>
@@ -266,9 +340,31 @@ Where the plant is (latitude, longitude, tilt and azimuth). It labels the run an
 
 == Module <module>
 
-The datasheet the twin predicts with: Isc, Voc, Impp, Vmpp, the temperature coefficients Ki and Kv, and the cell count Ns. Edit any value, press *Load datasheet...* to read a file, or press *Reset to generic module* to return to the generic 60-cell 250 W module.
+The datasheet the twin predicts with: Isc, Voc, Impp, Vmpp, the temperature coefficients Ki and Kv, and the cell count Ns. Edit any value, press *Load datasheet...* to read a file (Excel, CSV, JSON or TOML), press *Datasheet template...* to save an empty one to fill in, or press *Reset to generic module* to return to the generic 60-cell 250 W module. See @datasheet-file for the file.
 
-#shot("light_05c_setup_module.png", [Settings, Module.])
+#shot("simple_23_settings_module.png", [Settings, Module: the datasheet values and the buttons to load a file, save the template or return to the generic module.])
+
+=== The datasheet file <datasheet-file>
+
+The easiest start is the template: press *Datasheet template...*, choose *Excel workbook* or *CSV file*, and save it. Copies are in the `docs/templates` folder of the source code (`pvysics-datasheet-template.xlsx` and `.csv`). Replace the example values with those on your module's datasheet, which are at standard test conditions (1000 W/m² and 25 °C).
+
+The file has one parameter on each row, with its name in the first column and its value in the second. The unit and notes columns are for you and are not read. Names are found in any case, and a unit in brackets (`Isc (A)`) is ignored.
+
+#table(
+  columns: (auto, auto, 1fr),
+  [Parameter], [Unit], [What it is],
+  [`name`], [text], [A label for the module. Left out, it is the file's name.],
+  [`Isc`], [A], [Short-circuit current.],
+  [`Voc`], [V], [Open-circuit voltage.],
+  [`Impp`], [A], [Current at maximum power. Must be below Isc.],
+  [`Vmpp`], [V], [Voltage at maximum power. Must be below Voc.],
+  [`Ki`], [%/°C], [Temperature coefficient of Isc.],
+  [`Kv`], [%/°C], [Temperature coefficient of Voc, which is negative.],
+  [`Ns`], [cells], [Cells in series, a whole number.],
+  [`Pmpp`], [W], [Optional rated power. Without it the app uses Vmpp times Impp.],
+)
+
+A file with a row missing, a value that is not a number or a value that does not describe a module that can be modelled is rejected with the reason, and the module stays as it was. JSON and TOML datasheets still work.
 
 == Limits <limits>
 
@@ -284,7 +380,9 @@ A summary of what the next run will use. Check it, then press *Apply and start*.
 
 = Loading your own data <loading>
 
-Press *Load CSV...* on the Profile section and choose a file. The file needs a header row, a timestamp column, an irradiance column (W/m²) and a temperature column (°C).
+Press *Load CSV or Excel...* on the Profile section and choose a file. To start from a file that is known to work, press *Template...* first, choose *Excel workbook* or *CSV file*, and save it; copies are in the `docs/templates` folder (`pvysics-weather-template.xlsx` and `.csv`). The template holds one example day, hourly. Delete its rows and paste your own readings from row 2.
+
+The file is a `.csv` or an `.xlsx` (the first sheet is read, and a time that Excel has turned into a date is understood). It needs a header row, a timestamp column, an irradiance column (W/m²) and a temperature column (°C).
 
 #shot("light_07_csv_dialog.png", [The CSV dialog: the column choices, the first rows of the file and the result of the checks.], w: 62%)
 
@@ -315,7 +413,7 @@ When you fetch from NASA POWER, *Preview...* opens the fetched profile for inspe
 
 #recipe[Check the twin's accuracy]
 
-+ Open *Analysis*.
++ Open *Analysis* and press *Simulation*.
 + Press *Run validation* and read the figures and tables.
 + Use *Export metrics CSV...* to keep the numbers.
 
@@ -339,6 +437,7 @@ Press *Reset* on the Dashboard to play the same run again. For different setting
   [Changes in Settings have no effect.], [Press *Apply and start*. Edits apply only then.],
   [A CSV is rejected.], [Read the reason in the dialog. Check that the columns are mapped right and the times step evenly with no gaps.],
   [A fetch fails.], [NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads without a connection.],
+  [A dataset is rejected.], [Read the reason on the Analysis page. Check that the header names are ones the manual lists, that the times increase and that no value is missing.],
   [Analysis says the result is out of date.], [You changed the setup after the last validation. Press *Run validation* again.],
   [The log is not showing.], [It is a pop-up: *View > Logs* (#key[Ctrl]+#key[L]).],
   [The app opens three windows, not one.], [The advanced version is switched on. Unset the environment variable `PVYSICS_ADVANCED_VERSION`.],

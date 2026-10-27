@@ -6,6 +6,8 @@ fields, tables and tabs from the same Palette. Widgets opt in with Qt properties
     card    "true" a boxed panel with a rounded border
     role    "pageTitle", "pageSub", "cardTitle", "cardSub", "kpi", "kpiUnit", "deviation", "chip", "brand", "brandSub"
     nav     "true" a sidebar button
+    inputs  combo boxes, text fields and number fields are taller and larger than the app default
+    seg     "true" a small tab button beside a page title (Analysis: Dataset / Simulation)
 """
 
 from pvysics.gui.palette import Palette
@@ -52,7 +54,21 @@ QLabel[role="kpi"] {{ font-size: 20pt; font-weight: 700; }}
 QLabel[role="kpiUnit"] {{ color: {p.muted_text}; font-size: 10pt; }}
 QLabel[role="chip"] {{ font-size: 10pt; font-weight: 700; }}
 
+QComboBox, QLineEdit, QAbstractSpinBox, QDateEdit {{ min-height: 2.1em; font-size: 11pt; }}
+QComboBox {{ padding: 0 10px; min-width: 9em; }}
+QLineEdit, QAbstractSpinBox {{ padding: 0 8px; }}
+QAbstractSpinBox {{ min-width: 9em; }}
+
 QPushButton[variant="primary"] {{ padding: 8px 18px; }}
 QPushButton[variant="primary"]:hover {{ border-color: {p.link}; }}
 QPushButton[compact="true"] {{ padding: 2px 10px; min-height: 0; }}
+QPushButton[seg="true"] {{
+    padding: 6px 16px;
+    border: 1px solid {p.card_border};
+    border-radius: 8px;
+    background-color: transparent;
+    font-size: 10pt;
+    font-weight: 600;
+}}
+QPushButton[seg="true"]:checked {{ background-color: {p.card}; color: {p.text}; }}
 """

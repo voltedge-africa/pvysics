@@ -256,3 +256,74 @@ def test_table_needs_at_least_two_rows():
         parse_profile_table(table_csv(hourly_rows(count=1)), MAPPING)
     with pytest.raises(ProfileError):
         parse_profile_table(table_csv([]), MAPPING)
+
+
+# ---- Excel profiles and the weather template ---------------------------------------------------------------------
+
+import zipfile  # noqa: E402
+
+from pvysics.profile import (  # noqa: E402
+    PROFILE_TEMPLATE_HEADER,
+    PROFILE_TEMPLATE_ROWS,
+    read_profile_text,
+    write_profile_template,
+)
+
+
+@pytest.mark.parametrize("suffix", [".csv", ".xlsx"])
+def test_the_weather_template_loads_as_a_valid_profile(tmp_path, suffix):
+    path = tmp_path / f"weather{suffix}"
+
+    write_profile_template(path)
+    text = read_profile_text(path)
+    profile = parse_profile_table(text, guess_columns(csv_columns(text)), "template")
+
+    assert len(profile.timestamps) == len(PROFILE_TEMPLATE_ROWS) == 24
+    assert profile.irradiance.max() == pytest.approx(900.0)
+    assert profile.irradiance.min() == 0.0
+    assert csv_columns(text) == list(PROFILE_TEMPLATE_HEADER)
+
+
+def test_an_excel_profile_with_date_serials_is_read_as_times(tmp_path):
+    main = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    rows = [("Timestamp", "G", "T"), (45672.375, 250.5, 18.0), (45672.4166667, 400.0, 19.5), (45672.4583333, 520.0, 21.0)]
+    strings = list(rows[0])
+    cells = []
+    for number, row in enumerate(rows, start=1):
+        items = []
+        for column, value in enumerate(row):
+            ref = f"{'ABC'[column]}{number}"
+            items.append(f'<c r="{ref}" t="s"><v>{strings.index(value)}</v></c>' if isinstance(value, str) else f'<c r="{ref}"><v>{value}</v></c>')
+        cells.append(f'<row r="{number}">{"".join(items)}</row>')
+    path = tmp_path / "site.xlsx"
+    with zipfile.ZipFile(path, "w") as book:
+        book.writestr("xl/sharedStrings.xml", f'<sst xmlns="{main}">' + "".join(f"<si><t>{s}</t></si>" for s in strings) + "</sst>")
+        book.writestr("xl/worksheets/sheet1.xml", f'<worksheet xmlns="{main}"><sheetData>{"".join(cells)}</sheetData></worksheet>')
+
+    text = read_profile_text(path)
+    profile = parse_profile_table(text, guess_columns(csv_columns(text)), "site")
+
+    assert str(profile.timestamps[0]) == "2025-01-15T09:00:00"
+    assert str(profile.timestamps[2]) == "2025-01-15T11:00:00"
+    assert profile.irradiance.tolist() == [250.5, 400.0, 520.0]
+
+
+def test_a_profile_file_of_another_type_is_refused(tmp_path):
+    path = tmp_path / "weather.txt"
+    path.write_text("x", encoding="utf-8")
+
+    with pytest.raises(ProfileError, match="not a .csv or .xlsx"):
+        read_profile_text(path)
+
+
+def test_a_broken_workbook_is_reported_not_raised_raw(tmp_path):
+    path = tmp_path / "fake.xlsx"
+    path.write_text("not a zip", encoding="utf-8")
+
+    with pytest.raises(ProfileError, match="cannot read fake.xlsx"):
+        read_profile_text(path)
+
+
+def test_the_weather_template_only_comes_as_csv_or_xlsx(tmp_path):
+    with pytest.raises(ProfileError):
+        write_profile_template(tmp_path / "t.pdf")

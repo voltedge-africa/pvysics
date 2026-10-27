@@ -1,9 +1,10 @@
 """The pages of the simple window. Each is a view on the session's one run, built from the existing widgets.
 
-Dashboard is the home page: the run controls, six readings, the power chart and the deviation card. Analysis, SDM
-Model and Settings wrap the Validation, Model and Setup views the advanced version uses. Trends charts the five
-sensor channels, Data lists every sample, and Event Log lists alarms, state changes and fault injections.
-Pages take their colours from the palette, so they follow the theme the session holds.
+Dashboard is the home page: the run controls, six readings, the power chart and the deviation card. Analysis holds
+the Dataset Analysis view by default (imported measurements scored by the twin, replayed on the Dashboard) with the
+Validation view beside it; SDM Model and Settings wrap the Model and Setup views the advanced version uses. Trends
+charts the five sensor channels, Data lists every sample, and Event Log lists alarms, state changes and fault
+injections. Pages take their colours from the palette, so they follow the theme the session holds.
 """
 
 import logging
@@ -14,6 +15,7 @@ import numpy as np
 import pyqtgraph as pg
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
+    QButtonGroup,
     QFileDialog,
     QFrame,
     QGridLayout,
@@ -21,7 +23,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QListWidget,
     QPushButton,
-    QScrollArea,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -31,6 +33,7 @@ from PyQt6.QtWidgets import (
 from pvysics.export import write_samples_csv
 from pvysics.gui.alarm_panel import AlarmPanel
 from pvysics.gui.dashboard import format_event
+from pvysics.gui.dataset_view import DatasetAnalysisView
 from pvysics.gui.live_charts import _time_plot
 from pvysics.gui.metric_strip import split_reading
 from pvysics.gui.model_view import ModelView
@@ -112,13 +115,6 @@ def page_layout(page: QWidget) -> QVBoxLayout:
     layout.setContentsMargins(PAGE_MARGIN_PX, PAGE_MARGIN_PX, PAGE_MARGIN_PX, PAGE_MARGIN_PX)
     layout.setSpacing(GAP_PX)
     return layout
-
-
-def scrolled(widget: QWidget) -> QScrollArea:
-    area = QScrollArea()
-    area.setWidgetResizable(True)
-    area.setWidget(widget)
-    return area
 
 
 def colour_text(label: QLabel, colour: str | None) -> None:
@@ -240,6 +236,8 @@ class DashboardPage(QWidget):
         bus.sample.connect(self._show_sample)
         bus.run_reset.connect(self._show_start)
         session.config_changed.connect(self._show_limits)
+        session.config_changed.connect(self._show_source)
+        session.dataset_replayed.connect(self._show_dataset_source)
         session.theme.changed.connect(self.apply_palette)
         self._show_start()  # the empty state first; a window opened mid-run then replays the run so far over it
         for sample in self._history.samples_from(0):
@@ -272,6 +270,13 @@ class DashboardPage(QWidget):
             f"NORMAL ≤ {thresholds.warning_pct:g}% · WARNING ≤ {thresholds.abnormal_pct:g}% · "
             f"ABNORMAL > {thresholds.abnormal_pct:g}%"
         )
+
+    def _show_source(self, *_args) -> None:
+        """The simulated plant is the source again: a new config has replaced any dataset replay."""
+        self.source_chip.setText(f"●  {SOURCE_CHIP}")
+
+    def _show_dataset_source(self, name: str) -> None:
+        self.source_chip.setText(f"●  SOURCE: DATASET '{name.upper()}'")
 
     def _show_start(self) -> None:
         self._peak_w = 0.0
@@ -539,27 +544,79 @@ class EventLogPage(QWidget):
 
 
 class AnalysisPage(QWidget):
-    """Validation: the twin against known answers, one healthy day and one day for each fault."""
+    """The Dataset Analysis default view, with the simulation-run Validation beside it.
+
+    A dataset analysis scores the twin on imported measurements (no plant needed); the
+    Validation view scores it against runs it generates itself. One of the two is in front,
+    chosen by the two buttons on the right of the page title.
+    """
+
+    DATASET_TITLE = "Dataset Analysis"
+    DATASET_SUB = "Import a CSV or Excel file of measurements to score the Digital Twin — works without the ESP32"
+    SIMULATION_TITLE = "Validation Analysis"
+    SIMULATION_SUB = "Test the Digital Twin against known answers: one healthy day and one day for each fault"
 
     def __init__(self, session: "Session") -> None:
         super().__init__()
         self.validation = ValidationView(session.config, palette=session.theme.palette)
-        layout = page_layout(self)
-        layout.addLayout(
-            page_header(
-                "Validation Analysis",
-                "Test the Digital Twin against known answers: one healthy day and one day for each fault",
-            )
-        )
-        layout.addWidget(scrolled(self.validation), 1)
+        self.datasets = DatasetAnalysisView(session.config, session.datasets, palette=session.theme.palette)
+        self.datasets.replay_requested.connect(session.replay_dataset)
         session.config_changed.connect(self.validation.set_config)
+        session.config_changed.connect(self.datasets.set_config)
+
+        self.dataset_button = QPushButton("DATASET")
+        self.dataset_button.setProperty("seg", "true")
+        self.dataset_button.setCheckable(True)
+        self.dataset_button.setChecked(True)
+        self.dataset_button.clicked.connect(self._show_datasets)
+        self.simulation_button = QPushButton("SIMULATION")
+        self.simulation_button.setProperty("seg", "true")
+        self.simulation_button.setCheckable(True)
+        self.simulation_button.clicked.connect(self._show_simulation)
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+        group.addButton(self.dataset_button)
+        group.addButton(self.simulation_button)
+
+        self.title_label = role_label(self.DATASET_TITLE, "pageTitle")
+        self.sub_label = role_label(self.DATASET_SUB, "pageSub")
+        row = QHBoxLayout()
+        column = QVBoxLayout()
+        column.setSpacing(2)
+        column.addWidget(self.title_label)
+        column.addWidget(self.sub_label)
+        row.addLayout(column)
+        row.addStretch(1)
+        row.addWidget(self.dataset_button, 0, Qt.AlignmentFlag.AlignTop)
+        row.addWidget(self.simulation_button, 0, Qt.AlignmentFlag.AlignTop)
+
+        self.stack = QStackedWidget()
+        self.stack.addWidget(self.datasets)
+        self.stack.addWidget(self.validation)
+
+        layout = page_layout(self)
+        layout.addLayout(row)
+        layout.addWidget(self.stack, 1)
+
         session.theme.changed.connect(self._apply_palette)
 
     def shutdown(self) -> None:
         self.validation.shutdown()  # a running validation ends before the window closes
+        self.datasets.shutdown()  # so does a running dataset analysis
+
+    def _show_datasets(self, *_args) -> None:
+        self.stack.setCurrentWidget(self.datasets)
+        self.title_label.setText(self.DATASET_TITLE)
+        self.sub_label.setText(self.DATASET_SUB)
+
+    def _show_simulation(self, *_args) -> None:
+        self.stack.setCurrentWidget(self.validation)
+        self.title_label.setText(self.SIMULATION_TITLE)
+        self.sub_label.setText(self.SIMULATION_SUB)
 
     def _apply_palette(self, palette: Palette) -> None:
         self.validation.strip.set_palette(palette)
+        self.datasets.apply_palette(palette)
 
 
 class ModelPage(QWidget):

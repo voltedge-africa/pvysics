@@ -479,3 +479,57 @@ def test_the_review_page_lists_what_the_next_run_uses_as_a_table(qtbot):
 
     assert "<table" in text
     assert "Profile" in text and "Thresholds" in text and "Seed" in text
+
+
+def test_the_profile_template_button_saves_a_template_that_loads_back(qtbot, tmp_path, monkeypatch):
+    setup = window_with(qtbot).setup_view
+    out = tmp_path / "weather.xlsx"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(out), "Excel workbook (*.xlsx)"))
+
+    setup.profile_template_button.click()
+
+    assert out.exists()
+    assert "Weather template saved" in setup.message_label.text()
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *a, **k: (str(out), ""))
+    setup.load_csv_button.click()
+    assert setup.csv_dialog is not None
+    assert setup.csv_dialog.profile() is not None
+    assert len(setup.csv_dialog.profile().timestamps) == 24
+    setup.csv_dialog.reject()
+
+
+def test_the_datasheet_template_button_saves_a_template_that_loads_back(qtbot, tmp_path, monkeypatch):
+    setup = window_with(qtbot).setup_view
+    out = tmp_path / "module"
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *a, **k: (str(out), "CSV file (*.csv)"))
+
+    setup.datasheet_template_button.click()
+
+    assert (tmp_path / "module.csv").exists()  # a name without a suffix gets the chosen type
+    setup.load_datasheet(str(tmp_path / "module.csv"))
+    assert setup.isc_spin.value() == pytest.approx(8.9)
+    assert "My module" in setup.message_label.text()
+
+
+def test_an_excel_datasheet_and_profile_load_through_the_buttons(qtbot, tmp_path):
+    from pvysics.datasheet import write_datasheet_template
+    from pvysics.profile import write_profile_template
+
+    setup = window_with(qtbot).setup_view
+    write_datasheet_template(tmp_path / "m.xlsx")
+    write_profile_template(tmp_path / "w.xlsx")
+
+    setup.load_datasheet(str(tmp_path / "m.xlsx"))
+    setup.load_csv(str(tmp_path / "w.xlsx"))
+
+    assert setup.ns_spin.value() == 60
+    assert setup.csv_dialog.profile() is not None
+    setup.csv_dialog.reject()
+
+
+def test_a_template_that_cannot_be_written_is_reported(qtbot, tmp_path):
+    setup = window_with(qtbot).setup_view
+
+    setup.save_profile_template(str(tmp_path / "nowhere" / "w.csv"))
+
+    assert "Could not write w.csv" in setup.message_label.text()

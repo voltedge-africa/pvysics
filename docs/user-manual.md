@@ -318,7 +318,7 @@ The profile is the day of irradiance and temperature that drives the run.
 
 *Figure 28. Setup, Profile: the bundled days, Load CSV, and the NASA POWER fetch.*
 
-- Choose a bundled day from the list, or press **Load CSV...** for your own file ([section 7](#7-loading-your-own-data)).
+- Choose a bundled day from the list, or press **Load CSV or Excel...** for your own file (**Template...** saves an empty weather file to fill in) ([section 7](#7-loading-your-own-data)).
 - **Fetch profile (NASA POWER)** downloads real data for a place and dates. Tick **Use Site location** to use the latitude and longitude from the Site page, or untick it to type your own. Choose the start and end dates, the irradiance type and the time standard, then press **Fetch**. **Preview...** shows the fetched data before you use it. Fetches are cached, so a repeat fetch works offline.
 
 ### 6.2 Site
@@ -331,7 +331,7 @@ Where the plant is (latitude, longitude, tilt and azimuth). It labels the run an
 
 ### 6.3 Module
 
-The datasheet the twin predicts with: Isc, Voc, Impp, Vmpp, the temperature coefficients Ki and Kv, and the cell count Ns. Edit any value, press **Load datasheet...** to read a file, or press **Reset to generic module** to return to the generic 60-cell 250 W module.
+The datasheet the twin predicts with: Isc, Voc, Impp, Vmpp, the temperature coefficients Ki and Kv, and the cell count Ns. Edit any value, press **Load datasheet...** to read a file (Excel, CSV, JSON or TOML), press **Datasheet template...** to save an empty one to fill in, or press **Reset to generic module** to return to the generic 60-cell 250 W module.
 
 ![Figure 30](screenshots/light_05c_setup_module.png)
 
@@ -355,7 +355,7 @@ A summary of what the next run will use. Check it, then press **Apply and start*
 
 ## 7. Loading your own data
 
-Press **Load CSV...** on the Profile page and choose a file. The file needs a header row, a timestamp column, an irradiance column (W/m²) and a temperature column (°C).
+Press **Load CSV or Excel...** on the Profile page and choose a file. **Template...** saves an empty weather file, as Excel or CSV, to start from. The file is a `.csv` or an `.xlsx` and needs a header row, a timestamp column, an irradiance column (W/m²) and a temperature column (°C).
 
 ![Figure 33](screenshots/light_07_csv_dialog.png)
 
