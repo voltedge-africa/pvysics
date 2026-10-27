@@ -7,8 +7,9 @@ set -e
 cd "$(dirname "$0")/../../.."
 ENGINE=${ENGINE:-$(command -v docker || command -v podman)}
 WORK=${WORK:-$HOME/.cache/pvysics-winbuild}
+STORAGE=${STORAGE:-$WORK/storage}  # the Windows disk; point it at an installed one to skip installing Windows
 NAME=pvysics-win
-mkdir -p "$WORK/storage" "$WORK/shared" "$WORK/oem"
+mkdir -p "$STORAGE" "$WORK/shared" "$WORK/oem"
 rm -rf "$WORK/shared/src-tree" "$WORK/shared/out" "$WORK/shared/DONE"
 mkdir "$WORK/shared/src-tree"
 git archive HEAD | tar -x -C "$WORK/shared/src-tree"
@@ -22,7 +23,7 @@ else
     "$ENGINE" rm -f $NAME >/dev/null 2>&1 || true
     "$ENGINE" run -d --name $NAME -e VERSION=11 -e RAM_SIZE=8G -e CPU_CORES=4 -e DISK_SIZE=64G \
         -p 127.0.0.1:8006:8006 --device /dev/kvm --device /dev/net/tun --cap-add NET_ADMIN \
-        -v "$WORK/storage":/storage -v "$WORK/shared":/shared -v "$WORK/oem":/oem \
+        -v "$STORAGE":/storage -v "$WORK/shared":/shared -v "$WORK/oem":/oem \
         --stop-timeout 120 dockurr/windows >/dev/null
     echo "Windows is starting; the first run installs it. Watch at http://127.0.0.1:8006"
 fi
