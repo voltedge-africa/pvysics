@@ -4,6 +4,8 @@ This runs a real Windows 11 in a container (`dockurr/windows`, QEMU with KVM) an
 `/dev/kvm`, about 8 GB of RAM, 4 cores and 64 GB of disk, and it downloads Windows from Microsoft, whose licence
 terms apply. Installing takes about 25 minutes.
 
+One command does all of this: `packaging/windows/vm/build-from-linux.sh` (not yet run end to end as a single script; the steps below are the ones that produced the v0.1.1 build).
+
 ```
 mkdir -p /tmp/winbuild/{storage,shared,oem}
 git archive HEAD | tar -x -C /tmp/winbuild/shared/src-tree   # create src-tree first
