@@ -25,7 +25,9 @@ else
         -p 127.0.0.1:8006:8006 --device /dev/kvm --device /dev/net/tun --cap-add NET_ADMIN \
         -v "$STORAGE":/storage -v "$WORK/shared":/shared -v "$WORK/oem":/oem \
         --stop-timeout 120 dockurr/windows >/dev/null
-    echo "Windows is starting; the first run installs it. Watch at http://127.0.0.1:8006"
+    echo "Windows is starting. Watch at http://127.0.0.1:8006"
+    # A fresh Windows runs run.bat.initial itself once installed. An installed one does not, so queue the build.
+    [ -f "$STORAGE/data.img" ] && cp packaging/windows/vm/build.bat "$WORK/shared/run.bat"
 fi
 
 until [ -f "$WORK/shared/DONE" ]; do sleep 20; done

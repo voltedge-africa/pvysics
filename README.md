@@ -240,5 +240,29 @@ PyInstaller cannot cross-compile, so run it on each platform you are packaging f
 
 - Debian and derivatives: `pvysics_<version>_amd64.deb`, installed with `sudo apt install ./pvysics_*.deb`. It needs glibc at least as new as the build machine's (stated in its Depends), so build on the oldest Debian-family release you support.
 - Other Linux: `pvysics-<version>-linux-x86_64.tar.gz`. Unpack it and run `./install.sh` (per user, or `sudo PREFIX=/opt ./install.sh`).
-- Windows: `pvysics-<version>-windows.zip`, plus a `-setup.exe` when Inno Setup (`iscc`) is installed.
+- Windows: `pvysics-<version>-windows.zip` (unzip it and run `pvysics\pvysics.exe`), plus a `-setup.exe` installer when Inno Setup (`iscc`) is installed. Neither is code-signed, so Windows may warn on first run (*More info*, then *Run anyway*).
 - macOS: `pvysics-<version>-macos.dmg`. It is unsigned, so the first launch needs right-click, Open.
+
+### Building the Windows app from Linux
+
+You do not need a Windows machine. One command starts a real Windows 11 in a container, builds the app inside it and copies
+the zip and the setup exe into `dist/`:
+
+```sh
+git status                                  # the build uses the last commit, so commit what you want in it first
+packaging/windows/vm/build-from-linux.sh
+```
+
+- **Needs** `docker` (or `podman`), `/dev/kvm` that you can use, 8 GB of RAM, 4 cores, up to 64 GB of disk and a network
+  connection. Windows is downloaded from Microsoft, whose licence terms apply.
+- **Takes** about 25 minutes the first time, while Windows installs, and about 10 minutes after that. The Windows disk is kept
+  (`~/.cache/pvysics-winbuild/storage`), and the container is stopped, not deleted, when the build ends.
+- **Builds the last commit** (`git archive HEAD`), not your working tree.
+- **Watch it** at <http://127.0.0.1:8006>, or follow `~/.cache/pvysics-winbuild/shared/build.log`.
+- **Reuse a Windows disk you already have** with `STORAGE=/path/to/storage packaging/windows/vm/build-from-linux.sh`. Without
+  it the script installs Windows again.
+- **Order matters.** `packaging/build.py` and `packaging/release.sh` empty `dist/` when they start, so run them first, then the
+  Windows script, then write the checksums: `cd dist && sha256sum *.tar.gz *.deb *.zip *-setup.exe | tee SHA256SUMS`.
+
+On a Windows machine, run `uv run --group build python packaging/build.py` instead. [`packaging/windows/vm/README.md`](packaging/windows/vm/README.md)
+explains what the script does step by step, its settings, how to clean up, and what to check when a build misbehaves.
