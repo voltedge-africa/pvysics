@@ -3,7 +3,7 @@
 // A manual starts with
 //
 //   #import "manual-style.typ": *
-//   #show: manual.with(version: "0.1.1", doc-title: "...", subtitle: [User Manual], tagline: [...])
+//   #show: manual.with(version: "0.2.0", doc-title: "...", subtitle: [User Manual], tagline: [...])
 //
 // and then holds its chapters. Build from the repository root so the app icon under src/ and the screenshots under
 // docs/ are inside the project root, and point Typst at the bundled Barlow fonts:

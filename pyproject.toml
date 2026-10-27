@@ -1,6 +1,6 @@
 [project]
 name = "pvysics"
-version = "0.1.1"
+version = "0.2.0"
 description = "Physics-informed digital twin for PV state estimation: Single Diode Model, virtual plant and power-deviation state estimator"
 readme = "README.md"
 authors = [
