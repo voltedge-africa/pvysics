@@ -54,7 +54,31 @@ From the repository root:
 uv run pvysics
 ```
 
-All three windows open together on the same run.
+This opens the **simple window**: one window with a sidebar of pages, in the theme you chose (**View > System**, **Light** or **Dark**).
+
+![The simple window: the Dashboard](screenshots/light_20_simple_window.png)
+
+![The same page in the dark theme](screenshots/dark_20_simple_window.png)
+
+| Page | What it holds |
+|---|---|
+| **Dashboard** | The run controls and fault buttons, six readings, the power chart, and the deviation with its state, the limits, peak power, energy, sample count and elapsed time. **Open event log** goes to the Event Log page. |
+| **Analysis** | Validation: the twin against one healthy day and one day for each fault (section 4.5). |
+| **SDM Model** | The circuit, equations, fitted parameters and live I-V and P-V curves (section 3.2). |
+| **Trends** | A chart for each of the five sensor channels. |
+| **Data** | Every sample of the run as a table, newest first. **Export CSV** saves the whole run. |
+| **Event Log** | The alarms, with **Acknowledge**, the state changes and fault injections, and **Show log** for the application log. |
+| **Settings** | The setup of the next run (chapter 6). **Apply and start** starts it and returns to the Dashboard. |
+
+**Hide** hides the sidebar so a page has the whole window. A ☰ button stays at the top left; it, **View > Sidebar** (**Ctrl+B**) and **Esc** all bring the sidebar back.
+
+The simple window has its own manual (`user-manual-simple.typ`). The rest of this manual describes the **advanced version**: the HMI, the Dashboard and the Sensors window, which add the Model view, validation, chart docks and the plant setup. To start it, set the environment variable `PVYSICS_ADVANCED_VERSION` to `1` (`true`, `yes` and `on` also work):
+
+```
+PVYSICS_ADVANCED_VERSION=1 uv run pvysics
+```
+
+In PowerShell, set `$env:PVYSICS_ADVANCED_VERSION = "1"` first. All three windows then open together on the same run. The switches below work only in the advanced version; the simple window takes none.
 
 | Command | Opens |
 |---|---|

@@ -1,0 +1,355 @@
+// PV Digital Twin: User Manual for the simple version, which is what the app opens by default (Typst source).
+//
+// Build from the repository root (see manual-style.typ):
+//
+//   typst compile --root . --font-path src/pvysics/gui/fonts docs/user-manual-simple.typ docs/user-manual-simple.pdf
+//
+// The PDF is generated and not tracked (see .gitignore). The advanced version has its own manual, user-manual.typ.
+
+#import "manual-style.typ": *
+#show: manual.with(
+  version: "0.1.1",
+  doc-title: "PV Digital Twin: User Manual (Simple Version)",
+  subtitle: [User Manual: Simple Version],
+  tagline: [Run the simulated PV plant and its digital twin from one window: start a run, inject faults and read the results.],
+)
+
+= What the app does <what>
+
+The app compares a simulated PV module with a model of it, and tells you when they disagree. No hardware is needed: the plant is simulated.
+
+- *The plant* is a simulated PV module with sensor noise and a small mismatch from the datasheet. It stands in for the real hardware.
+- *The twin* is the Single Diode Model (SDM) of the module. It predicts the module's power from the plant's measured irradiance and temperature.
+- *A run* plays a day of sunlight and temperature through both, one sample a minute of simulated time.
+
+The *deviation* is how far the plant's measured power is from the twin's prediction, as a percentage of the prediction:
+
+#align(center)[deviation (%) = (measured power − predicted power) ÷ predicted power × 100]
+
+A negative deviation means the plant is producing less than the twin expects. The *state* depends on the size of the deviation, whichever way it points:
+
+#table(
+  columns: (auto, 1fr),
+  [State], [Meaning],
+  [*Normal*], [The deviation is inside the warning limit (5% by default).],
+  [*Warning*], [The deviation has passed the warning limit.],
+  [*Abnormal*], [The deviation has passed the abnormal limit (10% by default). An alarm is raised.],
+)
+
+You can inject faults into the plant (shading, soiling and so on) and watch the twin catch them. The limits are set on the Settings page (@limits).
+
+At night the twin predicts almost no power, so there is nothing to compare: below 5 W of predicted power the deviation reads 0 and the state stays Normal.
+
+= Installing and starting <starting>
+
+*Windows.* Run `pvysics-0.1.1-windows-setup.exe` and follow the steps. It adds *PV Digital Twin* to the Start menu, and to the desktop if you tick the box. The installer is not code-signed, so Windows may show a warning: choose *More info*, then *Run anyway*. Without the installer, unzip `pvysics-0.1.1-windows.zip` and run `pvysics.exe` in the `pvysics` folder.
+
+*Linux.* On Debian, Ubuntu and Mint, install the package and start *PV Digital Twin* from the applications menu:
+
+```
+sudo apt install ./pvysics_0.1.1_amd64.deb
+```
+
+On other distributions, unpack `pvysics-0.1.1-linux-x86_64.tar.gz` and run `./install.sh`.
+
+*From the source code.* From the repository root:
+
+```
+uv run pvysics
+```
+
+Nothing else needs to be installed on a computer with the installer or the package: Python and Qt are inside the app. The app opens one window on a new run that has not started.
+
+#shot("simple_01_dashboard_idle.png", [The app when it opens: the Dashboard, with the run not started.])
+
+= The window <window>
+
+The window has a *sidebar* of pages on the left and the page you chose on the right.
+
+#table(
+  columns: (auto, 1fr),
+  [Page], [What it is for],
+  [*Dashboard*], [Run the simulation, inject faults and watch the deviation. It opens first. See @dashboard.],
+  [*Analysis*], [Test the twin against known answers. See @analysis.],
+  [*SDM Model*], [See what the twin is computing. See @model.],
+  [*Trends*], [Chart each sensor channel. See @trends.],
+  [*Data*], [List every sample and save them as a CSV file. See @data.],
+  [*Event Log*], [Alarms, state changes and injected faults. See @event-log.],
+  [*Settings*], [Set up the next run. See @settings.],
+)
+
+All the pages show the same run. Switching page never stops it.
+
+== Hiding the sidebar <hiding>
+
+The *Hide* button at the bottom of the sidebar hides it, so the page has the whole window. A ☰ button stays at the top left. The sidebar comes back when you press that button, choose *View > Sidebar* or press #key[Ctrl]+#key[B] or #key[Esc].
+
+#shot("simple_12_sidebar_hidden.png", [The sidebar hidden: the page fills the window and the ☰ button at the top left brings the sidebar back.])
+
+== The View menu <view-menu>
+
+#shot("simple_13_view_menu.png", [The View menu.], w: 20%)
+
+- *System*, *Light* and *Dark* set the colours. System follows your computer's light or dark setting. The app remembers your choice.
+- *Sidebar* (#key[Ctrl]+#key[B]) shows or hides the sidebar.
+- *Logs* (#key[Ctrl]+#key[L]) opens the log. See @log.
+
+#shot("simple_17_dashboard_dark.png", [The Dashboard in the dark theme.])
+
+= The Dashboard <dashboard>
+
+The Dashboard is where you run the simulation.
+
+#shot("simple_06_dashboard_fault.png", [The Dashboard during a run with partial shading injected: the state is Abnormal, the deviation is far below the prediction and the chart shows measured power falling away from the predicted power.])
+
+At the top right, the *source* chip says where the readings come from (today always the simulated plant) and the *system state* chip shows the state of the latest sample: *Waiting* before a run, then Normal, Warning or Abnormal.
+
+== The controls <controls>
+
+#shot("simple_03_toolbar.png", [The controls: run controls, speed and clock on the left, fault injection on the right. The dark button is a fault that is on.])
+
+#table(
+  columns: (auto, 1fr),
+  [Control], [What it does],
+  [*Start*], [Plays the run from the beginning, or resumes it after a pause.],
+  [*Pause*], [Holds the run where it is.],
+  [*Reset*], [Clears the run, its faults and its alarms, so it can start again.],
+  [*Speed* (`1x` to `28800x`)], [How many times faster than real time the run plays. At 28800x a whole day plays in about 3 seconds.],
+  [Clock], [The simulated date and time of the current sample.],
+  [*Inject a fault* buttons], [Inject that fault into the plant. A fault that is on shows as a dark button. See @faults.],
+  [*Clear all*], [Removes every injected fault.],
+)
+
+The run stops by itself at the end of the day. Press *Reset*, then *Start*, to play it again.
+
+== The readings <readings>
+
+#shot("simple_04_readings.png", [The six readings of the latest sample.])
+
+The plant's own sensors give the voltage, current, *measured power*, irradiance and module temperature. The twin gives the *predicted power*. Before a run each reading shows dashes.
+
+== The chart <chart>
+
+The chart plots measured power against predicted power. A dashed vertical line marks a fault injection. The mouse wheel zooms and a drag pans. While the pointer is over the chart an *Export* button appears at its top right corner, with *Image (PNG)...*, *Data (CSV)...* and *Reset view*. *Save chart* above the chart saves it as an image.
+
+== The deviation card <deviation-card>
+
+#shot("simple_07_deviation_card_fault.png", [The deviation card with a fault on.], w: 38%)
+
+The card shows the deviation as the largest figure, coloured by the state. Under it are a sentence in words ("31.3% below the prediction") and the limits that decide the state. Four totals for the run follow:
+
+#table(
+  columns: (auto, 1fr),
+  [Total], [What it is],
+  [*Peak power*], [The highest measured power so far, in watts.],
+  [*Energy*], [The energy the plant has produced so far, in watt-hours.],
+  [*Samples*], [How many samples the run has produced.],
+  [*Elapsed*], [How much simulated time has passed since the start of the run.],
+)
+
+*Open event log* goes to the Event Log page.
+
+== Faults <faults>
+
+A fault changes the plant, so its power drifts away from what the twin predicts. Sensor drift is different: the plant is fine and the twin is wrong.
+
+#table(
+  columns: (auto, 1fr),
+  [Fault], [What it models],
+  [*Partial shading*], [Part of the module is shaded: less photocurrent, so less power.],
+  [*Soiling*], [Dust on the glass: less light reaches the cells.],
+  [*Rs increase*], [A degraded connection: more series resistance, so more loss.],
+  [*Diode failure*], [A bypass diode has failed: a group of cells drops out.],
+  [*Sensor drift*], [The irradiance sensor reads high: the twin predicts wrongly, the plant is fine.],
+)
+
+Each fault is injected at a fixed strength. Several faults can be on at once, and a fault stays on until you press *Clear all* or *Reset*.
+
+= Analysis <analysis>
+
+Analysis tests the twin against known answers. It runs one healthy day and one day for each of the five faults, with the setup you last applied. Press *Run validation*; it takes a few seconds and the app stays usable while it runs.
+
+#shot("simple_14_analysis_empty.png", [Analysis before it has run.])
+
+#shot("simple_15_analysis_results.png", [Analysis results: accuracy on healthy data, fault detection, a table for each fault and the table of what the twin said against what was true.])
+
+#table(
+  columns: (auto, 1fr),
+  [Result], [What it tells you],
+  [*MAE, RMSE, MAPE*], [How closely the twin's power matches the healthy plant, in watts and in percent. Hover the figures for what is excluded.],
+  [*Detection rate*], [The share of fault samples the twin flagged as Abnormal.],
+  [*Mean delay*], [How long after injection the twin noticed.],
+  [*False alarms*], [How often the healthy day was flagged, at your limits and at limits worked out from the healthy day's own noise.],
+  [*Each fault*], [Whether each of the five faults was detected, how fast and at what rate.],
+  [*Twin against truth*], [A table of what was true (rows) against what the twin said (columns). Green cells are correct.],
+)
+
+*Export samples CSV...* and *Export metrics CSV...* save the data behind the results. After you change the setup, the old result is marked out of date until you run validation again.
+
+#block(inset: (left: 10pt), stroke: (left: 2.5pt + sun), [
+  *Read the results with care.* Each fault is injected as a sudden step at 10:00 for one hour, so the twin notices at once and the scores are perfect. Real faults arrive gradually and would score lower. The plant and the twin are the same kind of model, so the accuracy figures show how well the twin matches the simulated plant, not how it would do on a real module.
+])
+
+= SDM Model <model>
+
+This page shows what the twin is computing: the circuit of the Single Diode Model and its equations, the parameters the twin fitted from the datasheet, the live inputs and outputs, and the I-V and P-V curves at the measured irradiance and temperature. The page scrolls when the window is small.
+
+#shot("simple_11_model.png", [The SDM Model page: the circuit, the equations and the groups of readings above the I-V and P-V curves.])
+
+= Trends <trends>
+
+Trends draws one chart for each sensor channel over the run: irradiance, module temperature, voltage, current and measured power. They are the same readings as the Dashboard's, as charts.
+
+#shot("simple_08_trends.png", [The Trends page.])
+
+Every chart can be explored in the same way as the Dashboard chart: the wheel zooms, a drag pans, and the *Export* button saves an image or the data.
+
+= Data <data>
+
+Data lists every sample of the run, newest first: the time, the plant's readings, the twin's prediction, the deviation, the state and any faults that were on.
+
+#shot("simple_09_data.png", [The Data page.])
+
+The table shows the newest 1000 samples. *Export CSV* saves every sample of the run, not only the rows shown, as a CSV file that opens in a spreadsheet.
+
+= Event Log <event-log>
+
+#shot("simple_10_event_log.png", [The Event Log page: one new Abnormal alarm and the events that led to it.])
+
+*Alarms.* An alarm is raised when the state becomes Warning or Abnormal. The list shows the newest first, with the time, the state, the deviation and the probable cause. A new alarm is in bold and tinted. Select it and press *Acknowledge* to mark it as seen. Alarms are kept when you press *Clear all*; *Reset* or *Apply and start* clears them.
+
+*Events.* Every change of state and every fault injected or removed, newest first.
+
+== The log <log>
+
+*Show log* (or *View > Logs*, #key[Ctrl]+#key[L]) opens the application log in a pop-up window. It lists what the app is doing as time, level and message.
+
+#shot("light_17_log_popup.png", [The log pop-up: a fault injected, an Abnormal alarm in red, and the state change.], w: 70%)
+
+- *Level* filters by Debug, Info, Warning or Error. Warnings are amber and errors are red.
+- *Clear* empties it, and *Copy* puts the visible lines on the clipboard.
+
+If something goes wrong, the log has the reason.
+
+= Settings <settings>
+
+Settings holds the setup of the *next* run: the profile, the site, the module and the limits. The sections are listed on the left. Click one to see its page.
+
+#shot("simple_16_settings.png", [Settings, with the Profile section open.])
+
+Nothing changes until you press *Apply and start*. The bar along the bottom shows whether your edits differ from the current run ("Matches the current run" or "Changes not applied yet"). It also holds three buttons:
+
+#table(
+  columns: (auto, 1fr),
+  [Button], [What it does],
+  [*Validate setup*], [Checks every value and reports problems. It starts nothing.],
+  [*Reset to defaults*], [Puts every control back to its default. It applies nothing.],
+  [*Apply and start*], [Checks the setup, starts a new run from the beginning and returns to the Dashboard.],
+)
+
+Each number field holds only the number. Its unit is the grey label beside it.
+
+== Profile <profile>
+
+The profile is the day of irradiance and temperature that drives the run.
+
+#shot("light_05a_setup_profile.png", [Settings, Profile: the bundled days, Load CSV, and the NASA POWER fetch.])
+
+- Choose a bundled day from the list, or press *Load CSV...* for your own file (see @loading).
+- *Fetch profile (NASA POWER)* downloads real weather for a place and dates. Tick *Use Site location* to use the latitude and longitude from the Site section, or untick it to type your own. Choose the start and end dates, the irradiance type and the time standard, then press *Fetch*. A request covers at most 31 days, and the end date cannot be in the future. *Preview...* shows the fetched data before you use it. Fetches are kept, so a repeat fetch works without a connection.
+
+== Site <site>
+
+Where the plant is (latitude, longitude, tilt and azimuth). It labels the run and sets the default fetch position. It does not change the physics.
+
+#shot("light_05b_setup_site.png", [Settings, Site.])
+
+== Module <module>
+
+The datasheet the twin predicts with: Isc, Voc, Impp, Vmpp, the temperature coefficients Ki and Kv, and the cell count Ns. Edit any value, press *Load datasheet...* to read a file, or press *Reset to generic module* to return to the generic 60-cell 250 W module.
+
+#shot("light_05c_setup_module.png", [Settings, Module.])
+
+== Limits <limits>
+
+The warning and abnormal limits, in percent of deviation. The defaults are 5% and 10%. *Derive from healthy run* sets them from a healthy simulated day: the mean deviation plus two and three standard deviations. Those limits are tight, and on the bundled day they flag some healthy samples, so check them before you rely on them.
+
+#shot("light_05d_setup_limits.png", [Settings, Limits.])
+
+== Review <review>
+
+A summary of what the next run will use. Check it, then press *Apply and start*.
+
+#shot("light_05e_setup_review.png", [Settings, Review: what the next run will use.])
+
+= Loading your own data <loading>
+
+Press *Load CSV...* on the Profile section and choose a file. The file needs a header row, a timestamp column, an irradiance column (W/m²) and a temperature column (°C).
+
+#shot("light_07_csv_dialog.png", [The CSV dialog: the column choices, the first rows of the file and the result of the checks.], w: 62%)
+
++ The dialog guesses each column from its name. Change a choice if it is wrong. NASA POWER files with `YEAR, MO, DY, HR` columns are recognised.
++ The *first rows* table shows what the file holds.
++ The check line gives the number of rows, the date range and the time step, or says *Rejected* with the reason.
++ *Use profile* is enabled only when the file passes. Press it, then *Apply and start*. *Cancel* keeps the previous profile.
+
+A file is rejected if its times do not increase by one fixed step, any value is missing or not a number, or irradiance is negative.
+
+When you fetch from NASA POWER, *Preview...* opens the fetched profile for inspection before it is used.
+
+#shot("light_08_fetch_preview.png", [The fetch preview: the fetched irradiance and temperature, with statistics and checks, before you use or discard it.], w: 80%)
+
+= Quick recipes <recipes>
+
+#recipe[Watch a fault being caught]
+
++ Open the app. On the Dashboard, set the speed to `600x` and press *Start*.
++ Once the plant output has risen, click *Partial shading*.
++ Watch the deviation, the state and the chart. Open *Event Log* to see the alarm.
+
+#recipe[Run on real weather]
+
++ Settings > Site: enter the plant's latitude and longitude.
++ Settings > Profile: pick dates, press *Fetch*, press *Preview...*, then *Use*.
++ Press *Apply and start*.
+
+#recipe[Check the twin's accuracy]
+
++ Open *Analysis*.
++ Press *Run validation* and read the figures and tables.
++ Use *Export metrics CSV...* to keep the numbers.
+
+#recipe[Keep the data of a run]
+
++ Play the run to the end, or as far as you need.
++ Open *Data* and press *Export CSV*.
+
+#recipe[Start over]
+
+Press *Reset* on the Dashboard to play the same run again. For different settings, open *Settings*, press *Reset to defaults*, then *Apply and start*.
+
+= Troubleshooting <troubleshooting>
+
+#table(
+  columns: (1fr, 1.6fr),
+  [Problem], [What to do],
+  [The sidebar has gone.], [Press the ☰ button at the top left, or #key[Ctrl]+#key[B], or #key[Esc].],
+  [Nothing moves.], [The run has not started or is paused. Press *Start* on the Dashboard.],
+  [The state stays Normal after injecting a fault.], [At night there is too little light to compare, so the deviation reads 0. Run on until the sun is up.],
+  [Changes in Settings have no effect.], [Press *Apply and start*. Edits apply only then.],
+  [A CSV is rejected.], [Read the reason in the dialog. Check that the columns are mapped right and the times step evenly with no gaps.],
+  [A fetch fails.], [NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads without a connection.],
+  [Analysis says the result is out of date.], [You changed the setup after the last validation. Press *Run validation* again.],
+  [The log is not showing.], [It is a pop-up: *View > Logs* (#key[Ctrl]+#key[L]).],
+  [The app opens three windows, not one.], [The advanced version is switched on. Unset the environment variable `PVYSICS_ADVANCED_VERSION`.],
+)
+
+= The advanced version <advanced>
+
+The advanced version is the app as it was before the simple window: separate windows for the operator (the HMI), the Dashboard and the Sensors. It adds charts you can rearrange and float onto other monitors, and setup of the simulated plant's noise, mismatch and seed. To start it, set the environment variable `PVYSICS_ADVANCED_VERSION` to `1` (`true`, `yes` and `on` also work) before you start the app:
+
+```
+PVYSICS_ADVANCED_VERSION=1 uv run pvysics
+```
+
+On Windows, in PowerShell, set it for the session first: `$env:PVYSICS_ADVANCED_VERSION = "1"`, then run `.\pvysics.exe` from the app's folder. The advanced version has its own manual.

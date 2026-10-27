@@ -72,7 +72,28 @@ macOS: the same commands, in Terminal.
 
 Windows: the same commands, in PowerShell.
 
-`uv run pvysics` opens the HMI, the Dashboard and the Sensors window together. Command-line switches open fewer:
+`uv run pvysics` opens the simple window: one window with a sidebar of pages, in the theme you chose (View > System, Light or Dark).
+
+| Page | What it holds |
+| --- | --- |
+| Dashboard | the run controls and fault buttons, six readings (voltage, current, measured and predicted power, irradiance, module temperature), the power chart, and the deviation with its state, the limits, peak power, energy, sample count and elapsed time |
+| Analysis | validation: the twin against one healthy day and one day for each fault, with CSV export |
+| SDM Model | the circuit, equations, fitted parameters and the live I-V and P-V curves |
+| Trends | a chart for each of the five sensor channels |
+| Data | every sample of the run as a table, with CSV export |
+| Event Log | the alarms (with Acknowledge), the state changes and fault injections, and a button for the application log |
+| Settings | the setup of the next run (profile, site, module, limits); **Apply and start** starts it |
+
+The Hide button hides the sidebar so a page has the whole window. A ☰ button stays at the top left; it, **View > Sidebar** (`Ctrl+B`) and Esc all bring the sidebar back. There are no window switches.
+
+The advanced version is the app as it was before the simple window: the HMI, the Dashboard and the Sensors window, which also have the Model view, the validation report, the chart docks and the plant setup. Set the environment variable `PVYSICS_ADVANCED_VERSION` to `1` (`true`, `yes` and `on` also work; anything else, or unset, is the simple window):
+
+```sh
+PVYSICS_ADVANCED_VERSION=1 uv run pvysics          # Linux, macOS
+$env:PVYSICS_ADVANCED_VERSION = "1"; uv run pvysics   # Windows PowerShell
+```
+
+In the advanced version the command-line switches open fewer windows:
 
 | Command | Opens |
 | --- | --- |
@@ -82,7 +103,7 @@ Windows: the same commands, in PowerShell.
 | `uv run pvysics --sensors` | the Sensors window only |
 | `uv run pvysics --both` | the HMI and the Dashboard |
 
-The switches exclude each other. An unknown switch prints the usage and exits with status 2.
+The switches exclude each other. An unknown switch, or any switch in the simple version, prints the usage and exits with status 2.
 
 The HMI, the Dashboard and the Sensors window share one run. Closing a window does not stop the run or the other window, and a closed window opens again from the Window menu. The app quits when the last open window closes. A Dashboard opened without the HMI, with no run started, says how to start one.
 
@@ -119,7 +140,7 @@ A request covers at most 31 days, and the end date cannot be in the future. Resp
 ## Architecture
 
 - **Headless engine** (`src/pvysics/`, no Qt imports): `single_diode.py` (SDM solver), `profile.py` and `datasheet.py` (inputs), `faults.py`, `run.py` (plant, twin, `Simulation` stepped one Sample at a time), `run_setup.py` (setup checks and derived limits), `alarms.py`, `history.py`, `validation.py` (metrics and the fault batch), `export.py` (CSV), `log_model.py` (the bounded log buffer and its level filter), `fetch.py` (the NASA POWER fetch client, its request building, response parsing and disk cache; the transport is injected, so tests never use the network), and `profile_stats.py` (the statistics of a fetched profile for its preview). Tests and scripts call these directly. Modules log through the standard `logging` module under the `pvysics` name.
-- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `metric_strip.py` and `qml/MetricStrip.qml` (the figures, drawn in QML), `cli.py` (the command-line switches), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), `fetch_panel.py` (the Fetch profile group on the Setup tab, which runs fetches on a worker thread), `profile_preview.py` (the preview dialog of a fetched profile), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive. `log_bridge.py` is the one logging handler: it passes records to the UI thread through a Qt signal, and `log_pane.py` is the log pane docked in each window.
+- **Qt GUI layer** (`src/pvysics/gui/`): `session.py` (the app-level run, history and theme, and the windows it opens), `metric_strip.py` and `qml/MetricStrip.qml` (the figures, drawn in QML), `cli.py` (the command-line switches and the `PVYSICS_ADVANCED_VERSION` flag), `simple_window.py`, `simple_pages.py` and `simple_style.py` (the simple window: a sidebar of pages built from the same views, `run_toolbar.py` and `trend.py`), `main_window.py` (HMI), `dashboard.py` (Dashboard), `process_view.py`, `model_view.py`, `setup_view.py` and `validation_view.py` (tabs), `fetch_panel.py` (the Fetch profile group on the Setup tab, which runs fetches on a worker thread), `profile_preview.py` (the preview dialog of a fetched profile), and `playback.py`. `PlaybackController` steps the engine on a `QTimer`, with a simulated clock and selectable speed. The validation batch runs on a `QThread`, so the windows stay responsive. `log_bridge.py` is the one logging handler: it passes records to the UI thread through a Qt signal, and `log_pane.py` is the log pane docked in each window.
 - **Data bus** (`gui/data_bus.py`): an in-process `DataBus` of Qt signals (`sample`, `event`, `run_reset`). Both windows subscribe to it through the session, which owns it along with the run. It stands in for the WebSocket and CSV bus in the design. The `Sample` record is the one an ESP32 would publish later.
 
 ## Demo script
@@ -128,7 +149,7 @@ Use this checklist against the running app. Each step describes what the code do
 
 **Start**
 
-- [ ] Run `uv run pvysics`. The HMI and the Dashboard open on the same run. (Or run `uv run pvysics --hmi` or `--dashboard` for one window. A Dashboard opened alone, before a run, says "No run in progress" and offers **Open HMI**.)
+- [ ] Run `PVYSICS_ADVANCED_VERSION=1 uv run pvysics`. The HMI and the Dashboard open on the same run. (Or add `--hmi` or `--dashboard` for one window. A Dashboard opened alone, before a run, says "No run in progress" and offers **Open HMI**.)
 
 **Setup**
 
