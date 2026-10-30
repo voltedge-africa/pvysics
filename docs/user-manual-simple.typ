@@ -40,6 +40,28 @@ You can inject faults into the plant (shading, soiling and so on) and watch the 
 
 At night the twin predicts almost no power, so there is nothing to compare: below 5 W of predicted power the deviation reads 0 and the state stays Normal.
 
+== How the prediction is made <prediction>
+
+*The twin.* The Single Diode Model describes the module as a current source, one diode, a series resistance $R_s$ and a shunt resistance $R_(s h)$:
+
+#align(center)[$I = I_(p h) - I_0 (e^((V + I R_s) / (n N_s V_t)) - 1) - (V + I R_s) / R_(s h)$]
+
+The model is fitted to the module's datasheet: the short-circuit current, the open-circuit voltage and the maximum power point decide $I_(p h)$, $I_0$, $R_s$ and $R_(s h)$. The diode ideality factor $n$ is *fixed at 1.3*, a common value for silicon modules; it is not fitted and it is not a setting. Irradiance scales the photocurrent, and the datasheet's temperature coefficients shift the current and the open-circuit voltage with temperature. The *SDM Model* page shows the fitted values and the curves.
+
+*Which operating point is compared.* A module makes different power at different voltages, so the twin and the plant must be compared at the same point on the curve:
+
+#table(
+  columns: (auto, 1fr),
+  [Where], [What is compared],
+  [A simulated run], [The plant is read *at its own maximum power point*, as if a perfect maximum-power-point tracker held it there, and the twin predicts the *maximum power* for the same light and temperature. This is an *ideal-tracker assumption*: the app has no load and no tracker model, so a real module held away from its maximum power point would not be comparable in this mode.],
+  [A dataset with voltage and current], [The twin predicts the power *at the measured voltage*: the voltage times the current the model gives at that voltage, for the row's irradiance and temperature. A healthy module held off its maximum power point by its load therefore still scores Normal. The module's maximum power for the row is kept beside it as a reference.],
+  [A dataset with power only], [There is no voltage to predict at, so the twin predicts the maximum power, which assumes the module is being tracked. Include voltage and current when you can.],
+)
+
+*The plant's differences from the model.* So that the twin is not simply a copy of the plant, the simulated plant differs from the datasheet by default: its series resistance is 3% higher, its shunt resistance 5% higher and its open-circuit-voltage temperature coefficient 2% higher, and its sensors have noise (irradiance 0.5%, temperature 0.5 °C). On a healthy day this leaves a small steady offset between measured and predicted power, the *baseline offset*. On the default setup it is a few hundredths of a percent; the *Baseline offset* figure in Analysis shows it for your setup (@simulation-analysis).
+
+*The limits.* The defaults of 5% (Warning) and 10% (Abnormal) are round starting values. Settings can instead work the limits out from a healthy day of the plant itself: the warning limit is the mean plus two standard deviations of the healthy deviation, and the abnormal limit the mean plus three, so the limits sit close to the plant's own noise. They are tight and flag some healthy samples, so check them before you rely on them (@limits).
+
 = Installing and starting <starting>
 
 *Windows.* Run `pvysics-0.3.0-windows-setup.exe` and follow the steps. It adds *PV Digital Twin* to the Start menu, and to the desktop if you tick the box. The installer is not code-signed, so Windows may show a warning: choose *More info*, then *Run anyway*. Without the installer, unzip `pvysics-0.3.0-windows.zip` and run `pvysics.exe` in the `pvysics` folder.
@@ -174,7 +196,7 @@ Analysis tests the twin in two ways. The two buttons at the top right of the pag
 
 == Dataset analysis <dataset-analysis>
 
-A dataset is a CSV or Excel file of the plant's own readings, such as a logger or an ESP32 would write. The twin predicts the power from each row's irradiance and temperature, and the page compares that with the power the plant actually made.
+A dataset is a CSV or Excel file of the plant's own readings, such as a logger or an ESP32 would write. The twin predicts the power from each row's irradiance and temperature, at the row's measured voltage when the file has one (see @prediction), and the page compares that with the power the plant actually made.
 
 #shot("simple_18_dataset_empty.png", [Dataset analysis before a file is imported.])
 
@@ -185,7 +207,7 @@ A dataset is a CSV or Excel file of the plant's own readings, such as a logger o
   [*Import file...*], [Reads a CSV or Excel file into the app's dataset list and chooses it. The file is copied, so the original can be moved or deleted.],
   [*Analyse*], [Scores the chosen dataset with the twin, using the datasheet and limits in Settings. It runs in the background.],
   [*Replay on Dashboard*], [Shows the analysed dataset on every page as if it were a run. See below.],
-  [*Export analysis CSV*], [Saves every analysed row, then the figures below, as one CSV file.],
+  [*Export analysis CSV*], [Saves every analysed row, then the figures below, as one CSV file. Each row has the estimated power and, in `mpp_power_w`, the module's theoretical maximum power for that row's light and temperature.],
   [*Delete dataset*], [Removes the chosen dataset from the list.],
 )
 
@@ -219,7 +241,7 @@ The twin can only judge readings that were taken in the way it expects. Before y
 + *Irradiance* is the sunlight on the module's own surface, in W/m², from a sensor tilted like the module (a plane-of-array or reference-cell sensor). A horizontal reading differs from it, especially in the morning and evening.
 + *Temperature* is the module's temperature in °C, from a sensor on the back of the module. The air temperature is lower than the module's in sunshine, so it makes the twin predict too much power. If you only have air temperature, expect the twin to read high.
 + *Voltage and current* are the module's own terminals, in V and A, read at the same moment as the irradiance. Every row is one moment, so the readings should be averages over the row's interval, not a single noisy value.
-+ *Measure at the maximum power point.* The twin predicts the most power the module can make in that light and at that temperature. A module held at a different voltage, such as one with a fixed load or an open circuit, makes less than that and shows as a deviation even though nothing is wrong. Log from an inverter or charge controller that tracks the maximum power point, or tune the load to it.
++ *Include voltage and current.* With them, the twin predicts the power at the voltage you measured, so it does not matter whether the module was held at its maximum power point or at a load. A file with only a power column is compared with the module's *maximum* power, which assumes a tracker held it there, so a module on a fixed load will read low.
 + *Check the numbers make sense for the module.* The current can never be above the datasheet's short-circuit current (*Isc*), the voltage above its open-circuit voltage (*Voc*), or the power above the datasheet's rated power in full sunshine. A row beyond these usually means a unit error (kW instead of W, mA instead of A), a swapped column, or a sensor out of calibration, and it will score as Abnormal.
 + *Keep the rows in order and the step steady,* with no gaps you do not mean. A few missing rows are fine, but a missing value is rejected, so delete the row or fill it.
 
@@ -234,7 +256,7 @@ A good first test is the template itself: it holds a healthy generic module, so 
 #table(
   columns: (auto, 1fr),
   [Figure], [What it tells you],
-  [*Samples*, *Mean G*, *Mean actual P*, *Mean estimated P*], [The size of the dataset and its averages. The estimated power is the twin's.],
+  [*Samples*, *Mean G*, *Mean actual P*, *Mean estimated P*], [The size of the dataset and its averages. The estimated power is the twin's, at the measured voltage when the file has one.],
   [*MAE*, *RMSE*, *MAPE*], [How far the twin's power is from the actual power, in watts and in percent.],
   [*MBE*], [The mean of estimated minus actual power. Positive means the twin over-predicts, so the plant is under-producing.],
   [*Mean deviation*], [The average deviation in percent, with the sign explained in @what.],
@@ -267,10 +289,11 @@ The *Simulation* button shows the validation of the twin against known answers. 
   columns: (auto, 1fr),
   [Result], [What it tells you],
   [*MAE, RMSE, MAPE*], [How closely the twin's power matches the healthy plant, in watts and in percent. Hover the figures for what is excluded.],
+  [*Baseline offset*], [The healthy day's mean deviation, with its sign. It comes from the plant's small differences from the datasheet (@prediction) and is the zero the faults are measured from.],
   [*Detection rate*], [The share of fault samples the twin flagged as Abnormal.],
   [*Mean delay*], [How long after injection the twin noticed.],
   [*False alarms*], [How often the healthy day was flagged, at your limits and at limits worked out from the healthy day's own noise.],
-  [*Each fault*], [Whether each of the five faults was detected, how fast and at what rate.],
+  [*Each fault*], [Whether each of the five faults was detected, how fast, at what rate, and its *mean deviation*: how far below the prediction the plant sat while the fault was on, in percent.],
   [*Twin against truth*], [A table of what was true (rows) against what the twin said (columns). Green cells are correct.],
 )
 
@@ -454,7 +477,7 @@ Press *Reset* on the Dashboard to play the same run again. For different setting
   [A CSV is rejected.], [Read the reason in the dialog. Check that the columns are mapped right and the times step evenly with no gaps.],
   [A fetch fails.], [NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads without a connection.],
   [A dataset is rejected.], [Read the reason on the Analysis page. Check that the header names are ones the manual lists, that the times increase and that no value is missing.],
-  [A dataset scores Abnormal on every row.], [A steady offset is a setup problem, not a fault. Check that the Settings datasheet is the module you measured, that the temperature is the module's and not the air's, that the units are W/m², °C, V and A, and that no row has a current above the datasheet's short-circuit current. See @dataset-fill.],
+  [A dataset scores Abnormal on every row.], [A steady offset is a setup problem, not a fault. Check that the Settings datasheet is the module you measured, that the temperature is the module's and not the air's, that the units are W/m², °C, V and A, and that no row has a current above the datasheet's short-circuit current. A file with only a power column is compared with the maximum power, so a module held at a load reads low; add voltage and current. See @dataset-fill.],
   [Analysis says the result is out of date.], [You changed the setup after the last validation. Press *Run validation* again.],
   [The log is not showing.], [It is a pop-up: *View > Logs* (#key[Ctrl]+#key[L]).],
   [The app opens three windows, not one.], [The advanced version is switched on. Unset the environment variable `PVYSICS_ADVANCED_VERSION`.],

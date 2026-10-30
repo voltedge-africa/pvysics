@@ -1,6 +1,6 @@
 # Dataset template example rows are physically impossible for the generic module
 
-Status: ready-for-agent
+Status: resolved
 Found: 2026-10-30, while checking a dashboard screenshot against a ChatGPT review
 
 ## Symptom
@@ -45,3 +45,4 @@ Debian builds and in the manual's Dataset chapter.
 ## Comments
 
 - Independent check by an OpenCode agent (DeepSeek V4.1 Flash Free) confirmed the arithmetic above.
+- Resolved in 4465e47 (template rows and tests). The follow-ups below were done in the next commits.
