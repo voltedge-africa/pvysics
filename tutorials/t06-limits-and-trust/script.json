@@ -1,0 +1,108 @@
+{
+  "title": "PV Digital Twin, Tutorial 6: Limits and trust",
+  "label": "Tutorial 6  ·  Limits and trust",
+  "voice": "af_heart",
+  "speed": 0.92,
+  "gap": 0.42,
+  "scenes": [
+    {
+      "id": "limits",
+      "class": "Limits",
+      "title": "Choosing the limits",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Five and ten percent are defaults, not laws. Set them too tight, and healthy days raise alarms. Set them too loose, and real faults slip through.",
+          "visual": "A horizontal deviation axis with a healthy cloud of dots near zero and a fault cluster at -30. Limits drawn as pairs of lines; cue 'tight' lines at +/-1 cutting through the healthy cloud (olive 'false alarms'); cue 'loose' lines at +/-40 leaving the fault cluster inside (olive 'missed fault')."
+        },
+        {
+          "say": "The tool can derive limits from a healthy day: the mean deviation plus two standard deviations for the warning, and plus three for the abnormal limit.",
+          "visual": "Histogram of the healthy daylight deviation from pvdata.day() (bins 0.25 % wide). Cue 'mean' a line at the mean; cue 'two' a line at mean + 2 sigma; cue 'three' a line at mean + 3 sigma."
+        },
+        {
+          "say": "On the bundled day, that makes a warning limit of only about one point two percent, and about four percent of healthy daylight samples would exceed it.",
+          "visual": "Highlight the right tail of the histogram beyond the warning line; pill 'warning limit 1.2 %' and 'about 4 % of healthy samples above it'. Cue 'one' and 'four'.",
+          "cap": "On the bundled day, that makes a warning limit of only about 1.2%, and about 4% of healthy daylight samples would exceed it."
+        },
+        {
+          "say": "The healthy deviation is not a neat bell shape, so those formulas are too tight here. Check derived limits before you trust them.",
+          "visual": "Callout 'TRAP' with 'Derived limits can raise false alarms: check them'. Cue 'trust'."
+        }
+      ]
+    },
+    {
+      "id": "validation",
+      "class": "Validation",
+      "title": "Testing the tester",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Validation runs one healthy day and one day for each of the five faults, and scores the twin against what it knows is true.",
+          "visual": "Six small day-curve thumbnails: one healthy and five with a fault marker, appearing on cues 'healthy' and 'five'; a score pill 'Run validation'."
+        },
+        {
+          "say": "Open Analysis, press the simulation button, then run validation. It takes a few seconds, and the app stays usable.",
+          "visual": "Show shot('simple_14_analysis_empty.png', width=10); box the SIMULATION button (top right) on cue 'simulation' and 'Run validation' on cue 'run'."
+        },
+        {
+          "say": "On healthy data the error is tiny: M A E zero point two four watts, R M S E zero point three five, and M A P E zero point four seven percent. The baseline offset, the healthy day's average deviation, is minus zero point zero five percent.",
+          "visual": "Show shot('simple_15_analysis_results.png', width=10.5) with a box round the 'Accuracy on healthy data' card. Cue 'M', 'R', 'zero', then 'baseline' boxes the Baseline offset tile.",
+          "cap": "On healthy data the error is tiny: MAE 0.24 watts, RMSE 0.35, and MAPE 0.47%. The baseline offset, the healthy day's average deviation, is minus 0.05%."
+        },
+        {
+          "say": "All five faults are detected, with a delay of zero seconds, and there are no false alarms at the default limits. Each fault also shows its mean deviation: about minus thirty one percent for partial shading, and about minus fourteen for sensor drift.",
+          "visual": "Box the 'Fault detection' card, then the 'Each fault' table, then its 'Mean deviation' column. Cue 'detected', 'delay', 'false', 'mean'."
+        },
+        {
+          "say": "The last table counts what was true against what the twin said: every healthy sample read normal, and every fault sample read abnormal.",
+          "visual": "Box the 'Twin against truth' table (3210 and 300 green cells). Cue 'healthy', 'fault'."
+        }
+      ]
+    },
+    {
+      "id": "caution",
+      "class": "Caution",
+      "title": "What the scores do not say",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Read these scores with care. Each fault is injected as a sudden step for one hour, so the twin notices at once, and the scores come out perfect.",
+          "visual": "Draw a step function (fault step) next to a gradual ramp. Cue 'step' draw the step, label 'validation'; cue 'perfect' a pill '100 %'."
+        },
+        {
+          "say": "Real faults arrive gradually, and would score lower.",
+          "visual": "Draw the gradual ramp in olive with label 'real faults'. Cue 'gradually'."
+        },
+        {
+          "say": "And the plant and the twin are the same kind of model. So the accuracy shows how well the twin matches the simulation, not how it would do on a real module.",
+          "visual": "Two identical block icons 'plant' and 'twin' with an equals sign and a callout 'The same model family'. Cue 'same'."
+        },
+        {
+          "say": "That is why the dataset route matters: it is how you test the twin against real measurements.",
+          "visual": "Arrow from a real-panel icon through 'dataset' into the twin. Cue 'dataset'."
+        }
+      ]
+    },
+    {
+      "id": "path",
+      "class": "Path",
+      "title": "Where to go next",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "You now know the whole path. The sun and temperature set what a healthy module should make. The twin predicts it. The deviation measures the gap, and the limits turn it into a state.",
+          "visual": "A single horizontal flow diagram revealed in order on cues 'sun', 'twin', 'deviation', 'limits': [sun, temperature] -> [twin] -> [deviation] -> [state]."
+        },
+        {
+          "say": "Try it yourself. Inject each fault and read its fingerprint. Import a dataset. Compare the derived limits with the defaults. Then run validation, and read its warning.",
+          "visual": "Four checklist lines with boxes to tick, revealed on cues 'inject', 'import', 'compare', 'validation'."
+        },
+        {
+          "say": "The manual has every button, and every file format, in detail. Thank you for watching.",
+          "visual": "End card: 'PV Digital Twin' title, subtitle 'the simple version manual covers every page', pill 'tutorials 1 to 6'. Cue 'manual'."
+        }
+      ]
+    }
+  ],
+  "engine": "breeze"
+}

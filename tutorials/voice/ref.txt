@@ -1,0 +1,1 @@
+Welcome. In this series we will build the twin of a solar panel from first principles, and then use it to find out when a real panel is not making the power it should.

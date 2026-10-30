@@ -1,0 +1,154 @@
+{
+  "title": "PV Digital Twin, Tutorial 3: The plant and its faults",
+  "label": "Tutorial 3  ·  The plant and its faults",
+  "voice": "af_heart",
+  "speed": 0.92,
+  "gap": 0.42,
+  "scenes": [
+    {
+      "id": "plant",
+      "class": "Plant",
+      "title": "The plant is the twin's cousin",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The plant uses the same single diode model, but with values of its own. Its series resistance is three percent higher, its shunt resistance five percent higher, and its voltage temperature coefficient two percent off.",
+          "visual": "Two columns of parameters side by side headed 'twin (datasheet)' and 'plant': Rs 0.276 -> +3 %, Rsh -> +5 %, Kv -> +2 %. Rows reveal on cues 'series', 'shunt', 'coefficient'.",
+          "cap": "The plant uses the same single diode model, but with values of its own. Its series resistance is 3% higher, its shunt resistance 5% higher, and its voltage temperature coefficient 2% off."
+        },
+        {
+          "say": "On top of that, the plant's sensors are not perfect. The irradiance and temperature readings carry a little random noise, and voltage and current are rounded to the sensor's step.",
+          "visual": "A clean smooth line transforms into the same line with small random noise (use pvdata.day().irradiance for the real noisy trace). Cue 'noise' the noise appears; cue 'rounded' show a staircase zoom-in of a few points."
+        },
+        {
+          "say": "Why add imperfections on purpose? If the plant were identical to the twin, the deviation would always be exactly zero, and any test would be meaningless. Real panels never match their datasheet perfectly.",
+          "visual": "Cue 'identical': two overlapping identical curves with a flat zero line labelled 'deviation 0: nothing to learn'. Cue 'never' the curves separate slightly."
+        },
+        {
+          "say": "Run a healthy day, and the deviation wobbles around zero. In daylight it never goes beyond about two percent, far inside the five percent limit.",
+          "visual": "Plot pvdata.day().deviation against hours (daylight only where predicted >= 5 W) with horizontal limit lines at +/-5 and +/-10 percent drawn faint; the trace stays within +/-2. Cue 'wobbles' draw the trace; cue 'five' flash the +/-5 lines. Label 'largest: 1.9 %'.",
+          "cap": "Run a healthy day, and the deviation wobbles around zero. In daylight it never goes beyond about 2%, far inside the 5% limit."
+        }
+      ]
+    },
+    {
+      "id": "five",
+      "class": "Five",
+      "title": "Five ways to break a panel",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The tool can inject five faults. Each one is something that really happens to panels.",
+          "visual": "Title row; five empty cards in a row (or 3 + 2) appear."
+        },
+        {
+          "say": "Partial shading: a shadow falls on part of the module, so it receives less light. Soiling: dust on the glass does much the same, evenly.",
+          "visual": "Fill cards 1 and 2 with simple icons and one-line text: 'Partial shading: shadow, less light on part' and 'Soiling: dust, less light overall'. Cue 'shading', 'soiling'."
+        },
+        {
+          "say": "Series resistance rise: a corroded or loose connection adds resistance, so power is lost as heat in the wiring. Bypass diode failure: one group of cells drops out.",
+          "visual": "Cards 3 and 4: 'Rs increase: bad connection, loss as heat' and 'Diode failure: a third of the cells out'. Cue 'resistance', 'diode'."
+        },
+        {
+          "say": "Sensor drift is different. The module is fine, but the irradiance sensor starts reading too high, so the twin is fooled.",
+          "visual": "Card 5 'Sensor drift' outlined in olive with a callout tag 'DIFFERENT: the panel is fine'. Cue 'different' the tag."
+        }
+      ]
+    },
+    {
+      "id": "fingerprints",
+      "class": "Fingerprints",
+      "title": "What each fault does to the curve",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Here is the healthy curve at full sun. Switch on partial shading, thirty percent less light. The curve shrinks, and the power falls from two hundred and fifty to one hundred and seventy five watts: minus thirty percent.",
+          "visual": "I-V and P-V axes (two panels side by side). The healthy curves in forest green; cue 'shading' overlay the faulty curves from pvdata.fault_iv(FaultKind.PARTIAL_SHADING) in olive. A result table starts: 'Partial shading  249.8 -> 174.7 W  -30 %'.",
+          "cap": "Here is the healthy curve at full sun. Switch on partial shading, 30% less light. The curve shrinks, and the power falls from 250 to 175 watts: minus 30%."
+        },
+        {
+          "say": "Soiling at twenty percent looks similar, only a little smaller. Power drops to two hundred watts.",
+          "visual": "Replace the olive curves with the soiling ones (fault_iv SOILING). Table row 'Soiling  249.8 -> 199.9 W  -20 %'. Cue 'soiling'."
+        },
+        {
+          "say": "A series resistance rise bends the knee of the curve, and power falls to one hundred and forty eight watts. Notice that the open circuit voltage does not change at all.",
+          "visual": "Replace with SERIES_RESISTANCE_RISE curves; mark that Voc stays at 37.8 V with a vertical dotted line through both curves' right end. Table row '-> 148.3 W  -41 %'. Cue 'knee' point at the bend; cue 'open' the dotted line."
+        },
+        {
+          "say": "A failed bypass diode removes a third of the cells. Now the open circuit voltage collapses, from thirty seven point eight volts down to twenty five point two. That is a different fingerprint.",
+          "visual": "Replace with DIODE_FAILURE curves; draw an arrow along the voltage axis from 37.8 to 25.2 V. Table row '-> 160.3 W  -36 %  (Voc 25.2 V)'. Cue 'collapses'.",
+          "cap": "A failed bypass diode removes a third of the cells. Now the open circuit voltage collapses, from 37.8 volts down to 25.2. That is a different fingerprint."
+        },
+        {
+          "say": "Sensor drift leaves the curve exactly where it was. The plant still makes two hundred and fifty watts. Only what the twin believes about the sun has changed.",
+          "visual": "Show the healthy curves unchanged (no olive overlay); table row 'Sensor drift  249.8 -> 249.8 W  0 %'. Cue 'exactly' flash the unchanged curve."
+        }
+      ]
+    },
+    {
+      "id": "drift",
+      "class": "Drift",
+      "title": "The twin can be wrong too",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Think about sensor drift. The irradiance sensor reads fifteen percent high. The twin trusts that sensor, so it predicts more power than the plant could ever make.",
+          "visual": "Chain diagram: [sun] -> [irradiance sensor: reads +15 %] -> [twin] -> 'predicted power: too high'; the plant branch below stays correct. Cue 'sensor' flag the sensor in olive; cue 'predicts' the twin output arrow rises.",
+          "cap": "Think about sensor drift. The irradiance sensor reads 15% high. The twin trusts that sensor, so it predicts more power than the plant could ever make."
+        },
+        {
+          "say": "The plant is healthy, yet the deviation is about minus fourteen percent, and the state turns abnormal. The tool has found a disagreement, which is not always a broken panel.",
+          "visual": "Plot from pvdata.day(FaultKind.SENSOR_DRIFT): measured vs predicted power after 11:00 with the predicted curve above the measured curve; a pill '-13.8 %' and the state pill 'Abnormal'. Cue 'minus' the pill, cue 'abnormal' the state.",
+          "cap": "The plant is healthy, yet the deviation is about minus 14%, and the state turns abnormal. The tool has found a disagreement, which is not always a broken panel."
+        },
+        {
+          "say": "So an alarm lists a probable cause, and you should always ask the same question: is it the panel, or is it the sensor?",
+          "visual": "Callout 'ASK' with the text 'The panel, or the sensor?'. Cue 'sensor' flash."
+        }
+      ]
+    },
+    {
+      "id": "day",
+      "class": "Day",
+      "title": "Watch a fault on a real day",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Here is a simulated day. Measured power is the black line, predicted power the green dashes. All morning they lie almost on top of each other.",
+          "visual": "Axes hours 0-23 vs power 0-120 W. Draw pvdata.day() measured (INK) and predicted (MID, dashed) up to hour 11 with Create, rate linear. Cue 'morning' start; legend pills 'measured', 'predicted'."
+        },
+        {
+          "say": "At eleven o'clock we inject partial shading. The measured power drops away at once. The prediction does not, because the twin never saw a shadow.",
+          "visual": "Continue drawing both curves from pvdata.day(FaultKind.PARTIAL_SHADING, 11.0) after hour 11: measured drops, predicted continues. A dashed vertical marker at hour 11 labelled 'shading injected'. Cue 'eleven' the marker; cue 'drops' the measured drop.",
+          "cap": "At 11 o'clock we inject partial shading. The measured power drops away at once. The prediction does not, because the twin never saw a shadow."
+        },
+        {
+          "say": "Underneath, the deviation jumps from about zero to about minus thirty one percent. It crosses the warning limit, then the abnormal limit, and stays there.",
+          "visual": "A second axes below with the deviation trace (pvdata.day(...).deviation) and faint bands at -5 and -10; the trace jumps to ~-31. Cue 'warning' flash -5, cue 'abnormal' flash -10.",
+          "cap": "Underneath, the deviation jumps from about zero to about minus 31%. It crosses the warning limit, then the abnormal limit, and stays there."
+        },
+        {
+          "say": "At that moment the state changes to abnormal, and an alarm is raised. Detecting a disagreement and raising an alarm is the whole purpose of the tool.",
+          "visual": "A pill 'Normal' turns into 'Abnormal' (olive) at the marker and a card 'ALARM  partial shading  -31 %' slides in. Cue 'abnormal' the pill, cue 'alarm' the card."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "class": "Recap",
+      "title": "What to remember",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "To recap. The plant is the twin's cousin, with small deliberate differences and noisy sensors. Five faults change it, and each leaves its own fingerprint on the curve.",
+          "visual": "Checklist revealed on cues 'plant', 'faults', 'fingerprint': 'plant = twin + mismatch + noise', 'five faults: shading, soiling, Rs, diode, sensor drift', 'each leaves its own fingerprint'."
+        },
+        {
+          "say": "Next, the app itself: where each of these things lives on the screen, and how to use it.",
+          "visual": "Card 'Tutorial 4: using the app' with a tiny sidebar icon."
+        }
+      ]
+    }
+  ],
+  "engine": "breeze"
+}

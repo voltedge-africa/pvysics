@@ -49,3 +49,12 @@ dist/
 build/
 .coverage
 htmlcov/
+
+# tutorial videos: generated
+tutorials/out/
+tutorials/media/
+tutorials/**/media/
+docs/figures/
+tutorials/screens/
+tutorials/voice/*.wav
+tutorials/voice/voices/

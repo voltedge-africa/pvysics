@@ -1,0 +1,174 @@
+{
+  "title": "PV Digital Twin, Tutorial 5: Using your own data",
+  "label": "Tutorial 5  ·  Your own data",
+  "voice": "af_heart",
+  "speed": 0.92,
+  "gap": 0.42,
+  "scenes": [
+    {
+      "id": "why",
+      "class": "Why",
+      "title": "The twin works on any measurements",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "So far the plant was simulated. But the twin needs only three things: the irradiance, the temperature, and the power the panel actually made.",
+          "visual": "Three pills appear in turn on cues 'irradiance', 'temperature', 'power': 'irradiance (W/m2)', 'temperature (C)', 'actual power (W)'. They join into a small table icon.",
+          "cap": "So far the plant was simulated. But the twin needs only three things: the irradiance, the temperature, and the power the panel actually made."
+        },
+        {
+          "say": "Give it a log from a real installation, from a logger or an E S P thirty two, and it will tell you how well the panel matches the model, row by row.",
+          "visual": "A file icon 'log.xlsx' / 'log.csv' sliding into the twin block; output 'row-by-row comparison'. Cue 'logger' and 'row'.",
+          "cap": "Give it a log from a real installation, from a logger or an ESP32, and it will tell you how well the panel matches the model, row by row."
+        },
+        {
+          "say": "There are two ways in. A file, which this tutorial covers, and a live feed from a device, which has its own tutorial.",
+          "visual": "Two arrows into the app block: 'file' (solid, labelled 'this tutorial') and 'live feed' (dashed, labelled 'tutorial 7'). Cue 'file' the first arrow, cue 'live' the second."
+        }
+      ]
+    },
+    {
+      "id": "template",
+      "class": "Template",
+      "title": "The file to fill in",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "On the Analysis page, the Dataset tab opens first. Press template, and save an empty file as Excel or C S V.",
+          "visual": "Show shot('simple_18_dataset_empty.png', width=10.5); box the TEMPLATE button (about x 0.35-0.44, y 0.12-0.19) on cue 'template'; small pills 'Excel' and 'CSV' on cues 'Excel', 'C'.",
+          "cap": "On the Analysis page, the Dataset tab opens first. Press template, and save an empty file as Excel or CSV."
+        },
+        {
+          "say": "It holds the columns to fill in: a timestamp, the irradiance, the temperature, and then either the voltage and the current, or the power.",
+          "visual": "Draw a table (Text cells) with header 'timestamp | irradiance_w_m2 | temperature_c | voltage_v | current_a' and the five example rows from the template (2025-01-15T09:00:00, 612.4, 31.8, 29.1, 6.02 ...). Reveal column by column on cues 'timestamp', 'irradiance', 'temperature', 'voltage'."
+        },
+        {
+          "say": "If you give voltage and current, the app multiplies them to get the actual power. If you give a power column, it uses that, but the twin can then compare only with the module's maximum power, so give voltage and current when you can.",
+          "visual": "Under the table: 'power = voltage x current' (tex) and an alternative pill 'or a power_w column'. Cue 'multiplies', cue 'power'."
+        },
+        {
+          "say": "A few rules. Times must increase, though the step may vary. No blanks. Irradiance cannot be negative. Delete the example rows, and paste your own readings from row two.",
+          "visual": "Bullet list of four rules with small ticks, revealed on cues 'increase', 'blanks', 'negative', 'delete'. A callout 'TRAP' with 'Excel dates are fine; .xls is not'.",
+          "cap": "A few rules. Times must increase, though the step may vary. No blanks. Irradiance cannot be negative. Delete the example rows, and paste your own readings from row 2."
+        }
+      ]
+    },
+    {
+      "id": "metrics",
+      "class": "Metrics",
+      "title": "Scoring the twin",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Import the file and press analyse. For every row, the twin predicts the power from that row's irradiance and temperature, at the voltage you measured, and compares it with the actual power.",
+          "visual": "Flow: [row: G, T, actual P] -> [twin] -> 'estimated P'; then '- actual P' -> 'error'. Cue 'import', 'predicts', 'compares'."
+        },
+        {
+          "say": "Take three rows. The actual powers are eighty, seventy eight and seventy five watts, and the twin estimates eighty two, eighty and ninety.",
+          "visual": "A table with columns: actual P, estimated P, error (estimated minus actual). Rows 80/82/+2, 78/80/+2, 75/90/+15 filled on cues 'eighty', 'seventy', 'ninety'. The error column in olive.",
+          "cap": "Take three rows. The actual powers are 80, 78 and 75 watts, and the twin estimates 82, 80 and 90."
+        },
+        {
+          "say": "M A E, the mean absolute error, averages the size of the errors: two, two and fifteen give six point three three watts.",
+          "visual": "Formula MAE = (|2| + |2| + |15|) / 3 = 6.33 W written in steps. Cue 'average' and 'six'.",
+          "cap": "MAE, the mean absolute error, averages the size of the errors: 2, 2 and 15 give 6.33 watts."
+        },
+        {
+          "say": "R M S E squares the errors first, so one big miss counts for more: eight point eight one watts. M A P E expresses the error as a percentage of the actual power: eight point three five percent.",
+          "visual": "Formulas RMSE = sqrt((4 + 4 + 225) / 3) = 8.81 W and MAPE = (2.50 % + 2.56 % + 20.00 %) / 3 = 8.35 %. Cue 'squares', 'percentage'. Note beside it: 'the big miss (15) dominates'.",
+          "cap": "RMSE squares the errors first, so one big miss counts for more: 8.81 watts. MAPE expresses the error as a percentage of the actual power: 8.35%."
+        },
+        {
+          "say": "M B E keeps the sign. Here it is plus six point three three watts. Positive means the twin over-predicts, so the plant is making less than it should.",
+          "visual": "Formula MBE = (2 + 2 + 15) / 3 = +6.33 W; a callout 'READ IT' with 'positive: twin over-predicts, plant under-produces'. Cue 'sign', 'positive'.",
+          "cap": "MBE keeps the sign. Here it is plus 6.33 watts. Positive means the twin over-predicts, so the plant is making less than it should."
+        },
+        {
+          "say": "One more rule: rows where the twin predicts under five watts are ignored in all of these, so the night never dilutes the scores.",
+          "visual": "A small day curve with the night parts greyed and a '5 W' line. Cue 'ignored'.",
+          "cap": "One more rule: rows where the twin predicts under 5 watts are ignored in all of these, so the night never dilutes the scores."
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "class": "Read",
+      "title": "Reading the results",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The results come in three groups: the size of the dataset, the accuracy figures, and how many rows fell in each state.",
+          "visual": "Show shot('simple_19_dataset_results.png', width=9.5). Cue 'size', 'accuracy', 'states' box the three groups of figures in turn (rows at about y 0.16-0.31, 0.32-0.47, 0.50-0.65)."
+        },
+        {
+          "say": "Two charts show the same story. The left one is the deviation row by row. The right one plots estimated against actual power: a healthy panel lies along the dashed line.",
+          "visual": "Box the lower left chart, then the lower right chart. Cue 'left', cue 'right'; draw a short dashed diagonal 'healthy' label over the scatter."
+        },
+        {
+          "say": "This example has shading from eleven o'clock. The deviation drops to about minus thirty percent, the scatter splits into two lines, and nearly half of the rows are abnormal.",
+          "visual": "Zoom focus on the deviation chart; label the drop '-30 %'. Label the second scatter line 'shaded'. Cue 'eleven' a vertical marker, cue 'abnormal' pill 'Abnormal 48.1 %'.",
+          "cap": "This example has shading from 11 o'clock. The deviation drops to about minus 30%, the scatter splits into two lines, and nearly half of the rows are abnormal."
+        }
+      ]
+    },
+    {
+      "id": "replay",
+      "class": "Replay",
+      "title": "Replay and export",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Replay on Dashboard pauses the live run and sends the dataset through the whole app, as if it were a run. The Dashboard, Trends, Data and Event Log all show it.",
+          "visual": "Show shot('simple_21_dashboard_replay.png', width=10). Cue 'pauses' a pause icon, cue 'Dashboard' box the chart."
+        },
+        {
+          "say": "The source chip at the top right names the dataset, so you always know what you are looking at.",
+          "visual": "Box the 'SOURCE: DATASET SITE_LOG' chip (top right). Cue 'chip'."
+        },
+        {
+          "say": "Export analysis C S V saves every analysed row and the figures in one file. And apply and start in Settings brings the simulated plant back.",
+          "visual": "Two pills 'Export analysis CSV' -> file icon and 'Apply and start' -> simulated plant icon. Cue 'export', 'apply'.",
+          "cap": "Export analysis CSV saves every analysed row and the figures in one file. And apply and start in Settings brings the simulated plant back."
+        }
+      ]
+    },
+    {
+      "id": "settings",
+      "class": "Settings",
+      "title": "Weather and datasheet files",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The same idea works for the weather and for the module. In Settings, the Profile section loads a weather file from C S V or Excel, and has its own template.",
+          "visual": "Show shot('simple_22_settings_profile.png', width=10); box the 'Load CSV or Excel...' and 'Template...' buttons. Cue 'weather', 'template'.",
+          "cap": "The same idea works for the weather and for the module. In Settings, the Profile section loads a weather file from CSV or Excel, and has its own template."
+        },
+        {
+          "say": "The Module section loads a datasheet, one parameter on each row, and has a datasheet template. Fill in the values from your module's datasheet.",
+          "visual": "Show shot('simple_23_settings_module.png', width=10); box 'Load datasheet...' and 'Datasheet template...'. Cue 'module', 'template'."
+        },
+        {
+          "say": "Nothing changes until you press apply and start. That button starts a new run with everything you set.",
+          "visual": "Show shot('simple_16_settings.png', width=9.5) with the Apply and start button boxed in lime. Cue 'apply'."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "class": "Recap",
+      "title": "What to remember",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "To recap. A dataset is a file with irradiance, temperature and power. The template gives you the columns, and the scores tell you how well the twin matches your panel.",
+          "visual": "Checklist revealed on cues 'dataset', 'template', 'scores'."
+        },
+        {
+          "say": "Next, how much to trust all of this, and how to choose the limits.",
+          "visual": "Card 'Tutorial 6: limits and trust'."
+        }
+      ]
+    }
+  ],
+  "engine": "breeze"
+}

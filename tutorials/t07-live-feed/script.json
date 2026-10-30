@@ -1,0 +1,188 @@
+{
+  "title": "PV Digital Twin, Tutorial 7: Connecting a live feed",
+  "label": "Tutorial 7  ·  Connecting a live feed",
+  "voice": "af_heart",
+  "speed": 0.92,
+  "gap": 0.42,
+  "scenes": [
+    {
+      "id": "idea",
+      "class": "Idea",
+      "title": "A device that reports",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "So far the readings were simulated, or came from a file. The live feed takes them straight from a device, such as an E S P thirty two with a voltage and current sensor, as they happen.",
+          "visual": "Left to right flow: four small pills 'G', 'T', 'V', 'I' (sensors) -> block 'ESP32' -> a Wi-Fi arc icon labelled 'network' -> block 'PV Digital Twin app'. Reveal on cues 'device', 'sensor', 'happen'.",
+          "cap": "So far the readings were simulated, or came from a file. The live feed takes them straight from a device, such as an ESP32 with a voltage and current sensor, as they happen."
+        },
+        {
+          "say": "The device sends each reading over the network, as a small message, to this computer. The app scores it the moment it arrives, exactly as it scores a row of a dataset.",
+          "visual": "A small message card '{ g, t, v, i }' travels along the arrow into the app block; inside the app block show 'twin -> deviation -> state' in three tiny pills. Cue 'message' the card, cue 'scores' the pills, cue 'dataset' a small dataset-row icon below with an equals sign."
+        },
+        {
+          "say": "That means the twin predicts the power at the voltage the device measured, and compares it with the power the module actually made.",
+          "visual": "Under the app block: 'predicted at the measured voltage' (green) next to 'measured power = V x I' (black) with a minus sign between them. Cue 'predicts' and 'compares'."
+        }
+      ]
+    },
+    {
+      "id": "start",
+      "class": "Start",
+      "title": "Start listening",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Open the Live Feed page. Check the port, eight seven six five by default, and decide whether other devices on the network may send.",
+          "visual": "Show shot('simple_24_live_page.png', width=9.2) centred. Cue 'port' lime box round the Port field (pixels about x 267-555, y 168-212 of the 1422 x 995 image); cue 'devices' box the 'Accept readings from other devices on the network' tick box (about x 355-685, y 273-293).",
+          "cap": "Open the Live Feed page. Check the port, 8765 by default, and decide whether other devices on the network may send."
+        },
+        {
+          "say": "Tick the box for an E S P thirty two on your Wi-Fi. Leave it clear to accept readings only from this computer.",
+          "visual": "Keep the screenshot; a small pill 'ticked: devices on your Wi-Fi may send' then 'clear: this computer only'. Cue 'tick' and 'clear'.",
+          "cap": "Tick the box for an ESP32 on your Wi-Fi. Leave it clear to accept readings only from this computer."
+        },
+        {
+          "say": "A device must send the token with every reading, so only your devices can. Copy token copies it, and new token makes another one.",
+          "visual": "Box the Token field and the two buttons (about x 267-1385, y 300-342). Cue 'token' the field, cue 'Copy' the Copy token button, cue 'new' the New token button."
+        },
+        {
+          "say": "Press start listening. The Dashboard's source chip now reads live feed, and the page shows the address to send to.",
+          "visual": "Box the START LISTENING button (about x 267-416, y 351-389) on cue 'start'; then box the address line in the 'Send readings to' card (about x 267-770, y 477-514) on cue 'address'."
+        },
+        {
+          "say": "Press stop when you have finished. What arrived stays on the Dashboard.",
+          "visual": "Box the STOP button (about x 424-487, y 351-387). Cue 'stop'."
+        }
+      ]
+    },
+    {
+      "id": "message",
+      "class": "Message",
+      "title": "What the device sends",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The device sends an H T T P post to that address, with the token in a header called X, A P I, key.",
+          "visual": "A code card: 'POST /reading' and 'X-Api-Key: <token>' revealed line by line. Cue 'post' the first line, cue 'header' the second.",
+          "cap": "The device sends an HTTP POST to that address, with the token in a header called X-Api-Key."
+        },
+        {
+          "say": "The body is a small J S O N message. G is the irradiance in watts per square metre, t is the module temperature, v is the voltage, and i is the current.",
+          "visual": "Code card: {\"g\": 640.0, \"t\": 32.5, \"v\": 29.0, \"i\": 5.2}. Below it a four-row key table filling on cues 'G', 't', 'v', 'i': g irradiance W/m2, t module temperature C, v volts, i amps. Colour each key as it is explained.",
+          "cap": "The body is a small JSON message. g is the irradiance in watts per square metre, t is the module temperature, v is the voltage, and i is the current."
+        },
+        {
+          "say": "The power is the voltage times the current. You can send a power value instead, but then the twin can compare only with the module's maximum power, so send voltage and current when you can.",
+          "visual": "Under the table: 'power = v x i' (tex). An olive callout 'TIP: send v and i, not power'. Cue 'times' the formula, cue 'instead' the callout."
+        },
+        {
+          "say": "You can add a timestamp. Without one, the app stamps each reading with its own clock when it arrives.",
+          "visual": "Add a fifth line to the JSON: \"timestamp\": \"2025-01-15T10:00:00\" with the tag 'optional'. Cue 'timestamp'."
+        },
+        {
+          "say": "The reply tells the device what happened. Two oh two means the readings were taken. Four oh one means the token is wrong. Four twenty two means every reading was refused, and the reply says why.",
+          "visual": "A three-row table revealed on cues 'two', 'four', 'twenty': 202 taken (mid green), 401 token missing or wrong (olive), 422 every reading refused, with the reason in the reply (olive).",
+          "cap": "The reply tells the device what happened. 202 means the readings were taken. 401 means the token is wrong. 422 means every reading was refused, and the reply says why."
+        }
+      ]
+    },
+    {
+      "id": "try",
+      "class": "Try",
+      "title": "Try it before the hardware arrives",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "You do not need the device to try it. The page shows a curl command with your own address and token. Copy it, paste it into a terminal, and press enter.",
+          "visual": "Show a terminal-style card (dark green rounded rectangle, monospace text) with the curl command from the page: curl -X POST http://127.0.0.1:8765/reading -H 'X-Api-Key: ...' -H 'Content-Type: application/json' -d '{\"g\": 640.0, ...}'. Cue 'curl' the card, cue 'terminal' a small cursor, cue 'enter' a flash.",
+          "cap": "You do not need the device to try it. The page shows a curl command with your own address and token. Copy it, paste it into a terminal, and press Enter."
+        },
+        {
+          "say": "One reading arrives. The Dashboard shows it, the chart starts at that time, and the status on the page counts one accepted reading.",
+          "visual": "Replace the terminal by shot('simple_25_live_dashboard.png', width=8.8) with a box round the Source chip and the chart start. Cue 'Dashboard', 'chart', 'status'."
+        },
+        {
+          "say": "While a feed is the source, the speed box and the run controls are switched off. Readings arrive in real time, so there is nothing to speed up, pause or inject.",
+          "visual": "Box the toolbar row of the screenshot (about x 250-1400, y 108-152) and draw a small lock icon next to it. Cue 'speed', 'controls', 'nothing'."
+        },
+        {
+          "say": "The clock beside the controls shows the time of the latest reading.",
+          "visual": "Box the clock text (about x 645-755, y 123-139). Cue 'clock'."
+        }
+      ]
+    },
+    {
+      "id": "gaps",
+      "class": "Gaps",
+      "title": "Time, gaps and silence",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Start sending whenever you like. A reading is scored when it arrives, so starting at midday raises nothing for a missing morning, and a gap in the middle raises nothing either.",
+          "visual": "A timeline from 0 to 24 h with an empty morning shaded pale and readings (dots) beginning at 13:00; a pill 'no morning expected' on the empty part and 'no alarm' beside it. A small gap in the middle labelled 'gap: nothing raised'. Cue 'midday', 'gap'."
+        },
+        {
+          "say": "Silence is noticed separately. If nothing arrives for thirty seconds, the state chip turns amber and reads no data, and the log records it.",
+          "visual": "Show shot('simple_26_live_no_data.png', width=8.8) with a box round the 'SYSTEM STATE: NO DATA' chip at the top right. Cue 'silence', 'amber'; a countdown pill '30 s'.",
+          "cap": "Silence is noticed separately. If nothing arrives for 30 seconds, the state chip turns amber and reads no data, and the log records it."
+        },
+        {
+          "say": "When readings resume, the chip goes back to the state of the latest reading.",
+          "visual": "A small two-state sketch: 'NO DATA' (amber, olive outline) -> 'NORMAL' (green) with an arrow labelled 'readings resume'. Cue 'resume'."
+        },
+        {
+          "say": "A device that stops sending is never shown as normal. Look at this chip, and at the last reading time on the Live Feed page.",
+          "visual": "Olive callout 'TRAP' with 'Silence is not Normal'. Cue 'never'."
+        }
+      ]
+    },
+    {
+      "id": "keep",
+      "class": "Keep",
+      "title": "Keeping the readings, and the limits",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Every accepted reading is also written to a C S V file, named from the moment you start. The page shows where it is.",
+          "visual": "Show shot('simple_24_live_page.png', width=9.0, crop=(0.15, 0.78, 1.0, 1.0)) (the Status card) with a box round the line 'Readings are kept in ...csv'. Cue 'written', 'named'.",
+          "cap": "Every accepted reading is also written to a CSV file, named from the moment you start. The page shows where it is."
+        },
+        {
+          "say": "Import that file in Analysis, and you can score the whole day again.",
+          "visual": "An arrow from a 'live-...csv' file icon to the 'Analysis > Dataset' pill. Cue 'import'."
+        },
+        {
+          "say": "A reading is refused, with the reason on the page, if a value is missing, irradiance is negative, or its time is not after the reading before it.",
+          "visual": "A three-item list with crosses, revealed on cues 'missing', 'negative', 'after': 'value missing or not a number', 'irradiance negative', 'time not after the last reading'."
+        },
+        {
+          "say": "Know the limits. It is plain H T T P with a shared token, so anyone listening on the network can read the token and the readings. It takes one module, and the history grows while it runs.",
+          "visual": "Four olive callout lines revealed on cues 'plain', 'one', 'grows': 'plain HTTP: not encrypted', 'one module, one feed', 'history grows while it runs'. Cue 'limits' the heading.",
+          "cap": "Know the limits. It is plain HTTP with a shared token, so anyone listening on the network can read the token and the readings. It takes one module, and the history grows while it runs."
+        },
+        {
+          "say": "Send the module's temperature, not the air's, and check your sensors' ranges against your module. The example sketch in the docs folder is a starting point, and it is untested on hardware.",
+          "visual": "Two checklist lines: 'module temperature, not air temperature' and 'sensor ranges vs the module' with a file pill 'docs/esp32/pvysics_feed.ino (untested)'. Cue 'temperature', 'ranges', 'sketch'."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "class": "Recap",
+      "title": "What to remember",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "To recap. The device posts readings with the token. The app scores each one as it arrives, at the voltage it measured.",
+          "visual": "Checklist revealed on cues 'device', 'app': 'device -> POST /reading + token', 'app scores each reading as it arrives'."
+        },
+        {
+          "say": "Silence shows as no data, never as normal, and every reading is saved to a file you can analyse later.",
+          "visual": "Two more lines on cues 'silence' and 'file': 'silence = NO DATA, not Normal', 'every reading saved: analyse it later'. End card 'Tutorials 1 to 7'."
+        }
+      ]
+    }
+  ],
+  "engine": "breeze"
+}

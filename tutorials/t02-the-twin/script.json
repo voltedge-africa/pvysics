@@ -1,0 +1,169 @@
+{
+  "title": "PV Digital Twin, Tutorial 2: The twin from first principles",
+  "label": "Tutorial 2  ·  The twin",
+  "voice": "af_heart",
+  "speed": 0.92,
+  "gap": 0.42,
+  "scenes": [
+    {
+      "id": "light",
+      "class": "Light",
+      "title": "Light becomes current",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "A solar cell is a thin slice of silicon. When light hits it, electrons are knocked loose, and that flow of charge is an electric current.",
+          "visual": "Draw a slim rectangle (the cell) with wavy light arrows hitting it from above. Cue 'electrons' small dots appear inside and drift sideways; cue 'current' an arrow labelled 'current'."
+        },
+        {
+          "say": "Twice the light gives twice the current. So we can model the cell as a current source whose size is proportional to the irradiance, the power of the sunlight on each square metre.",
+          "visual": "Right of the cell, the circuit symbol of a current source (circle with arrow) labelled 'I ph' (photocurrent). A slider bar 'irradiance G' with a handle; cue 'twice' the handle doubles and an adjacent bar for I ph doubles. Cue 'irradiance' show the unit 'W/m2'.",
+          "cap": "Twice the light gives twice the current. So we can model the cell as a current source whose size is proportional to the irradiance, the power of the sunlight on each square metre."
+        },
+        {
+          "say": "For the module in this tool, at one thousand watts per square metre, that photocurrent is eight point nine amps.",
+          "visual": "Under the source symbol: 'G = 1000 W/m2  ->  I ph = 8.9 A'. Cue 'photocurrent' highlight 8.9 A with a lime box.",
+          "cap": "For the module in this tool, at 1000 watts per square metre, that photocurrent is 8.9 amps."
+        }
+      ]
+    },
+    {
+      "id": "diode",
+      "class": "Diode",
+      "title": "Where the current goes",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "But not all of that current reaches the wires. The silicon junction is a diode, and the diode steals some of it.",
+          "visual": "The current-source symbol on the left. Cue 'diode' a diode symbol appears in parallel with it; cue 'steals' an arrow branching off through the diode, labelled 'I d'."
+        },
+        {
+          "say": "A diode passes almost nothing at low voltage, then conducts more and more, very quickly, as the voltage rises. The curve is an exponential.",
+          "visual": "A small axes plot voltage (x) vs diode current (y) with the exponential I = I0 (e^(V/nVt) - 1) curve drawn with Create. Cue 'exponential' write the formula label beside it."
+        },
+        {
+          "say": "The higher the voltage across the cell, the more current the diode takes away from the output.",
+          "visual": "Back to the circuit: an output voltage label V rising (a vertical arrow); cue 'more' the diode branch arrow thickens and the output arrow thins."
+        },
+        {
+          "say": "Add two imperfections of the real world. A series resistance, R s, for the metal contacts, and a shunt resistance, R sh, for tiny leakage paths.",
+          "visual": "Complete the circuit diagram: Rs in series with the output on the top wire, Rsh in parallel across the source. Cue 'series' draw Rs; cue 'shunt' draw Rsh. Label the terminals V and I."
+        },
+        {
+          "say": "That circuit is the single diode model, and it is the whole twin. It has just one equation.",
+          "visual": "Move the circuit left and shrink it. Write the equation on the right with tex_parts so pieces can be coloured: I = I_ph - I_0 (e^{(V+I R_s)/(n N_s V_t)} - 1) - (V + I R_s)/R_sh. Cue 'equation' write it; colour I_ph lime-box, the diode term mid green, the Rsh term olive."
+        }
+      ]
+    },
+    {
+      "id": "curve",
+      "class": "Curve",
+      "title": "The I-V curve",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Sweep the voltage from zero up, solve the circuit at each step, and you get this curve. It is computed by the app's own engine.",
+          "visual": "Axes: voltage 0 to 40 V on x, current 0 to 10 A on y. Draw the real STC I-V curve from common.pvdata.iv(1000, 25) with Create over the narration (rate_func linear). Cue 'engine' a small pill 'real data from the app'."
+        },
+        {
+          "say": "At zero volts the current is the short circuit current, eight point nine amps. At the far end the current falls to zero, at the open circuit voltage, thirty seven point eight volts.",
+          "visual": "Mark the two end points of the curve with lime dots and labels: cue 'short' the left dot 'I sc = 8.9 A', cue 'open' the right dot 'V oc = 37.8 V'.",
+          "cap": "At zero volts the current is the short circuit current, 8.9 amps. At the far end the current falls to zero, at the open circuit voltage, 37.8 volts."
+        },
+        {
+          "say": "Power is voltage times current. Multiply the two at every point, and a second curve appears, with a single peak.",
+          "visual": "Cue 'multiply': a second set of axes below (or a second curve on a right-hand axis) for power 0 to 270 W, and the real P-V curve from pvdata drawn with Create. Keep the I-V curve visible above."
+        },
+        {
+          "say": "That peak is the maximum power point: about two hundred and fifty watts, at thirty point one volts and eight point three amps. A real system tries to run right there.",
+          "visual": "Lime dot at the peak of the power curve with a pill '249.8 W'; a vertical dotted line down to the voltage axis labelled '30.1 V' and a matching dot on the I-V curve labelled '8.3 A'. Cue 'maximum' the dot, cue 'thirty' the voltage line.",
+          "cap": "That peak is the maximum power point: about 250 watts, at 30.1 volts and 8.3 amps. A real system tries to run right there."
+        }
+      ]
+    },
+    {
+      "id": "sun",
+      "class": "Sun",
+      "title": "What the sun does",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Now change the sunlight. The photocurrent scales with the irradiance, so the whole curve shrinks in height, while the open circuit voltage barely moves.",
+          "visual": "Show the I-V axes with the 1000 W/m2 curve; cue 'sunlight' draw the curves for 800, 500 and 200 W/m2 from pvdata.iv one after another, each in a lighter green with its label at the right end. Mark Isc for each on the y axis."
+        },
+        {
+          "say": "The maximum power at one thousand watts per square metre is two hundred and fifty watts. At eight hundred, two hundred. At five hundred, one hundred and twenty four. At two hundred, forty eight.",
+          "visual": "Replace with the P-V curves for the four irradiances, peaks marked with lime dots, and a small table that fills row by row on cues 'thousand', 'eight', 'five', 'two': 1000 -> 249.8 W, 800 -> 199.9 W, 500 -> 123.9 W, 200 -> 47.6 W.",
+          "cap": "The maximum power at 1000 watts per square metre is 250 watts. At 800, 200. At 500, 124. At 200, 48."
+        },
+        {
+          "say": "So power follows the sun almost in proportion. That is exactly why a lone watt reading cannot tell you whether a panel is healthy.",
+          "visual": "Plot the four peak powers against irradiance as dots with a near straight line through them (real values). Cue 'proportion' draw the line. Callout 'IDEA' with 'expected power depends on the sun'."
+        }
+      ]
+    },
+    {
+      "id": "heat",
+      "class": "Heat",
+      "title": "What heat does",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Temperature acts on the other side. A hotter cell loses voltage, so the curve shrinks sideways, while the current rises only very slightly.",
+          "visual": "At 1000 W/m2: the 25 C curve, then at cue 'hotter' the 45 C and 65 C curves from pvdata.iv(1000, t) drawn lighter and labelled. Show the Voc drop with a horizontal arrow at the voltage axis: 37.8 -> 35.4 -> 33.0 V."
+        },
+        {
+          "say": "At twenty five degrees the module makes two hundred and fifty watts. At forty five degrees, two hundred and twenty nine. At sixty five degrees, two hundred and eight.",
+          "visual": "A small bar chart or table with three entries filling on cues 'twenty', 'forty', 'sixty': 25 C -> 249.8 W, 45 C -> 229.0 W, 65 C -> 208.2 W (bars shrinking).",
+          "cap": "At 25 degrees the module makes 250 watts. At 45 degrees, 229. At 65 degrees, 208."
+        },
+        {
+          "say": "Two numbers on the datasheet, called K i and K v, say how fast the current and the voltage change with each degree.",
+          "visual": "Two equation lines: 'Isc(T) = Isc x (1 + Ki (T - 25))' with Ki = +0.05 %/C and 'Voc(T) = Voc x (1 + Kv (T - 25))' with Kv = -0.32 %/C. Cue 'K i' the first, cue 'K v' the second; note 'voltage loses, current gains a little'."
+        }
+      ]
+    },
+    {
+      "id": "datasheet",
+      "class": "Datasheet",
+      "title": "From datasheet to twin",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The manufacturer prints seven numbers: short circuit current, open circuit voltage, the current and voltage at maximum power, the two temperature coefficients, and the number of cells in series.",
+          "visual": "A card styled as a datasheet with seven rows revealed in the spoken order: Isc 8.9 A, Voc 37.8 V, Impp 8.3 A, Vmpp 30.1 V, Ki +0.05 %/C, Kv -0.32 %/C, Ns 60 cells. Cues 'short', 'open', 'current', 'two', 'cells'."
+        },
+        {
+          "say": "The model also needs the photocurrent and the two resistances, and those are not printed. So the app finds them. It adjusts the three until the model's curve passes exactly through the datasheet points.",
+          "visual": "Axes with the I-V curve and the datasheet points as lime dots (Isc, Vmpp-Impp, Voc). Start with a deliberately wrong curve (built from pvdata.diode_parameters with a perturbed Rs) and at cue 'adjusts' morph it (Transform) into the true curve through the dots. Cue 'passes' flash the dots."
+        },
+        {
+          "say": "For this module the fit gives a series resistance of about zero point two eight ohms, and a shunt resistance of about eleven thousand ohms.",
+          "visual": "Three result pills: 'I ph = 8.90 A', 'R s = 0.28 ohm', 'R sh = 11 434 ohm'. Cue 'series' and 'shunt'.",
+          "cap": "For this module the fit gives a series resistance of about 0.28 ohms, and a shunt resistance of about 11,000 ohms."
+        },
+        {
+          "say": "Now we have the twin. Give it any irradiance and temperature, and it tells you the power a healthy module should make. Next, the plant, and the ways it goes wrong.",
+          "visual": "Block: inputs 'G, T' -> [twin: single diode model] -> 'predicted power'. Cue 'twin' highlight the block. End with a card 'Tutorial 3: the plant and its faults'."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "class": "Recap",
+      "title": "What to remember",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "To recap. Light makes a photocurrent. A diode, a series resistance and a shunt resistance shape what reaches the terminals. The datasheet pins the curve down.",
+          "visual": "Checklist revealed on cues 'light', 'diode', 'datasheet': 'light -> photocurrent I ph (scales with G)', 'diode + Rs + Rsh -> the I-V curve', 'datasheet -> fitted parameters'."
+        },
+        {
+          "say": "And two things move the curve: sunlight changes its height, temperature changes its width. Together they decide what a healthy module should produce.",
+          "visual": "Two small thumbnails of the sun and heat curves side by side with labels 'height' and 'width'. Cue 'sunlight' and 'temperature'."
+        }
+      ]
+    }
+  ],
+  "engine": "breeze"
+}

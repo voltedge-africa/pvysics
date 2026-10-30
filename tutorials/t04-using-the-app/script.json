@@ -1,0 +1,212 @@
+{
+  "title": "PV Digital Twin, Tutorial 4: Using the app",
+  "label": "Tutorial 4  ·  Using the app",
+  "voice": "af_heart",
+  "speed": 0.92,
+  "gap": 0.42,
+  "scenes": [
+    {
+      "id": "open",
+      "class": "Open",
+      "title": "Opening the app",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Start the app from your menu, or from a terminal. One window opens, with the run not yet started.",
+          "visual": "Show shot('simple_01_dashboard_idle.png', width=11) centred. Cue 'one' a lime box round the whole window briefly."
+        },
+        {
+          "say": "On the left is the sidebar, with eight pages. The Dashboard is where everything begins.",
+          "visual": "Highlight the sidebar region of the screenshot with shot_region (about x 0 to 0.16, y 0.05 to 0.95); cue 'eight' number the pages 1 to 8 beside it; cue 'Dashboard' flash the first item."
+        },
+        {
+          "say": "Everything in the window shows the same run, so switching pages never stops it.",
+          "visual": "Draw arrows from the sidebar items to the page area, all labelled 'same run'. Cue 'same'."
+        }
+      ]
+    },
+    {
+      "id": "controls",
+      "class": "Controls",
+      "title": "The controls",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Along the top are the controls. Start plays the run from the beginning. Pause holds it. Reset clears the run, with its faults and alarms.",
+          "visual": "Show shot('simple_03_toolbar.png', width=12.5). Cue 'start', 'pause', 'reset' put a lime box round each of the three left buttons in turn (use shot_region fractions: Start about x 0.0-0.07, Pause 0.07-0.15, Reset 0.15-0.23)."
+        },
+        {
+          "say": "The speed box sets how many times faster than real time the day plays. At the fastest setting a whole day takes about three seconds. For learning, six hundred times is comfortable. While a live feed is the source, this box is switched off.",
+          "visual": "Box round the speed combo (x about 0.23-0.34); a callout 'TIP' with '600x'. Cue 'speed', cue 'six'.",
+          "cap": "The speed box sets how many times faster than real time the day plays. At the fastest setting a whole day takes about 3 seconds. For learning, 600 times is comfortable. While a live feed is the source, this box is switched off."
+        },
+        {
+          "say": "The clock beside it shows the simulated date and time of the current sample.",
+          "visual": "Box round the clock text. Cue 'clock'."
+        },
+        {
+          "say": "On the right are the five fault buttons and clear all. A dark button means that fault is switched on.",
+          "visual": "Box round the right-hand group of fault buttons. Cue 'five' number them 1 to 5; cue 'dark' point to the dark Partial shading button (it is dark in the screenshot)."
+        }
+      ]
+    },
+    {
+      "id": "readings",
+      "class": "Readings",
+      "title": "The readings and the chart",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Six cards show the latest readings: voltage, current, measured power, predicted power, irradiance, and module temperature. Before a run they show dashes.",
+          "visual": "Show shot('simple_04_readings.png', width=12.5, crop none). Cue each name: a lime box moves across the six cards in order. Cue 'dashes' a small note 'dashes before a run'."
+        },
+        {
+          "say": "The chart plots measured power in black against predicted power in green dashes. A dashed vertical line marks where a fault was injected.",
+          "visual": "Fade the cards; show shot('simple_06_dashboard_fault.png', width=9.5) with a box round the chart area (about x 0.17-0.76, y 0.36-0.98). Cue 'black' and 'green' small pills 'measured' and 'predicted'; cue 'vertical' point to the dashed line."
+        },
+        {
+          "say": "The mouse wheel zooms the chart and a drag pans it. Hover over the chart and an export button appears, to save an image or the data.",
+          "visual": "A cursor icon (circle + small arrow drawn with Manim) on the chart; cue 'wheel' a magnifier mark; cue 'export' a small pill 'Export' appears at the chart's top right corner."
+        }
+      ]
+    },
+    {
+      "id": "deviation",
+      "class": "Deviation",
+      "title": "Reading the deviation card",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The deviation card is the heart of the screen. The large number is the deviation, and it is coloured by the state.",
+          "visual": "Show shot('simple_07_deviation_card_fault.png', width=4.4) on the right and shot('simple_05_deviation_card.png', width=4.4) on the left with captions 'healthy' and 'fault on'. Cue 'large' box the big number on the right image."
+        },
+        {
+          "say": "Under it is a sentence in words, and the limits that decide the state: normal up to five percent, warning up to ten, abnormal beyond.",
+          "visual": "Box the sentence line, then the limits line of the right image. Cue 'sentence', cue 'limits'.",
+          "cap": "Under it is a sentence in words, and the limits that decide the state: normal up to 5%, warning up to 10%, abnormal beyond."
+        },
+        {
+          "say": "Four totals follow. Peak power is the highest measured power so far. Energy is how much the plant has produced. Samples counts the readings, and elapsed is the simulated time since the run began.",
+          "visual": "Box the four small tiles one by one on the right image: cue 'peak', 'energy', 'samples', 'elapsed'. Alongside, a one-line definition appears for each in turn."
+        },
+        {
+          "say": "At the top right of the window, the state chip repeats the state of the latest sample. It says waiting until a run has started.",
+          "visual": "Show a crop of the header chips of shot('simple_06_dashboard_fault.png', crop=(0.55, 0.0, 1.0, 0.1), width=8); box 'SYSTEM STATE: ABNORMAL'. Cue 'chip'."
+        }
+      ]
+    },
+    {
+      "id": "try",
+      "class": "Try",
+      "title": "Try it: catch a fault",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Let us do it. Set the speed to six hundred times, and press start.",
+          "visual": "A numbered step list on the left (1 to 4, revealed one by one) and shot('simple_01_dashboard_idle.png', width=7.5) on the right with the toolbar boxed. Step 1: 'Speed 600x, press Start'. Cue 'start'.",
+          "cap": "Let us do it. Set the speed to 600 times, and press start."
+        },
+        {
+          "say": "Wait until the plant output has risen, then click partial shading.",
+          "visual": "Step 2 'Wait for the sun, then click Partial shading'. Swap the right image to shot('simple_02_dashboard_normal.png', width=7.5) and box the Partial shading button. Cue 'partial'."
+        },
+        {
+          "say": "Watch the deviation fall, the state turn abnormal, and the measured power peel away from the prediction.",
+          "visual": "Step 3. Swap the right image to shot('simple_06_dashboard_fault.png', width=7.5) with boxes round the deviation card and the chart. Cue 'abnormal'."
+        },
+        {
+          "say": "Press clear all to remove the fault, and the deviation returns to normal.",
+          "visual": "Step 4 'Clear all'. Box the Clear all button on the toolbar image. Cue 'clear'."
+        }
+      ]
+    },
+    {
+      "id": "log",
+      "class": "Log",
+      "title": "Alarms and events",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Now open the event log. The alarms list shows each warning or abnormal alarm, newest first, with its time, its deviation, and the probable cause.",
+          "visual": "Show shot('simple_10_event_log.png', width=10). Cue 'alarms' box the top card; cue 'cause' underline the 'partial shading' text in the alarm row."
+        },
+        {
+          "say": "A new alarm is in bold. Select it, and press acknowledge to mark it as seen. Alarms stay when you press clear all, and are only cleared by reset.",
+          "visual": "Box the Acknowledge button. Cue 'acknowledge'; cue 'reset' show a small pill 'Reset clears alarms'."
+        },
+        {
+          "say": "Below it, the events list records every change of state and every fault injected or removed.",
+          "visual": "Box the lower Events card. Cue 'events'."
+        },
+        {
+          "say": "The show log button opens the application log. When something goes wrong, that is where the reason is.",
+          "visual": "Box the SHOW LOG button at the top right; a small callout 'TIP: the reason is in the log'. Cue 'log'."
+        }
+      ]
+    },
+    {
+      "id": "pages",
+      "class": "Pages",
+      "title": "The other pages",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Trends draws one chart for each sensor channel: irradiance, temperature, voltage, current and measured power.",
+          "visual": "Show shot('simple_08_trends.png', width=10). Cue 'trends' box the first chart; cue 'five' number the five charts."
+        },
+        {
+          "say": "Data lists every sample as a table, newest first, and the export button saves the whole run as a C S V file.",
+          "visual": "Show shot('simple_09_data.png', width=10); box the EXPORT CSV button (top right). Cue 'data', cue 'export'.",
+          "cap": "Data lists every sample as a table, newest first, and the export button saves the whole run as a CSV file."
+        },
+        {
+          "say": "And S D M Model shows the twin at work: the circuit, the equations, and the curves for the sun and temperature at this very moment.",
+          "visual": "Show shot('simple_11_model.png', width=10). Cue 'circuit' box the circuit diagram, cue 'curves' scroll the focus to the bottom curves region.",
+          "cap": "And SDM Model shows the twin at work: the circuit, the equations, and the curves for the sun and temperature at this very moment."
+        },
+        {
+          "say": "The Live Feed page takes readings from a real device as they happen. It has a tutorial of its own, number seven.",
+          "visual": "Show shot('simple_24_live_page.png', width=8.6) with a box round the 'Live Feed' sidebar item. Cue 'Live' the box, cue 'seven' a pill 'Tutorial 7'."
+        }
+      ]
+    },
+    {
+      "id": "look",
+      "class": "Look",
+      "title": "Make it comfortable",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The hide button at the bottom of the sidebar hides it, so the page has the whole window. A small menu button stays at the top left to bring it back.",
+          "visual": "Show shot('simple_12_sidebar_hidden.png', width=10); box the three-bar button at the top left. Cue 'hide'; cue 'menu' box the button."
+        },
+        {
+          "say": "You can also press control B, or escape. The view menu has the same choice, and it picks the colours: system, light or dark.",
+          "visual": "Show shot('simple_13_view_menu.png', width=3.0) centre-left with the 'Sidebar' item boxed, and the key pills 'Ctrl+B' and 'Esc'. Cue 'control', cue 'view'.",
+          "cap": "You can also press Ctrl+B, or Esc. The View menu has the same choice, and it picks the colours: system, light or dark."
+        },
+        {
+          "say": "Dark mode is easier on the eyes in a dim lab. The app remembers your choice.",
+          "visual": "Show shot('simple_17_dashboard_dark.png', width=9.5) with a small pill 'Dark'. Cue 'dark'."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "class": "Recap",
+      "title": "What to remember",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "To recap. Start the run on the Dashboard, read the deviation card, inject a fault in daylight, and follow the alarm in the event log.",
+          "visual": "Four-step checklist revealed on cues 'start', 'deviation', 'inject', 'alarm'."
+        },
+        {
+          "say": "Next, how to give the tool your own measurements, instead of the simulated plant.",
+          "visual": "Card 'Tutorial 5: your own data'."
+        }
+      ]
+    }
+  ],
+  "engine": "breeze"
+}

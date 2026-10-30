@@ -1,0 +1,24 @@
+{
+  "title": "{{TITLE}}",
+  "label": "Tutorial N  ·  {{TITLE}}",
+  "voice": "af_heart",
+  "scenes": [
+    {
+      "id": "intro",
+      "class": "Intro",
+      "title": "{{TITLE}}",
+      "beats": [
+        { "say": "Welcome back. In this video we cover {{TITLE}}." },
+        { "say": "Replace this text with your first idea. Keep each beat to one thought, roughly ten seconds or less." }
+      ]
+    },
+    {
+      "id": "outro",
+      "class": "Outro",
+      "title": "Recap",
+      "beats": [
+        { "say": "That is the end of this video. Thanks for watching." }
+      ]
+    }
+  ]
+}

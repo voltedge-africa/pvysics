@@ -1,0 +1,143 @@
+{
+  "title": "PV Digital Twin, Tutorial 1: The big idea",
+  "label": "Tutorial 1  ·  The big idea",
+  "voice": "af_heart",
+  "speed": 0.92,
+  "gap": 0.42,
+  "scenes": [
+    {
+      "id": "hook",
+      "class": "Hook",
+      "title": "Is this panel healthy?",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Here is a solar panel on a roof, and a meter that says it is making one hundred watts right now. Is that good, or is something wrong?",
+          "visual": "Draw a simple panel with a small sun. Cue 'hundred': a meter pill '100 W' appears beside it. Cue 'wrong': a large olive question mark.",
+          "cap": "Here is a solar panel on a roof, and a meter that says it is making 100 watts right now. Is that good, or is something wrong?"
+        },
+        {
+          "say": "You cannot tell. In the full noon sun, one hundred watts would mean a serious problem. In thin morning light it would be perfect.",
+          "visual": "Two cards side by side. Left 'Noon, sun at full strength': big sun, text 'a healthy panel makes about 250 W' with an olive cross over 100 W. Right 'Morning, weak sun': small sun, 'a healthy panel makes about 100 W' with a tick over 100 W. Cue 'noon' for the left card, cue 'morning' for the right.",
+          "cap": "You cannot tell. In the full noon sun, 100 watts would mean a serious problem. In thin morning light it would be perfect."
+        },
+        {
+          "say": "So the meter alone tells you nothing. To judge a panel, you need to know what it should be making. Answering that is what this tool is for.",
+          "visual": "Fade the cards. Centre text 'measured power' (black) then, cue 'should', 'expected power' (green) with a question 'equal?' between them."
+        }
+      ]
+    },
+    {
+      "id": "twin",
+      "class": "Twin",
+      "title": "A model that predicts",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "The idea is simple. Run a mathematical copy of the panel beside the real one, and feed both the same sunlight and the same temperature.",
+          "visual": "Left: two input pills stacked, 'sunlight G' and 'temperature T'. Cue 'copy': two blocks appear to the right, top block 'real panel', bottom block 'mathematical copy', both fed by arrows from the inputs.",
+          "cap": "The idea is simple. Run a mathematical copy of the panel beside the real one, and feed both the same sunlight and the same temperature."
+        },
+        {
+          "say": "The real panel is called the plant. The copy is called the twin. The plant produces the measured power. The twin produces the predicted power.",
+          "visual": "Rename the blocks: cue 'plant' the top block label becomes 'PLANT', cue 'twin' the bottom becomes 'TWIN'. Cue 'measured' an output arrow and pill 'measured power' (black) from the plant; cue 'predicted' an arrow and pill 'predicted power' (green) from the twin."
+        },
+        {
+          "say": "In this tool the plant is simulated, with a little sensor noise and a small mismatch, so you can learn and test without any hardware. Later, you can connect a real device.",
+          "visual": "A dashed outline round the plant block with tag 'simulated'; a small noise squiggle on the plant's output; a faded 'real hardware later' ghost block. Cue 'noise' the squiggle, cue 'hardware' the ghost."
+        }
+      ]
+    },
+    {
+      "id": "deviation",
+      "class": "Deviation",
+      "title": "One number: the deviation",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "Now compare the two powers. The deviation is the measured power minus the predicted power, divided by the predicted power, as a percentage.",
+          "visual": "Big formula (tex), built from pieces: deviation = (P_measured - P_predicted) / P_predicted x 100 %. Reveal pieces in order of the spoken words: cue 'measured', 'predicted', 'divided', 'percentage'. Measured piece black, predicted piece forest green.",
+          "cap": "Now compare the two powers. The deviation is the measured power minus the predicted power, divided by the predicted power, as a percentage."
+        },
+        {
+          "say": "If the plant makes seventy watts and the twin predicted one hundred, the deviation is minus thirty percent. Negative means the plant makes less than it should.",
+          "visual": "Below the formula, substitute numbers: (70 - 100) / 100 x 100 = -30 %. Cue 'seventy' put 70, cue 'hundred' put 100, cue 'minus' reveal '-30 %' in olive bold. Small tag 'plant is low'.",
+          "cap": "If the plant makes 70 watts and the twin predicted 100 watts, the deviation is minus 30 percent. Negative means the plant makes less than it should."
+        },
+        {
+          "say": "If it makes one hundred and four watts, the deviation is plus four percent. Positive means it makes more than expected.",
+          "visual": "Replace the example by (104 - 100) / 100 x 100 = +4 %. Tag 'plant is high'. Cue 'plus' the result.",
+          "cap": "If it makes 104 watts, the deviation is plus 4 percent. Positive means it makes more than expected."
+        },
+        {
+          "say": "What matters is the size of the deviation. The sign only tells you which way the plant is off.",
+          "visual": "Draw a horizontal number line -20 to +20 percent with a dot at -30 clipped off the left and a dot at +4; cue 'size' draw absolute-value bars |deviation|; cue 'sign' show arrows left and right with 'low' and 'high'."
+        }
+      ]
+    },
+    {
+      "id": "states",
+      "class": "States",
+      "title": "From a number to a state",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "A number is not yet an answer, so the tool turns it into one of three states: normal, warning, or abnormal.",
+          "visual": "Three pills in a row: 'Normal' (mid green), 'Warning' (light green with olive border, labelled amber in text only if using greens: use PALE fill), 'Abnormal' (olive). Reveal at cues 'normal', 'warning', 'abnormal'."
+        },
+        {
+          "say": "Two limits decide. Up to five percent either way is normal. Between five and ten percent is a warning. Past ten percent is abnormal, and an alarm is raised.",
+          "visual": "A horizontal deviation axis -20 to +20. Cue 'five': two lines at -5 and +5, the middle zone filled mid green and labelled 'Normal'. Cue 'ten': lines at -10 and +10, the bands between filled light green 'Warning'; outside filled olive 'Abnormal'. Cue 'alarm': a small bell-like pill 'alarm' on the abnormal zone.",
+          "cap": "Two limits decide. Up to 5 percent either way is normal. Between 5 and 10 percent is a warning. Past 10 percent is abnormal, and an alarm is raised."
+        },
+        {
+          "say": "Try three readings. Plus four percent is normal. Minus seven is a warning. Minus fifteen is abnormal.",
+          "visual": "A marker dot lands on the axis for each reading in turn at +4, -7, -15, with the state pill lighting up each time. Cue 'four', 'seven', 'fifteen'.",
+          "cap": "Try three readings. Plus 4 percent is normal. Minus 7 is a warning. Minus 15 is abnormal."
+        },
+        {
+          "say": "These limits are only defaults. You can change them in the settings, and later we will see how to choose them well.",
+          "visual": "Fade the markers. A small 'Settings > Limits' pill with the numbers '5 %' and '10 %' as editable fields."
+        }
+      ]
+    },
+    {
+      "id": "night",
+      "class": "Night",
+      "title": "One exception: night",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "There is one exception. At night the sun is gone, so the twin predicts almost no power, and the plant makes almost none either.",
+          "visual": "A day-long predicted-power curve (use a half-sine bell over 24 hours, labelled 'predicted power') with the dark night hours at both ends shaded olive-pale. Cue 'night' shade the night."
+        },
+        {
+          "say": "Dividing a tiny number by a tiny number means nothing, so below five watts of predicted power the tool shows a deviation of zero, and the state stays normal.",
+          "visual": "A horizontal dashed line at 5 W on the predicted curve labelled '5 W'. Under the axis a second strip 'deviation' that is flat at 0 where the curve is below the line. Cue 'five' draw the line, cue 'zero' the flat strip.",
+          "cap": "Dividing a tiny number by a tiny number means nothing, so below 5 watts of predicted power the tool shows a deviation of zero, and the state stays normal."
+        },
+        {
+          "say": "That is why a fault injected at night seems to do nothing. Wait for the sun.",
+          "visual": "Olive callout 'TRAP' with text 'Inject faults in daylight'. Cue 'sun' a small sun appears."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "class": "Recap",
+      "title": "What to remember",
+      "mode": "reveal",
+      "beats": [
+        {
+          "say": "To recap. The plant is the panel, the twin is the model, the deviation is how far apart they are, and the state says whether to worry.",
+          "visual": "Checklist of four lines revealed in turn: 'plant = the panel (simulated here)', 'twin = the model', 'deviation = (measured - predicted) / predicted', 'state = normal / warning / abnormal'. Cue 'plant','twin','deviation','state'."
+        },
+        {
+          "say": "Next, we build the twin from first principles, so you can see exactly where its prediction comes from.",
+          "visual": "The checklist shrinks to the left and a 'Tutorial 2: The twin' card slides in on the right with a small I-V curve icon."
+        }
+      ]
+    }
+  ],
+  "engine": "breeze"
+}
