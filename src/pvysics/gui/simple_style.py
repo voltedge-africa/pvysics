@@ -58,6 +58,7 @@ QComboBox, QLineEdit, QAbstractSpinBox, QDateEdit {{ min-height: 2.1em; font-siz
 QComboBox {{ padding: 0 10px; min-width: 9em; }}
 QLineEdit, QAbstractSpinBox {{ padding: 0 8px; }}
 QAbstractSpinBox {{ min-width: 9em; }}
+QPushButton:disabled, QComboBox:disabled, QAbstractSpinBox:disabled, QLineEdit:disabled {{ color: {p.muted_text}; }}
 
 QPushButton[variant="primary"] {{ padding: 8px 18px; }}
 QPushButton[variant="primary"]:hover {{ border-color: {p.link}; }}

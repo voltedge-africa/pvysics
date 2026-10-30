@@ -34,6 +34,7 @@ from pvysics.export import write_samples_csv
 from pvysics.gui.alarm_panel import AlarmPanel
 from pvysics.gui.dashboard import format_event
 from pvysics.gui.dataset_view import DatasetAnalysisView
+from pvysics.gui.live_controller import FeedStatus
 from pvysics.gui.live_charts import _time_plot
 from pvysics.gui.metric_strip import split_reading
 from pvysics.gui.model_view import ModelView
@@ -46,7 +47,7 @@ from pvysics.gui.theme import style_plot
 from pvysics.gui.trend import PowerTrend
 from pvysics.gui.ui_helpers import role_label
 from pvysics.gui.validation_view import ValidationView
-from pvysics.run import Event, Sample
+from pvysics.run import Event, Sample, State
 
 if TYPE_CHECKING:
     from pvysics.gui.session import Session
@@ -169,7 +170,7 @@ class DashboardPage(QWidget):
         self._session = session
         self._history = session.history
         self._peak_w = 0.0
-        self.toolbar = RunToolbar(session.playback, session.bus)
+        self.toolbar = RunToolbar(session.playback, session.bus, live=session.live)
         self.source_chip = role_label(f"●  {SOURCE_CHIP}", "chip")
         self.state_chip = role_label(f"SYSTEM STATE: {WAITING}", "chip")
 
@@ -238,6 +239,8 @@ class DashboardPage(QWidget):
         session.config_changed.connect(self._show_limits)
         session.config_changed.connect(self._show_source)
         session.dataset_replayed.connect(self._show_dataset_source)
+        session.live.active_changed.connect(self._show_live_source)
+        session.live.status_changed.connect(self._show_feed_status)
         session.theme.changed.connect(self.apply_palette)
         self._show_start()  # the empty state first; a window opened mid-run then replays the run so far over it
         for sample in self._history.samples_from(0):
@@ -277,6 +280,17 @@ class DashboardPage(QWidget):
 
     def _show_dataset_source(self, name: str) -> None:
         self.source_chip.setText(f"●  SOURCE: DATASET '{name.upper()}'")
+
+    def _show_live_source(self, active: bool) -> None:
+        self.source_chip.setText("●  SOURCE: LIVE FEED" if active else "●  SOURCE: LIVE FEED (STOPPED)")
+
+    def _show_feed_status(self, status) -> None:
+        """No data for the timeout shows on the state chip. The state comes back with the next reading."""
+        if status is FeedStatus.NO_DATA:
+            self.state_chip.setText("SYSTEM STATE: NO DATA")
+            colour_text(self.state_chip, STATE_COLOURS[State.WARNING])
+        elif status is FeedStatus.RECEIVING and self._history.latest is not None:
+            self._show_sample(self._history.latest, replay=True)
 
     def _show_start(self) -> None:
         self._peak_w = 0.0

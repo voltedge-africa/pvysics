@@ -1,6 +1,6 @@
 """The simple window: the whole app in one window, which is what opens unless PVYSICS_ADVANCED_VERSION is set.
 
-A sidebar lists the pages (Dashboard, Analysis, SDM Model, Trends, Data, Event Log, Settings) and a stack shows
+A sidebar lists the pages (Dashboard, Analysis, SDM Model, Trends, Data, Event Log, Live Feed, Settings) and a stack shows
 the chosen one. The Hide button hides the sidebar so a page has the whole window; a rail button, View > Sidebar (Ctrl+B) or Esc brings it back. The log is a pop-up
 (View > Logs, Ctrl+L), as in the advanced version. The look is gui/simple_style.py, in the theme the user chose.
 
@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from pvysics.gui.live_page import LivePage
 from pvysics.gui.log_pane import popup_log_pane
 from pvysics.gui.palette import Palette
 from pvysics.gui.simple_pages import (
@@ -52,8 +53,9 @@ SDM_MODEL = "SDM Model"
 TRENDS = "Trends"
 DATA = "Data"
 EVENT_LOG = "Event Log"
+LIVE_FEED = "Live Feed"
 SETTINGS = "Settings"
-PAGE_NAMES = (DASHBOARD, ANALYSIS, SDM_MODEL, TRENDS, DATA, EVENT_LOG, SETTINGS)
+PAGE_NAMES = (DASHBOARD, ANALYSIS, SDM_MODEL, TRENDS, DATA, EVENT_LOG, LIVE_FEED, SETTINGS)
 
 
 class SimpleWindow(QMainWindow):
@@ -73,6 +75,7 @@ class SimpleWindow(QMainWindow):
         self.trends_page = TrendsPage(session)
         self.data_page = DataPage(session)
         self.event_log_page = EventLogPage(session)
+        self.live_page = LivePage(session)
         self.settings_page = SettingsPage(session)
         self.pages = {
             DASHBOARD: self.dashboard_page,
@@ -81,6 +84,7 @@ class SimpleWindow(QMainWindow):
             TRENDS: self.trends_page,
             DATA: self.data_page,
             EVENT_LOG: self.event_log_page,
+            LIVE_FEED: self.live_page,
             SETTINGS: self.settings_page,
         }
         self.stack = QStackedWidget()

@@ -388,40 +388,58 @@ def _measurements(text: str, columns: DatasetColumns, name: str) -> Measurements
     )
 
 
-def _sample_rows(dataset: Measurements, config: RunConfig) -> tuple[list[Sample], list[float]]:
-    """Each row as a Sample through the twin, and the twin's maximum power for each row.
+def score_row(
+    config: RunConfig,
+    stamp: np.datetime64,
+    irradiance: float,
+    temperature: float,
+    voltage: float,
+    current: float,
+    power: float,
+) -> tuple[Sample, float]:
+    """One reading through the twin: its Sample, and the twin's maximum power for its light and temperature.
 
-    The true inputs equal the measured ones (no hidden truth in a dataset) and no faults are
-    active, because a dataset carries none. The deviation is zero below POWER_FLOOR_W of
-    predicted power, the rule a run's step uses.
+    A dataset row and a live reading are scored by this one rule. The true inputs equal the measured ones (no
+    hidden truth) and no faults are active. The deviation is zero below POWER_FLOOR_W of predicted power, the
+    rule a run's step uses. See analyse_dataset for how the prediction is made.
     """
+    curve = solve_curve(config.datasheet, irradiance, temperature)
+    power_predicted = power_at_voltage(curve, voltage) if voltage > 0.0 else curve.mpp_power
+    deviation = 0.0
+    if power_predicted >= POWER_FLOOR_W:
+        deviation = (power - power_predicted) / power_predicted * 100.0
+    sample = Sample(
+        timestamp=stamp,
+        true_irradiance=irradiance,
+        true_temperature=temperature,
+        measured_irradiance=irradiance,
+        measured_temperature=temperature,
+        measured_voltage=voltage,
+        measured_current=current,
+        power_measured=power,
+        power_predicted=power_predicted,
+        deviation_pct=deviation,
+        state=_state(deviation, config.thresholds),
+    )
+    return sample, curve.mpp_power
+
+
+def _sample_rows(dataset: Measurements, config: RunConfig) -> tuple[list[Sample], list[float]]:
+    """Each row as a Sample through the twin, and the twin's maximum power for each row."""
     samples: list[Sample] = []
     mpp_power: list[float] = []
     for index, stamp in enumerate(dataset.timestamps):
-        g, t = float(dataset.irradiance[index]), float(dataset.temperature[index])
-        voltage = float(dataset.voltage[index])
-        curve = solve_curve(config.datasheet, g, t)
-        power_predicted = power_at_voltage(curve, voltage) if voltage > 0.0 else curve.mpp_power
-        mpp_power.append(curve.mpp_power)
-        power_measured = float(dataset.power[index])
-        deviation = 0.0
-        if power_predicted >= POWER_FLOOR_W:
-            deviation = (power_measured - power_predicted) / power_predicted * 100.0
-        samples.append(
-            Sample(
-                timestamp=stamp,
-                true_irradiance=g,
-                true_temperature=t,
-                measured_irradiance=g,
-                measured_temperature=t,
-                measured_voltage=voltage,
-                measured_current=float(dataset.current[index]),
-                power_measured=power_measured,
-                power_predicted=power_predicted,
-                deviation_pct=deviation,
-                state=_state(deviation, config.thresholds),
-            )
+        sample, mpp = score_row(
+            config,
+            stamp,
+            float(dataset.irradiance[index]),
+            float(dataset.temperature[index]),
+            float(dataset.voltage[index]),
+            float(dataset.current[index]),
+            float(dataset.power[index]),
         )
+        samples.append(sample)
+        mpp_power.append(mpp)
     return samples, mpp_power
 
 

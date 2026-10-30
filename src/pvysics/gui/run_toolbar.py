@@ -10,6 +10,7 @@ from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QPushButton, QWidget
 
 from pvysics.faults import FaultKind, default_fault
 from pvysics.gui.data_bus import DataBus
+from pvysics.gui.live_controller import LiveController
 from pvysics.gui.playback import SPEEDS, PlaybackController
 from pvysics.gui.ui_helpers import role_label, set_property, vertical_separator
 from pvysics.run import Sample
@@ -34,9 +35,17 @@ FAULT_TOOLTIPS = {
 class RunToolbar(QWidget):
     """Start, Pause, Reset, speed and clock on the left; fault buttons and Clear all on the right."""
 
-    def __init__(self, controller: PlaybackController, bus: DataBus, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        controller: PlaybackController,
+        bus: DataBus,
+        parent: QWidget | None = None,
+        live: LiveController | None = None,
+    ) -> None:
         super().__init__(parent)
         self._controller = controller
+        self._live = live
+        self._live_active = False
         self.start_button = QPushButton("Start")
         set_property(self.start_button, "variant", "primary")
         self.pause_button = QPushButton("Pause")
@@ -86,12 +95,29 @@ class RunToolbar(QWidget):
         bus.sample.connect(self._show_sample)
         bus.run_reset.connect(self._show_start)
         controller.running_changed.connect(self._on_running_changed)
+        if live is not None:
+            live.active_changed.connect(self.set_live)
+            self._live_active = live.is_active
+        self.refresh_controls()
+
+    def set_live(self, active: bool) -> None:
+        """While a live feed is the source, the controls of a simulated run do nothing: they are disabled."""
+        self._live_active = active
         self.refresh_controls()
 
     def refresh_controls(self) -> None:
         running = self._controller.is_running
-        self.start_button.setEnabled(not running and not self._controller.is_finished)
-        self.pause_button.setEnabled(running)
+        simulated = not self._live_active
+        self.start_button.setEnabled(simulated and not running and not self._controller.is_finished)
+        self.pause_button.setEnabled(simulated and running)
+        self.reset_button.setEnabled(simulated)
+        self.speed_box.setEnabled(simulated)
+        self.clear_faults_button.setEnabled(simulated)
+        for button in self.fault_buttons.values():
+            button.setEnabled(simulated)
+        note = "A live feed is the source: readings arrive in real time, so the run cannot be controlled here." if not simulated else ""
+        for widget in (self.start_button, self.speed_box):
+            widget.setToolTip(note or ("Playback speed" if widget is self.speed_box else ""))
 
     def _on_fault_clicked(self, *_args) -> None:
         kind = FaultKind[self.sender().property("kind")]
@@ -101,6 +127,8 @@ class RunToolbar(QWidget):
         self._controller.clear_faults()
 
     def _on_start_clicked(self, *_args) -> None:
+        if self._live is not None and self._live.has_data:
+            self._controller.reset()  # a simulated run starts afresh: it must not be appended to a feed's readings
         self._controller.start()
 
     def _on_pause_clicked(self, *_args) -> None:

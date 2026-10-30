@@ -17,6 +17,7 @@ from pvysics.dataset import DatasetReport, DatasetStore, default_store
 from pvysics.gui.alarm_panel import AlarmMonitor
 from pvysics.gui.dashboard import Dashboard
 from pvysics.gui.data_bus import DataBus
+from pvysics.gui.live_controller import LiveController
 from pvysics.gui.log_bridge import LogBridge
 from pvysics.gui.main_window import MainWindow
 from pvysics.gui.playback import PlaybackController
@@ -63,10 +64,13 @@ class Session(QObject):
         self.datasets = default_store()  # the datasets the user imported
         config = bundled_run_config() if config is None else config
         self.playback = PlaybackController(config, self.bus, self)
+        self.live = LiveController(self.bus, lambda: self.config, parent=self)  # a device's readings, when listening
+        self.live.active_changed.connect(self._on_live_active)
         self._windows: dict[str, QMainWindow] = {}
 
     def close(self) -> None:
-        """Detach the log handler. The session still works afterwards, but its log stops updating."""
+        """Stop the live feed and detach the log handler. The session still works afterwards, but its log stops updating."""
+        self.live.stop()
         self.log_bridge.close()
 
     @property
@@ -87,9 +91,14 @@ class Session(QObject):
         hmi = self.hmi
         return hmi is not None and hmi.isVisible()
 
+    def _on_live_active(self, active: bool) -> None:
+        if active:
+            self.playback.pause()  # a simulated run and a live feed are not shown together
+
     def apply_config(self, config: RunConfig) -> None:
         """Start a new run from config. The history and every window reset and follow the new config."""
         self.playback.load(config)  # checks the config before anything changes
+        self.live.stop()  # a simulated run replaces the live feed
         self.config_changed.emit(config)
         self.playback.start()
 
@@ -99,6 +108,7 @@ class Session(QObject):
         The samples go through the data bus as Samples, so every window (Dashboard, Trends,
         Data, Event Log) reads them as it reads a run. A dataset has no Events.
         """
+        self.live.stop()  # the replay replaces the live feed
         self.playback.pause()
         self.bus.run_reset.emit()
         for sample in report.samples:
