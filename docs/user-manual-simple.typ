@@ -193,7 +193,7 @@ The *Dataset* list holds every dataset you have imported, and keeps them between
 
 === The file and its template <dataset-file>
 
-*Start from the template.* Press *Template...*, choose *Excel workbook* or *CSV file*, and save it. Copies are also in the `docs/templates` folder of the source code (`pvysics-dataset-template.xlsx` and `pvysics-dataset-template.csv`). The Excel template has two sheets: *Measurements*, with the columns and five example rows, and *Instructions*, with a line about each column. Delete the example rows and paste your own readings from row 2, keeping the column names in row 1.
+*Start from the template.* Press *Template...*, choose *Excel workbook* or *CSV file*, and save it. Copies are also in the `docs/templates` folder of the source code (`pvysics-dataset-template.xlsx` and `pvysics-dataset-template.csv`). The Excel template has two sheets: *Measurements*, with the columns and five example rows of a healthy generic 250 W module, and *Instructions*, with a line about each column. Delete the example rows and paste your own readings from row 2, keeping the column names in row 1.
 
 The file is a `.csv` or an `.xlsx`. For an Excel file, the first sheet is read, and a time that Excel has turned into a date is understood. An older `.xls` file must be saved again as `.xlsx` or CSV.
 
@@ -210,6 +210,22 @@ The file needs a header row and one row for each reading. The columns are found 
 )
 
 The times must increase, but the step may vary, because real logs have gaps. A file is rejected, with the reason shown, if a column is missing, a value is missing or not a number, irradiance is negative or there are fewer than two rows.
+
+=== Filling the file in properly <dataset-fill>
+
+The twin can only judge readings that were taken in the way it expects. Before you import, check these points:
+
++ *Use the same module.* The prediction comes from the datasheet in Settings (*Module*). Load the datasheet of the module you measured before you press *Analyse*, or the comparison is between two different modules.
++ *Irradiance* is the sunlight on the module's own surface, in W/m², from a sensor tilted like the module (a plane-of-array or reference-cell sensor). A horizontal reading differs from it, especially in the morning and evening.
++ *Temperature* is the module's temperature in °C, from a sensor on the back of the module. The air temperature is lower than the module's in sunshine, so it makes the twin predict too much power. If you only have air temperature, expect the twin to read high.
++ *Voltage and current* are the module's own terminals, in V and A, read at the same moment as the irradiance. Every row is one moment, so the readings should be averages over the row's interval, not a single noisy value.
++ *Measure at the maximum power point.* The twin predicts the most power the module can make in that light and at that temperature. A module held at a different voltage, such as one with a fixed load or an open circuit, makes less than that and shows as a deviation even though nothing is wrong. Log from an inverter or charge controller that tracks the maximum power point, or tune the load to it.
++ *Check the numbers make sense for the module.* The current can never be above the datasheet's short-circuit current (*Isc*), the voltage above its open-circuit voltage (*Voc*), or the power above the datasheet's rated power in full sunshine. A row beyond these usually means a unit error (kW instead of W, mA instead of A), a swapped column, or a sensor out of calibration, and it will score as Abnormal.
++ *Keep the rows in order and the step steady,* with no gaps you do not mean. A few missing rows are fine, but a missing value is rejected, so delete the row or fill it.
+
+A good first test is the template itself: it holds a healthy generic module, so with the default limits it scores *Normal* on every row. Import it, press *Analyse*, and you will see what a healthy result looks like before you try your own file.
+
+*Reading the result.* A deviation within the Normal limit (5% by default) means the module makes the power the twin expects. Between the limits is *Warning*, and above the abnormal limit (10% by default) is *Abnormal*. A steady offset on every row points at the setup (the wrong datasheet, the wrong temperature, a miscalibrated sensor), while a deviation that appears at certain hours or after a certain time points at the plant, such as shading, soiling or a failing string.
 
 === The results <dataset-results>
 
@@ -438,6 +454,7 @@ Press *Reset* on the Dashboard to play the same run again. For different setting
   [A CSV is rejected.], [Read the reason in the dialog. Check that the columns are mapped right and the times step evenly with no gaps.],
   [A fetch fails.], [NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads without a connection.],
   [A dataset is rejected.], [Read the reason on the Analysis page. Check that the header names are ones the manual lists, that the times increase and that no value is missing.],
+  [A dataset scores Abnormal on every row.], [A steady offset is a setup problem, not a fault. Check that the Settings datasheet is the module you measured, that the temperature is the module's and not the air's, that the units are W/m², °C, V and A, and that no row has a current above the datasheet's short-circuit current. See @dataset-fill.],
   [Analysis says the result is out of date.], [You changed the setup after the last validation. Press *Run validation* again.],
   [The log is not showing.], [It is a pop-up: *View > Logs* (#key[Ctrl]+#key[L]).],
   [The app opens three windows, not one.], [The advanced version is switched on. Unset the environment variable `PVYSICS_ADVANCED_VERSION`.],

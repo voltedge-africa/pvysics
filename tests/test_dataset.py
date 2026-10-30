@@ -364,6 +364,21 @@ def test_the_template_reads_back_as_a_valid_dataset(tmp_path, suffix):
     assert report.metrics.row_count == len(TEMPLATE_ROWS)
 
 
+def test_the_template_rows_are_a_healthy_module_and_score_normal(tmp_path):
+    write_template(tmp_path / "t.csv")
+    dataset = read_measurement_file(tmp_path / "t.csv")
+    config = bundled_run_config(seed=1)
+
+    report = analyse_dataset(dataset, config)
+
+    for _, g, t, v, i in TEMPLATE_ROWS:
+        curve = solve_curve(config.datasheet, g, t)
+        assert i <= curve.mpp_current * 1.01
+        assert v * i <= curve.mpp_power
+    assert report.metrics.normal_pct == 100.0
+    assert all(sample.state is State.NORMAL for sample in report.samples)
+
+
 def test_the_csv_template_has_the_documented_columns(tmp_path):
     write_template(tmp_path / "t.csv")
 

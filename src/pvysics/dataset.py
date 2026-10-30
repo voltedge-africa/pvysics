@@ -65,13 +65,15 @@ STORE_COLUMNS = (
 
 # The template a user fills in: the canonical column names (all recognised by the importer), a few example
 # rows from a clear morning, and a plain-language note on each column for the Excel version's second sheet.
+# The example rows are a healthy generic 250 W module, a hair under the twin's maximum power at each row's
+# irradiance and temperature (a test checks this), so the template scores Normal until the user fills in their own.
 TEMPLATE_HEADER = ("timestamp", "irradiance_w_m2", "temperature_c", "voltage_v", "current_a")
 TEMPLATE_ROWS = (
-    ("2025-01-15T09:00:00", 612.4, 31.8, 29.1, 6.02),
-    ("2025-01-15T09:01:00", 618.9, 31.9, 29.1, 6.08),
-    ("2025-01-15T09:02:00", 625.3, 32.0, 29.0, 6.13),
-    ("2025-01-15T09:03:00", 631.7, 32.2, 29.0, 6.19),
-    ("2025-01-15T09:04:00", 638.0, 32.3, 29.0, 6.25),
+    ("2025-01-15T09:00:00", 612.4, 31.8, 29.0, 5.10),
+    ("2025-01-15T09:01:00", 618.9, 31.9, 29.0, 5.15),
+    ("2025-01-15T09:02:00", 625.3, 32.0, 29.0, 5.20),
+    ("2025-01-15T09:03:00", 631.7, 32.2, 29.0, 5.25),
+    ("2025-01-15T09:04:00", 638.0, 32.3, 29.0, 5.30),
 )
 TEMPLATE_NOTES = (
     ("Column", "What to put in it"),
