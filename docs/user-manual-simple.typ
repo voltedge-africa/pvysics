@@ -62,6 +62,10 @@ The model is fitted to the module's datasheet: the short-circuit current, the op
 
 *The limits.* The defaults of 5% (Warning) and 10% (Abnormal) are round starting values. Settings can instead work the limits out from a healthy day of the plant itself: the warning limit is the mean plus two standard deviations of the healthy deviation, and the abnormal limit the mean plus three, so the limits sit close to the plant's own noise. They are tight and flag some healthy samples, so check them before you rely on them (@limits).
 
+#block(inset: (left: 10pt), stroke: (left: 2.5pt + sun), [
+  *New to the tool?* The tutorial series explains it from first principles, with video: the twin, the plant and its faults, the app, your own data, limits and trust, and the live feed. The written version is `docs/tutorial-handbook.typ`; the videos are built from `tutorials/`.
+])
+
 = Installing and starting <starting>
 
 *Windows.* Run `pvysics-0.3.0-windows-setup.exe` and follow the steps. It adds *PV Digital Twin* to the Start menu, and to the desktop if you tick the box. The installer is not code-signed, so Windows may show a warning: choose *More info*, then *Run anyway*. Without the installer, unzip `pvysics-0.3.0-windows.zip` and run `pvysics.exe` in the `pvysics` folder.
