@@ -16,7 +16,7 @@
 
 = What the app does <what>
 
-The app compares a simulated PV module with a model of it, and tells you when they disagree. No hardware is needed: the plant is simulated.
+The app compares a simulated PV module with a model of it, and tells you when they disagree. No hardware is needed: the plant is simulated. Real readings from a device can also be fed in (@live-feed).
 
 - *The plant* is a simulated PV module with sensor noise and a small mismatch from the datasheet. It stands in for the real hardware.
 - *The twin* is the Single Diode Model (SDM) of the module. It predicts the module's power from the plant's measured irradiance and temperature.
@@ -97,6 +97,7 @@ The window has a *sidebar* of pages on the left and the page you chose on the ri
   [*Trends*], [Chart each sensor channel. See @trends.],
   [*Data*], [List every sample and save them as a CSV file. See @data.],
   [*Event Log*], [Alarms, state changes and injected faults. See @event-log.],
+  [*Live Feed*], [Take readings from an ESP32 or a logger as they arrive. See @live-feed.],
   [*Settings*], [Set up the next run. See @settings.],
 )
 
@@ -344,6 +345,85 @@ The table shows the newest 1000 samples. *Export CSV* saves every sample of the 
 
 If something goes wrong, the log has the reason.
 
+= Live Feed <live-feed>
+
+The Live Feed takes readings from a real device, such as an ESP32 with a voltage and current sensor, and scores each one as it arrives. The device sends its readings over the network to this computer. The Dashboard, Trends, Data and Event Log then show the live readings the way they show a simulated run.
+
+Each reading is scored by the rule a dataset row uses (@prediction): the twin predicts the power at the measured voltage and compares it with the power the module made.
+
+#shot("simple_24_live_page.png", [The Live Feed page while readings arrive: the settings, the address and token a device needs, and the status.])
+
+== Starting the feed <live-start>
+
++ Open *Live Feed*. Check the *Port*, and whether other devices on the network may send. Leave that box ticked for an ESP32 on your Wi-Fi; untick it to accept readings only from this computer.
++ Press *Start listening*. The Dashboard's source chip reads *Source: live feed*, and the page shows the address to send to.
++ Give the device the address and the *token* (use *Copy token*). A device must send the token with every reading, so only your devices can send. *New token* makes another one; give it to your devices again.
++ Press *Stop* when you have finished. What arrived stays on the Dashboard and in the file described below.
+
+#table(
+  columns: (auto, 1fr),
+  [Setting], [What it does],
+  [*Port*], [The port the device sends to (8765 by default). _Automatic_ lets the system choose; the address then shows it. If the port is taken, the page says so and the feed stays stopped.],
+  [*No data after*], [How long a silence counts as no data (30 s by default).],
+  [*Accept readings from other devices*], [On: devices on the same network can send. Off: only this computer can.],
+  [*Token*], [The secret a device must send. It is kept between sessions, so a device does not need setting up again.],
+)
+
+Starting the feed starts a new run: the Dashboard, the alarms and the logs are cleared. Pressing *Apply and start* in Settings, or *Replay on Dashboard* in Analysis, stops the feed and replaces the run.
+
+== What a device sends <live-format>
+
+The device sends *HTTP POST* requests to the address shown, with the token in an `X-Api-Key` header (or as `Authorization: Bearer ...`) and a JSON body. A body is one reading, or a list of readings:
+
+```
+{"g": 640.0, "t": 32.5, "v": 29.0, "i": 5.2}
+```
+
+#table(
+  columns: (auto, 1fr),
+  [Key], [What it is],
+  [`g`], [Irradiance on the module, in W/m². Required. Not negative. Also accepted as `irradiance` or `irradiance_w_m2`.],
+  [`t`], [Module temperature, in °C. Required. Also `temperature` or `temperature_c`.],
+  [`v` and `i`], [The module's voltage in V and current in A, at its terminals. Also `voltage`, `current` and the names with `_v` and `_a`. The power is their product.],
+  [`power`], [The power in W, in place of `v` and `i`. The twin then compares it with the module's maximum power (@prediction), so send voltage and current when you can.],
+  [`timestamp`], [Optional: the time of the reading, as `2025-01-15T10:00:00`. Without it the app stamps the reading with its own clock when it arrives.],
+)
+
+The reply says what happened: `202` the readings were taken, `401` the token is missing or wrong, `422` every reading was refused (the reply says why), `400` the body is not JSON. A device that checks its address and token can send `GET /status`. To try the feed without a device, use the `curl` command the page shows.
+
+A reading is refused, with the reason on the page, if a required value is missing or not a number, irradiance is negative, or its time is not after the reading before it. A refused reading changes nothing else.
+
+== Time, speed and gaps <live-time>
+
+#shot("simple_25_live_dashboard.png", [The Dashboard on a live feed that began at 13:00. The chart starts at the first reading, the run controls are switched off, and a fault from 15:00 reads Abnormal.])
+
+- *The speed box and the run controls are switched off* while the feed is the source. Readings arrive in real time, so there is nothing to speed up, pause or inject: the clock beside the controls shows the time of the latest reading.
+- *Start sending whenever you like.* A reading is scored when it arrives, and nothing is expected before the first one. Starting at midday raises no warning for a morning that has no readings, and the charts start at the first reading. A gap in the middle raises nothing either.
+- *Silence is noticed separately.* If no reading arrives for the *No data after* time, the Dashboard's state chip changes to *No data* (in amber) and the log records it. The chip returns to the state of the latest reading when readings resume.
+
+#shot("simple_26_live_no_data.png", [The state chip reads *No data* after a silence: the figures are the last reading's, not current ones.], w: 90%) A device that stops sending is not a Normal module: look at this chip and the last reading time on the Live Feed page.
+
+== Keeping the readings <live-keep>
+
+Every accepted reading is also written to a CSV file, one for each time you start the feed, named from that moment (`live-20261030-140500.csv`). The page shows where. The file has the columns of the dataset template plus the power, so you can import it in *Analysis* and score the whole day again, or open it in Excel. It is written as each reading arrives, so a crash does not lose it. Set the folder with the environment variable `PVYSICS_LIVE_DIR`.
+
+== Connecting an ESP32 <live-esp32>
+
+The source code has an example sketch, `docs/esp32/pvysics_feed.ino`, for an ESP32 with an INA219 (voltage and current), a DS18B20 (module temperature) and an irradiance sensor on an analog pin. It has not been tested on hardware: check every pin and number against your own wiring. Before you rely on the readings:
+
++ *Use the right datasheet.* The twin predicts from the datasheet in Settings (@module). Load the datasheet of the module that is connected.
++ *Check the sensor ranges against the module.* The voltage and current sensor must cope with the module's open-circuit voltage and short-circuit current, not only its working point. Read the sensor's data sheet.
++ *Calibrate the irradiance sensor* against a reference, and put it in the plane of the module. This is the reading the whole prediction rests on.
++ *Put the temperature sensor on the back of the module,* not in the air.
++ *Smooth the readings.* Send an average over a few seconds, not a single noisy sample, and send them at a steady rate.
+
+== Limits <live-limits>
+
+- The feed uses plain HTTP, with no encryption: the token and the readings can be read by anyone who can listen on the network. Use it on a network you trust, or untick *Accept readings from other devices* and send from the same computer.
+- One feed at a time, for one module. Several devices sending to the same feed are scored as one stream.
+- The run keeps every reading in memory for the charts, so a feed left running for many days will grow. Stop and restart it to start a new run.
+- The twin has no model of the module's load or of a tracker, and it reads the temperature you send as the module's temperature. See @prediction.
+
 = Settings <settings>
 
 Settings holds the setup of the *next* run: the profile, the site, the module and the limits. The sections are listed on the left. Click one to see its page.
@@ -478,6 +558,9 @@ Press *Reset* on the Dashboard to play the same run again. For different setting
   [A fetch fails.], [NASA POWER needs an internet connection. The log has the reason. A date range you fetched before still loads without a connection.],
   [A dataset is rejected.], [Read the reason on the Analysis page. Check that the header names are ones the manual lists, that the times increase and that no value is missing.],
   [A dataset scores Abnormal on every row.], [A steady offset is a setup problem, not a fault. Check that the Settings datasheet is the module you measured, that the temperature is the module's and not the air's, that the units are W/m², °C, V and A, and that no row has a current above the datasheet's short-circuit current. A file with only a power column is compared with the maximum power, so a module held at a load reads low; add voltage and current. See @dataset-fill.],
+  [A device gets 401.], [The token is missing or wrong. Copy it again from the Live Feed page; after *New token*, give the device the new one.],
+  [A device cannot connect.], [Check that the feed is started, that *Accept readings from other devices* is ticked, that the device uses this computer's address on the same network, and that the computer's firewall allows the port.],
+  [The Dashboard says *No data*.], [No reading arrived for the *No data after* time. Check the device and the network; the chip returns to the state when readings resume.],
   [Analysis says the result is out of date.], [You changed the setup after the last validation. Press *Run validation* again.],
   [The log is not showing.], [It is a pop-up: *View > Logs* (#key[Ctrl]+#key[L]).],
   [The app opens three windows, not one.], [The advanced version is switched on. Unset the environment variable `PVYSICS_ADVANCED_VERSION`.],
