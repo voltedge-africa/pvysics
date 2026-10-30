@@ -16,7 +16,7 @@ from pvysics.dataset import (
     parse_measurement_csv,
 )
 from pvysics.run import POWER_FLOOR_W, State, Thresholds, bundled_run_config, run
-from pvysics.single_diode import solve_curve
+from pvysics.single_diode import power_at_voltage, solve_curve
 from pvysics.validation import error_metrics
 
 CONFIG = bundled_run_config(seed=0)  # the bundled Durban day on the generic module
@@ -158,7 +158,8 @@ def test_analysis_runs_the_rows_through_the_twin():
         assert sample.measured_irradiance == pytest.approx(g)
         assert sample.measured_voltage == pytest.approx(v)
         assert sample.active_faults == ()
-        expected = solve_curve(CONFIG.datasheet, g, t).mpp_power
+        curve = solve_curve(CONFIG.datasheet, g, t)
+        expected = power_at_voltage(curve, v) if v > 0 else curve.mpp_power  # at the measured voltage
         assert sample.power_predicted == pytest.approx(expected)
         assert sample.power_measured == pytest.approx(v * i)
 
@@ -222,12 +223,15 @@ def test_a_run_exported_as_measurements_scores_the_same_as_the_live_run():
     report = analyse_dataset(dataset, CONFIG)
     reference = error_metrics(result)
 
+    # The run compares the plant's maximum power with the twin's; the dataset predicts at the voltage the
+    # plant sat at, which is a hair below the twin's maximum, so the two agree closely but not exactly.
     for scored, live in zip(report.samples, result.samples):
-        assert scored.power_predicted == pytest.approx(live.power_predicted)
-        assert scored.deviation_pct == pytest.approx(live.deviation_pct)
+        assert scored.power_predicted == pytest.approx(live.power_predicted, rel=0.01)
+        assert scored.power_predicted <= live.power_predicted * (1 + 1e-4)
+        assert scored.deviation_pct == pytest.approx(live.deviation_pct, abs=1.0)
         assert scored.state is live.state
-    assert report.metrics.mae_w == pytest.approx(reference.mae_w)
-    assert report.metrics.rmse_w == pytest.approx(reference.rmse_w)
+    assert report.metrics.mae_w == pytest.approx(reference.mae_w, abs=0.5)
+    assert report.metrics.rmse_w == pytest.approx(reference.rmse_w, abs=0.5)
 
 
 def test_analysis_of_a_dataset_without_daylight_is_rejected():
@@ -377,6 +381,52 @@ def test_the_template_rows_are_a_healthy_module_and_score_normal(tmp_path):
         assert v * i <= curve.mpp_power
     assert report.metrics.normal_pct == 100.0
     assert all(sample.state is State.NORMAL for sample in report.samples)
+
+
+def test_a_healthy_module_held_off_its_maximum_power_point_scores_normal():
+    """A load that holds the module at 24 V: it makes less than its maximum, but exactly what the SDM says."""
+    curve = solve_curve(CONFIG.datasheet, 800.0, 35.0)
+    voltage = 24.0
+    current = float(np.interp(voltage, curve.voltage, curve.current))
+    rows = [("2025-01-15T10:00:00", 800.0, 35.0, voltage, current), ("2025-01-15T10:01:00", 800.0, 35.0, voltage, current)]
+
+    report = analyse_dataset(parse(rows), CONFIG)
+
+    assert curve.mpp_power - voltage * current > 10.0  # clearly off the maximum power point
+    assert all(sample.state is State.NORMAL for sample in report.samples)
+    assert report.metrics.mean_deviation_pct == pytest.approx(0.0, abs=0.01)
+    assert report.mpp_power_w == pytest.approx((curve.mpp_power, curve.mpp_power))  # the reference is kept
+
+
+def test_a_file_with_only_power_is_predicted_at_the_maximum_power_point():
+    curve = solve_curve(CONFIG.datasheet, 800.0, 35.0)
+    header = ("timestamp", "irradiance_w_m2", "temperature_c", "power_w")
+    rows = [("2025-01-15T10:00:00", 800.0, 35.0, 150.0), ("2025-01-15T10:01:00", 800.0, 35.0, 150.0)]
+
+    report = analyse_dataset(parse(rows, header=header), CONFIG)
+
+    assert report.samples[0].power_predicted == pytest.approx(curve.mpp_power)
+
+
+def test_a_fault_still_shows_when_the_voltage_is_known():
+    """Shading cuts the current at the same voltage: the twin's current there is higher, so it deviates."""
+    curve = solve_curve(CONFIG.datasheet, 800.0, 35.0)
+    voltage = float(curve.mpp_voltage)
+    current = float(np.interp(voltage, curve.voltage, curve.current)) * 0.7
+    rows = [("2025-01-15T10:00:00", 800.0, 35.0, voltage, current), ("2025-01-15T10:01:00", 800.0, 35.0, voltage, current)]
+
+    report = analyse_dataset(parse(rows), CONFIG)
+
+    assert all(sample.state is State.ABNORMAL for sample in report.samples)
+    assert report.samples[0].deviation_pct == pytest.approx(-30.0, abs=0.5)
+
+
+def test_power_at_voltage_is_zero_outside_the_curve():
+    curve = solve_curve(CONFIG.datasheet, 800.0, 35.0)
+
+    assert power_at_voltage(curve, 0.0) == 0.0
+    assert power_at_voltage(curve, float(curve.voltage[-1]) + 1.0) == 0.0
+    assert power_at_voltage(curve, float(curve.mpp_voltage)) == pytest.approx(curve.mpp_power, rel=1e-3)
 
 
 def test_the_csv_template_has_the_documented_columns(tmp_path):

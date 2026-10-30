@@ -109,6 +109,7 @@ def test_an_export_writes_the_analysis_csv(qtbot, tmp_path, monkeypatch, dataset
     assert out.exists()
     rows = out.read_text(encoding="utf-8").strip().splitlines()
     assert rows[0].split(",")[:3] == ["timestamp", "irradiance_w_m2", "temperature_c"]
+    assert "mpp_power_w" in rows[0].split(",")  # the theoretical maximum, next to the estimate
     assert any(row.startswith("metrics,MAE,") for row in rows)
 
 

@@ -135,6 +135,16 @@ def solve_curve(
     )
 
 
+def power_at_voltage(curve: IVCurve, voltage: float) -> float:
+    """The power the module makes at a terminal voltage on this curve: V times the curve's current there.
+
+    Zero at or below 0 V and at or beyond open circuit, where the module delivers nothing.
+    """
+    if voltage <= 0.0 or voltage >= float(curve.voltage[-1]):
+        return 0.0
+    return voltage * float(np.interp(voltage, curve.voltage, curve.current))
+
+
 def _thermal_voltage(ns: int, temperature: float, ideality: float) -> float:
     """n*Ns*Vt: the diode voltage scale of a whole module."""
     kelvin = temperature + KELVIN_OFFSET

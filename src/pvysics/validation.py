@@ -61,6 +61,7 @@ class FaultScore:
     kind: FaultKind
     delay_s: float | None  # None when the fault was never detected
     detection_rate: float | None  # None when the fault had no daylight Samples
+    mean_deviation_pct: float | None = None  # mean signed deviation over the fault-active daylight Samples
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,7 @@ class ValidationReport:
     false_alarm_rate: float  # healthy run at the config's thresholds
     derived_thresholds: Thresholds  # mean + 2 and 3 sigma of the healthy deviation
     false_alarm_rate_derived: float  # healthy run at the derived thresholds
+    baseline_deviation_pct: float = 0.0  # mean signed deviation of the healthy run: the plant mismatch's offset
 
 
 def error_metrics(source: RunResult | Iterable[Sample]) -> ErrorMetrics:
@@ -97,6 +99,14 @@ def error_metrics(source: RunResult | Iterable[Sample]) -> ErrorMetrics:
         sample_count=len(daylight),
         mape_sample_count=int(lit.sum()),
     )
+
+
+def mean_deviation(source: RunResult | Iterable[Sample]) -> float:
+    """The mean signed power deviation in percent over daylight Samples. On a healthy run it is the baseline offset."""
+    daylight = [sample for sample in _samples(source) if sample.power_predicted >= POWER_FLOOR_W]
+    if not daylight:
+        raise ValueError("there is no daylight, so no mean deviation")
+    return float(np.mean([sample.deviation_pct for sample in daylight]))
 
 
 def false_alarm_rate(source: RunResult | Iterable[Sample]) -> float:
@@ -138,9 +148,11 @@ def score_fault(fault_run: FaultRun) -> FaultScore:
         delay_s = float((first_detected.timestamp - fault_run.start) / np.timedelta64(1, "s"))
     daylight = [sample for sample in active if sample.power_predicted >= POWER_FLOOR_W]
     rate = None
+    mean_deviation = None
     if daylight:
         rate = sum(sample.state is not State.NORMAL for sample in daylight) / len(daylight)
-    return FaultScore(fault_run.kind, delay_s, rate)
+        mean_deviation = float(np.mean([sample.deviation_pct for sample in daylight]))
+    return FaultScore(fault_run.kind, delay_s, rate, mean_deviation)
 
 
 def confusion_matrix(fault_runs: Iterable[FaultRun]) -> ConfusionMatrix:
@@ -179,6 +191,7 @@ def run_validation(config: RunConfig) -> ValidationReport:
         false_alarm_rate=false_alarm_rate(healthy),
         derived_thresholds=derived,
         false_alarm_rate_derived=false_alarm_rate(derived_run),
+        baseline_deviation_pct=mean_deviation(healthy),
     )
 
 

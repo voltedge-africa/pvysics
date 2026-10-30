@@ -34,7 +34,7 @@ from pvysics.profile import (
     csv_columns,
 )
 from pvysics.run import POWER_FLOOR_W, RunConfig, Sample, State, Thresholds
-from pvysics.single_diode import solve_curve
+from pvysics.single_diode import power_at_voltage, solve_curve
 from pvysics.spreadsheet import (
     CSV_SUFFIX,
     XLSX_SUFFIX,
@@ -153,6 +153,8 @@ class DatasetReport:
     config: RunConfig  # the datasheet and thresholds the rows were scored with
     samples: list[Sample]
     metrics: DatasetMetrics
+    # The module's maximum power at each row's irradiance and temperature, a reference next to the estimate.
+    mpp_power_w: tuple[float, ...] = ()
 
 
 def parse_measurement_csv(text: str, name: str = "") -> Measurements:
@@ -200,15 +202,19 @@ def analyse_dataset(dataset: Measurements, config: RunConfig) -> DatasetReport:
     """The twin's prediction, deviation and State per row, plus the metrics of the whole dataset.
 
     The twin predicts power from the rows' irradiance and temperature with the config's
-    datasheet, at the nominal parameters, and the State follows the config's thresholds,
-    exactly as a live run builds its Samples.
+    datasheet, at the nominal parameters. A row with a measured voltage is predicted at that
+    voltage (V times the twin's current there), so a module held off its maximum power point by
+    its load is not mistaken for a fault. A row with no voltage, such as a file that has only
+    power, is predicted at the maximum power point, which assumes the module is tracked there.
+    The State follows the config's thresholds. The maximum power is kept per row as a reference.
     """
-    samples = list(_sample_rows(dataset, config))
+    samples, mpp_power = _sample_rows(dataset, config)
     return DatasetReport(
         name=dataset.name,
         config=config,
         samples=samples,
         metrics=_metrics(samples),
+        mpp_power_w=tuple(mpp_power),
     )
 
 
@@ -382,16 +388,21 @@ def _measurements(text: str, columns: DatasetColumns, name: str) -> Measurements
     )
 
 
-def _sample_rows(dataset: Measurements, config: RunConfig) -> list[Sample]:
-    """Each row as a Sample through the twin, with the same rule a run's step uses.
+def _sample_rows(dataset: Measurements, config: RunConfig) -> tuple[list[Sample], list[float]]:
+    """Each row as a Sample through the twin, and the twin's maximum power for each row.
 
     The true inputs equal the measured ones (no hidden truth in a dataset) and no faults are
-    active, because a dataset carries none.
+    active, because a dataset carries none. The deviation is zero below POWER_FLOOR_W of
+    predicted power, the rule a run's step uses.
     """
     samples: list[Sample] = []
+    mpp_power: list[float] = []
     for index, stamp in enumerate(dataset.timestamps):
         g, t = float(dataset.irradiance[index]), float(dataset.temperature[index])
-        power_predicted = solve_curve(config.datasheet, g, t).mpp_power
+        voltage = float(dataset.voltage[index])
+        curve = solve_curve(config.datasheet, g, t)
+        power_predicted = power_at_voltage(curve, voltage) if voltage > 0.0 else curve.mpp_power
+        mpp_power.append(curve.mpp_power)
         power_measured = float(dataset.power[index])
         deviation = 0.0
         if power_predicted >= POWER_FLOOR_W:
@@ -403,7 +414,7 @@ def _sample_rows(dataset: Measurements, config: RunConfig) -> list[Sample]:
                 true_temperature=t,
                 measured_irradiance=g,
                 measured_temperature=t,
-                measured_voltage=float(dataset.voltage[index]),
+                measured_voltage=voltage,
                 measured_current=float(dataset.current[index]),
                 power_measured=power_measured,
                 power_predicted=power_predicted,
@@ -411,7 +422,7 @@ def _sample_rows(dataset: Measurements, config: RunConfig) -> list[Sample]:
                 state=_state(deviation, config.thresholds),
             )
         )
-    return samples
+    return samples, mpp_power
 
 
 def _metrics(samples: list[Sample]) -> DatasetMetrics:

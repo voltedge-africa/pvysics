@@ -216,6 +216,18 @@ def test_detection_delay_is_measured_from_the_fault_start_to_the_first_non_norma
     assert scored.delay_s == (first_flagged.timestamp - fault_run.start) / np.timedelta64(1, "s")
 
 
+def test_each_fault_reports_its_mean_deviation_and_the_healthy_run_its_baseline(bundled_report):
+    by_kind = {score.kind.value: score for score in bundled_report.faults}
+
+    assert all(score.mean_deviation_pct is not None for score in bundled_report.faults)
+    assert by_kind["partial shading"].mean_deviation_pct < -5.0  # shading loses power, so the sign is negative
+    healthy_daylight = [s for s in bundled_report.healthy.samples if s.power_predicted >= POWER_FLOOR_W]
+    assert bundled_report.baseline_deviation_pct == pytest.approx(
+        float(np.mean([s.deviation_pct for s in healthy_daylight]))
+    )
+    assert abs(bundled_report.baseline_deviation_pct) < 5.0  # the default mismatch is a small offset, not a fault
+
+
 def test_report_false_alarm_rates_are_computed_at_config_and_at_derived_thresholds(bundled_report):
     config = bundled_report.config
     derived = derive_thresholds(config)

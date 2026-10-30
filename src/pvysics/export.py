@@ -37,6 +37,7 @@ DATASET_COLUMNS = (
     "current_a",
     "actual_power_w",
     "estimated_power_w",
+    "mpp_power_w",
     "deviation_pct",
     "state",
 )
@@ -67,14 +68,14 @@ def write_dataset_analysis_csv(path: Path, report: DatasetReport) -> None:
     with Path(path).open("w", newline="", encoding="utf-8") as handle:
         writer = csv.writer(handle)
         writer.writerow(DATASET_COLUMNS)
-        for sample in report.samples:
-            writer.writerow(_dataset_row(sample))
+        for sample, mpp_power in zip(report.samples, report.mpp_power_w, strict=True):
+            writer.writerow(_dataset_row(sample, mpp_power))
         writer.writerow([])
         writer.writerow(REPORT_COLUMNS)
         writer.writerows(_dataset_metric_rows(report))
 
 
-def _dataset_row(sample: Sample) -> list[str | float]:
+def _dataset_row(sample: Sample, mpp_power: float) -> list[str | float]:
     return [
         np.datetime_as_string(sample.timestamp, unit="s"),
         sample.measured_irradiance,
@@ -83,6 +84,7 @@ def _dataset_row(sample: Sample) -> list[str | float]:
         sample.measured_current,
         sample.power_measured,
         sample.power_predicted,
+        mpp_power,
         sample.deviation_pct,
         sample.state.value,
     ]
@@ -160,8 +162,10 @@ def _report_rows(report: ValidationReport) -> list[list[str | float | int]]:
     for score in report.faults:
         rows.append(["fault", f"{score.kind.value} detection delay", _cell(score.delay_s), "s"])
         rows.append(["fault", f"{score.kind.value} detection rate", _cell(_percent(score.detection_rate)), "%"])
+        rows.append(["fault", f"{score.kind.value} mean deviation", _cell(score.mean_deviation_pct), "%"])
     thresholds, derived = report.config.thresholds, report.derived_thresholds
     rows += [
+        ["summary", "baseline deviation of the healthy run", report.baseline_deviation_pct, "%"],
         ["summary", "mean detection delay", _cell(report.mean_delay_s), "s"],
         ["summary", "detection rate", _cell(_percent(report.detection_rate)), "%"],
         ["summary", "warning limit at config thresholds", thresholds.warning_pct, "%"],

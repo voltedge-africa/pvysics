@@ -41,6 +41,7 @@ log = logging.getLogger(__name__)
 
 STRIP_TIP = (
     f"Night samples are excluded; MAPE also skips samples below {NEAR_ZERO_W:g} W.\n"
+    "Baseline offset: the healthy run's mean signed deviation, from the plant's mismatch with the datasheet.\n"
     "False alarms: healthy-run samples flagged, at your limits and at limits derived from the healthy run."
 )
 TRUTH_LABELS = ("Normal operation", "Fault")
@@ -88,7 +89,11 @@ class ValidationView(QWidget):
         self._worker: ValidationWorker | None = None
         self.strip = MetricStrip(
             [
-                Group("Accuracy on healthy data", [Tile("mae", "MAE"), Tile("rmse", "RMSE"), Tile("mape", "MAPE")], spread=True),
+                Group(
+                    "Accuracy on healthy data",
+                    [Tile("mae", "MAE"), Tile("rmse", "RMSE"), Tile("mape", "MAPE"), Tile("baseline", "Baseline offset")],
+                    spread=True,
+                ),
                 Group(
                     "Fault detection",
                     [
@@ -208,12 +213,15 @@ class ValidationView(QWidget):
             self.fault_table.setItem(row, 1, result)
             self.fault_table.setItem(row, 2, _read_only_item(delay))
             self.fault_table.setItem(row, 3, _read_only_item(rate))
+            deviation = PLACEHOLDER if score.mean_deviation_pct is None else f"{score.mean_deviation_pct:+.1f} %"
+            self.fault_table.setItem(row, 4, _read_only_item(deviation))
         mean = PLACEHOLDER if report.mean_delay_s is None else f"{report.mean_delay_s:.0f} s"
         self.strip.set_values(
             {
                 "mae": f"{metrics.mae_w:.2f} W",
                 "rmse": f"{metrics.rmse_w:.2f} W",
                 "mape": f"{metrics.mape_pct:.2f} %",
+                "baseline": f"{report.baseline_deviation_pct:+.2f} %",
                 "mean_delay": mean,
                 "detection_rate": _percent(report.detection_rate),
                 "false_alarm_config": f"{report.false_alarm_rate * 100:.1f} %",
@@ -296,7 +304,7 @@ class ValidationView(QWidget):
         self.confusion_table = _table(
             len(TRUTH_LABELS), [state.value for state in STATE_ORDER], TRUTH_LABELS
         )
-        self.fault_table = _table(len(FaultKind), ["Fault", "Result", "Detection delay", "Detection rate"])
+        self.fault_table = _table(len(FaultKind), ["Fault", "Result", "Detection delay", "Detection rate", "Mean deviation"])
 
         faults = _section("Each fault", self.fault_table)
 

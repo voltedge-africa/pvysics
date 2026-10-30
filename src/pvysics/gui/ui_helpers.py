@@ -124,6 +124,9 @@ class CompactPlot(pg.PlotWidget):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        # Plain axis values: an automatic SI prefix would turn 0.067 h into 67 and label the axis "(x0.001)".
+        for side in ("left", "bottom"):
+            self.getAxis(side).enableAutoSIPrefix(False)
         self.setMouseTracking(True)
         self.export_button = QToolButton(self)
         self.export_button.setText("Export")

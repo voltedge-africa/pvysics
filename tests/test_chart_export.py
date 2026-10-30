@@ -64,3 +64,18 @@ def test_zooming_stops_following_the_data_and_reset_view_restores_it(qtbot):
     assert plot.plotItem.vb.state["autoRange"][0] is False
     plot.reset_view()
     assert plot.plotItem.vb.state["autoRange"][0] is not False
+
+
+def test_small_axis_values_are_not_rescaled_with_an_si_prefix(qtbot):
+    """0.067 h on a time axis must not read as 67 under a "(x0.001)" label."""
+    plot = CompactPlot()
+    plot.plot([0.0, 0.03, 0.067], [150.0, 160.0, 154.0])
+    plot.setLabel("bottom", "Time since start (h)")
+    qtbot.addWidget(plot)
+    plot.show()
+
+    for side in ("left", "bottom"):
+        assert plot.getAxis(side).autoSIPrefix is False
+    label = plot.getAxis("bottom").labelString()
+    assert "Time since start (h)" in label
+    assert "x0.001" not in label
