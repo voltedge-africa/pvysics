@@ -8,7 +8,7 @@
 
 #import "manual-style.typ": *
 #show: manual.with(
-  version: "0.3.0",
+  version: "0.4.0",
   doc-title: "PV Digital Twin: User Manual",
   subtitle: [User Manual],
   tagline: [Run the simulated PV plant and its digital twin, set up a run, inject faults and read the results.],

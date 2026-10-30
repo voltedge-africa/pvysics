@@ -8,7 +8,7 @@
 
 #import "manual-style.typ": *
 #show: manual.with(
-  version: "0.3.0",
+  version: "0.4.0",
   doc-title: "PV Digital Twin: User Manual (Simple Version)",
   subtitle: [User Manual: Simple Version],
   tagline: [Run the simulated PV plant and its digital twin from one window: start a run, inject faults and read the results.],
@@ -68,15 +68,15 @@ The model is fitted to the module's datasheet: the short-circuit current, the op
 
 = Installing and starting <starting>
 
-*Windows.* Run `pvysics-0.3.0-windows-setup.exe` and follow the steps. It adds *PV Digital Twin* to the Start menu, and to the desktop if you tick the box. The installer is not code-signed, so Windows may show a warning: choose *More info*, then *Run anyway*. Without the installer, unzip `pvysics-0.3.0-windows.zip` and run `pvysics.exe` in the `pvysics` folder.
+*Windows.* Run `pvysics-0.4.0-windows-setup.exe` and follow the steps. It adds *PV Digital Twin* to the Start menu, and to the desktop if you tick the box. The installer is not code-signed, so Windows may show a warning: choose *More info*, then *Run anyway*. Without the installer, unzip `pvysics-0.4.0-windows.zip` and run `pvysics.exe` in the `pvysics` folder.
 
 *Linux.* On Debian, Ubuntu and Mint, install the package and start *PV Digital Twin* from the applications menu:
 
 ```
-sudo apt install ./pvysics_0.3.0_amd64.deb
+sudo apt install ./pvysics_0.4.0_amd64.deb
 ```
 
-On other distributions, unpack `pvysics-0.3.0-linux-x86_64.tar.gz` and run `./install.sh`.
+On other distributions, unpack `pvysics-0.4.0-linux-x86_64.tar.gz` and run `./install.sh`.
 
 *From the source code.* From the repository root:
 

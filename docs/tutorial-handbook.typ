@@ -9,7 +9,7 @@
 
 #import "manual-style.typ": *
 #show: manual.with(
-  version: "0.3.0",
+  version: "0.4.0",
   doc-title: "PV Digital Twin: Tutorial Handbook",
   subtitle: [Tutorial Handbook],
   tagline: [How the tool works from first principles, and how to use it: seven lessons, each with a video.],
